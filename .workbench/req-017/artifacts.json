@@ -1,0 +1,74 @@
+[
+  {
+    "id": "art-product",
+    "nodeId": "n-01",
+    "label": "产品设计文档",
+    "href": "docs/v1.1/req-017-dashboard-perf/prd.md",
+    "kind": "document",
+    "note": "首屏优化方案"
+  },
+  {
+    "id": "art-rd",
+    "nodeId": "n-03",
+    "label": "RD 技术设计",
+    "href": "docs/v1.1/req-017-dashboard-perf/rd/design.md",
+    "kind": "document",
+    "note": "接口聚合与缓存"
+  },
+  {
+    "id": "art-fe",
+    "nodeId": "n-05",
+    "label": "FE 技术设计",
+    "href": "docs/v1.1/req-017-dashboard-perf/fe/design.md",
+    "kind": "document",
+    "note": "骨架屏与懒加载"
+  },
+  {
+    "id": "art-case",
+    "nodeId": "n-07",
+    "label": "用例设计",
+    "href": "docs/v1.1/req-017-dashboard-perf/qa/cases.md",
+    "kind": "document",
+    "note": "前后端自测口径"
+  },
+  {
+    "id": "art-mr-rd",
+    "nodeId": "n-09",
+    "label": "代码 MR #017-RD",
+    "href": "https://git.example.com/test-flow/-/merge_requests/017",
+    "kind": "link",
+    "note": "CR 已通过"
+  },
+  {
+    "id": "art-mr-fe",
+    "nodeId": "n-10",
+    "label": "代码 MR #017-FE",
+    "href": "https://git.example.com/test-flow/-/merge_requests/018",
+    "kind": "link",
+    "note": "CR 已通过"
+  },
+  {
+    "id": "art-test",
+    "nodeId": "n-11",
+    "label": "测试用例与结果",
+    "href": "docs/v1.1/req-017-dashboard-perf/qa/test.md",
+    "kind": "document",
+    "note": "用例清单 + 结果"
+  },
+  {
+    "id": "art-accept",
+    "nodeId": "n-11",
+    "label": "验收记录",
+    "href": "docs/v1.1/req-017-dashboard-perf/qa/accept.md",
+    "kind": "document",
+    "note": "QA 全部通过"
+  },
+  {
+    "id": "art-defect",
+    "nodeId": "n-11",
+    "label": "缺陷记录",
+    "href": "docs/v1.1/req-017-dashboard-perf/qa/defect.md",
+    "kind": "document",
+    "note": "无遗留缺陷"
+  }
+]

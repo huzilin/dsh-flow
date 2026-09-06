@@ -1,0 +1,107 @@
+[
+  {
+    "id": "cm-r1",
+    "requirementId": "req-017",
+    "nodeId": "n-02",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-product"
+    },
+    "author": "PM",
+    "role": "pm",
+    "text": "需求价值确认，性能目标合理。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-r2",
+    "requirementId": "req-017",
+    "nodeId": "n-04",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-rd"
+    },
+    "author": "Architect",
+    "role": "architect",
+    "text": "聚合网关方案可行，注意超时与降级。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-r3",
+    "requirementId": "req-017",
+    "nodeId": "n-06",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-fe"
+    },
+    "author": "QA",
+    "role": "qa",
+    "text": "骨架屏可测性良好。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-r4",
+    "requirementId": "req-017",
+    "nodeId": "n-08",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-case"
+    },
+    "author": "RD",
+    "role": "rd",
+    "text": "自测口径明确。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-r5",
+    "requirementId": "req-017",
+    "nodeId": "n-09",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-mr-rd"
+    },
+    "author": "Code Reviewer",
+    "role": "code-reviewer",
+    "text": "RD 代码质量通过。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-r6",
+    "requirementId": "req-017",
+    "nodeId": "n-10",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-mr-fe"
+    },
+    "author": "Code Reviewer",
+    "role": "code-reviewer",
+    "text": "FE 代码质量通过。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-r7",
+    "requirementId": "req-017",
+    "nodeId": "n-11",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-accept"
+    },
+    "author": "QA",
+    "role": "qa",
+    "text": "验收通过，无遗留。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  }
+]

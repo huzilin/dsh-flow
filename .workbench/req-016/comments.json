@@ -1,0 +1,78 @@
+[
+  {
+    "id": "cm-201",
+    "requirementId": "req-016",
+    "nodeId": "n-02",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-plan"
+    },
+    "author": "QA",
+    "role": "qa",
+    "text": "方案可行，建议补充失败重试策略。",
+    "at": "2026-08-11T11:00:00.000Z",
+    "state": "resolved",
+    "thread": [
+      {
+        "by": "RD",
+        "role": "rd",
+        "text": "已补充重试与降级说明。",
+        "at": "2026-08-11T12:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "cm-301",
+    "requirementId": "req-016",
+    "nodeId": "n-03",
+    "anchor": {
+      "kind": "line",
+      "artifactId": "art-mr",
+      "line": 12,
+      "lineText": ""
+    },
+    "author": "Code Reviewer",
+    "role": "code-reviewer",
+    "text": "这里并发下可能空指针，建议加判空。",
+    "at": "2026-08-12T10:00:00.000Z",
+    "state": "resolved",
+    "thread": [
+      {
+        "by": "RD",
+        "role": "rd",
+        "text": "已修复并补单测。",
+        "at": "2026-08-12T11:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "cm-302",
+    "requirementId": "req-016",
+    "nodeId": "n-03",
+    "anchor": {
+      "kind": "line",
+      "artifactId": "art-mr",
+      "line": 88,
+      "lineText": ""
+    },
+    "author": "Code Reviewer",
+    "role": "code-reviewer",
+    "text": "日志级别建议从 info 降为 debug，避免刷屏。",
+    "at": "2026-08-12T10:30:00.000Z",
+    "state": "resolved"
+  },
+  {
+    "id": "cm-401",
+    "requirementId": "req-016",
+    "nodeId": "n-04",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-accept"
+    },
+    "author": "QA",
+    "role": "qa",
+    "text": "验收通过，无遗留问题。",
+    "at": "2026-08-15T14:30:00.000Z",
+    "state": "resolved"
+  }
+]

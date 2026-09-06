@@ -1,0 +1,310 @@
+[
+  {
+    "id": "cm-001",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-001"
+    },
+    "author": "User",
+    "role": "user",
+    "text": "整体看下来功能范围清晰，但需要明确离线场景下的表现。",
+    "at": "2025-01-02T09:10:00.000Z",
+    "state": "open",
+    "thread": []
+  },
+  {
+    "id": "cm-101",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "RD",
+    "anchor": {
+      "kind": "line",
+      "artifactId": "art-001",
+      "line": 7,
+      "lineText": "盘前新闻聚合、自选股涨跌速览、事件提醒、本地持仓导入。"
+    },
+    "author": "RD",
+    "role": "reviewer",
+    "text": "持仓导入依赖行情源字段，需确认本地缓存与远端增量同步策略。",
+    "at": "2025-01-02T10:24:00.000Z",
+    "state": "open",
+    "roundCount": 2,
+    "thread": [
+      {
+        "by": "PM",
+        "role": "producer",
+        "text": "暂定单机 + TTL 缓存，见 3 节。",
+        "at": "2025-01-02T10:40:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "cm-102",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "RD",
+    "anchor": {
+      "kind": "line",
+      "artifactId": "art-001",
+      "line": 15,
+      "lineText": "开盘前 30 分钟可完整加载；"
+    },
+    "author": "RD",
+    "role": "reviewer",
+    "text": "“完整加载”需要压量级定义，冷启动 vs 热启动的 30 分钟口径要区分。",
+    "at": "2025-01-02T10:25:00.000Z",
+    "state": "resolved",
+    "roundCount": 1,
+    "thread": [
+      {
+        "by": "PM",
+        "role": "producer",
+        "text": "已明确为热启动口径，冷启动另定。",
+        "at": "2025-01-02T10:50:00.000Z"
+      }
+    ],
+    "resolvedBy": "RD",
+    "resolvedAt": "2025-01-02T10:55:00.000Z"
+  },
+  {
+    "id": "cm-103",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "RD",
+    "anchor": {
+      "kind": "line",
+      "artifactId": "art-001",
+      "line": 16,
+      "lineText": "宕机不阻塞浏览；"
+    },
+    "author": "RD",
+    "role": "reviewer",
+    "text": "宕机降级到陈旧数据还是空态？需要明确降级目标，避免前端拿到脏数据。",
+    "at": "2025-01-02T10:26:00.000Z",
+    "state": "open",
+    "roundCount": 3,
+    "thread": [
+      {
+        "by": "PM",
+        "role": "producer",
+        "text": "倾向陈旧数据 + 顶部降级横幅。",
+        "at": "2025-01-02T10:52:00.000Z"
+      },
+      {
+        "by": "RD",
+        "role": "reviewer",
+        "text": "陈旧数据的 TTL 上限？超过多久必须空态？",
+        "at": "2025-01-02T11:10:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "cm-104",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "RD",
+    "anchor": {
+      "kind": "line",
+      "artifactId": "art-001",
+      "line": 21,
+      "lineText": "行情源中断时展示降级横幅，并保留已加载内容。"
+    },
+    "author": "RD",
+    "role": "reviewer",
+    "text": "中断恢复后的自动刷新策略未定义，建议补充指数退避重连。",
+    "at": "2025-01-02T10:27:00.000Z",
+    "state": "open",
+    "roundCount": 1,
+    "thread": []
+  },
+  {
+    "id": "cm-201",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "Architect",
+    "anchor": {
+      "kind": "range",
+      "artifactId": "art-001",
+      "startLine": 5,
+      "endLine": 11
+    },
+    "author": "Architect",
+    "role": "reviewer",
+    "text": "功能范围与既有模块边界重叠：事件提醒与持仓导入应明确归属领域，避免循环依赖。",
+    "at": "2025-01-02T10:30:00.000Z",
+    "state": "open",
+    "roundCount": 1,
+    "thread": [
+      {
+        "by": "PM",
+        "role": "producer",
+        "text": "待与后端确认领域划分后再修订。",
+        "at": "2025-01-02T10:48:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "cm-202",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "Architect",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-001"
+    },
+    "author": "Architect",
+    "role": "reviewer",
+    "text": "整体分层合理，但缓存选型未定，建议先出技术选型对比再进开发。",
+    "at": "2025-01-02T10:32:00.000Z",
+    "state": "resolved",
+    "roundCount": 1,
+    "thread": [
+      {
+        "by": "RD",
+        "role": "reviewer",
+        "text": "已补选型对比，选用单机 TTL 起步。",
+        "at": "2025-01-02T11:00:00.000Z"
+      }
+    ],
+    "resolvedBy": "Architect",
+    "resolvedAt": "2025-01-02T11:05:00.000Z"
+  },
+  {
+    "id": "cm-301",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "FE",
+    "anchor": {
+      "kind": "range",
+      "artifactId": "art-001",
+      "startLine": 15,
+      "endLine": 17
+    },
+    "author": "FE",
+    "role": "reviewer",
+    "text": "验收标准缺“打开到首屏可交互”的交互口径，骨架屏/加载态要写进验收。",
+    "at": "2025-01-02T10:22:00.000Z",
+    "state": "open",
+    "roundCount": 3,
+    "thread": [
+      {
+        "by": "PM",
+        "role": "producer",
+        "text": "已补骨架屏方案。",
+        "at": "2025-01-02T10:40:00.000Z"
+      },
+      {
+        "by": "FE",
+        "role": "reviewer",
+        "text": "空状态/异常态仍缺说明。",
+        "at": "2025-01-02T11:30:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "cm-302",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "FE",
+    "anchor": {
+      "kind": "line",
+      "artifactId": "art-001",
+      "line": 17,
+      "lineText": "数据延迟 ≤ 5s。"
+    },
+    "author": "FE",
+    "role": "reviewer",
+    "text": "5s 延迟需要前端做乐观更新/骨架，否则体感差。",
+    "at": "2025-01-02T11:32:00.000Z",
+    "state": "resolved",
+    "roundCount": 1,
+    "thread": [
+      {
+        "by": "PM",
+        "role": "producer",
+        "text": "统一用骨架屏 + 乐观更新。",
+        "at": "2025-01-02T11:40:00.000Z"
+      }
+    ],
+    "resolvedBy": "FE",
+    "resolvedAt": "2025-01-02T11:45:00.000Z"
+  },
+  {
+    "id": "cm-401",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "QA",
+    "anchor": {
+      "kind": "line",
+      "artifactId": "art-001",
+      "line": 16,
+      "lineText": "宕机不阻塞浏览；"
+    },
+    "author": "QA",
+    "role": "reviewer",
+    "text": "宕机降级策略不可测，需给出可注入故障的测试方案。",
+    "at": "2025-01-02T10:30:00.000Z",
+    "state": "open",
+    "roundCount": 14,
+    "thread": [
+      {
+        "by": "QA",
+        "role": "reviewer",
+        "text": "降级策略不可测，需界定可测性。",
+        "at": "2025-01-02T10:30:00.000Z"
+      },
+      {
+        "by": "PM",
+        "role": "producer",
+        "text": "已补降级横幅，但可测性需要你界定。",
+        "at": "2025-01-03T09:00:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "cm-402",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "reviewerRole": "QA",
+    "anchor": {
+      "kind": "block",
+      "artifactId": "art-001",
+      "blockStart": 25,
+      "blockEnd": 34,
+      "lang": "mermaid"
+    },
+    "author": "QA",
+    "role": "reviewer",
+    "text": "时序图缺“行情源中断→降级”分支，核心异常路径没画出来。",
+    "at": "2025-01-02T11:20:00.000Z",
+    "state": "open",
+    "roundCount": 2,
+    "thread": [
+      {
+        "by": "PM",
+        "role": "producer",
+        "text": "会补一条异常分支图。",
+        "at": "2025-01-02T11:35:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "cm-1786726602004",
+    "requirementId": "req-001",
+    "nodeId": "n-03",
+    "anchor": {
+      "kind": "range",
+      "artifactId": "art-001",
+      "startLine": 19,
+      "endLine": 21
+    },
+    "author": "User",
+    "role": "user",
+    "text": "test",
+    "at": "2026-08-14T16:56:42.004Z",
+    "state": "open",
+    "thread": []
+  }
+]

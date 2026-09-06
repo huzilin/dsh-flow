@@ -1,0 +1,142 @@
+[
+  {
+    "id": "cm-fe",
+    "requirementId": "req-019",
+    "nodeId": "n-10",
+    "anchor": {
+      "kind": "document"
+    },
+    "author": "FE",
+    "role": "fe",
+    "reviewerRole": "Code Reviewer",
+    "text": "FE 开发完成：并行组 join 与部分回滚的前端交互修复（回滚标记 ↩n、打回理由展示）自测通过。开发说明已登记 docs/prototype/req-019-fe-dev.md，请 Code Reviewer 评审。",
+    "at": "2026-08-15T09:59:06.000Z",
+    "state": "resolved",
+    "thread": [],
+    "resolvedBy": "Coordinator",
+    "resolvedAt": "2026-08-15T10:01:42.877Z"
+  },
+  {
+    "id": "cm-1786787966531",
+    "requirementId": "req-019",
+    "nodeId": "n-09",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-1786787966530"
+    },
+    "author": "RD",
+    "role": "rd",
+    "reviewerRole": "Code Reviewer",
+    "text": "RD 开发完成：并行组 join 判定（dev-1 两分支全过才放行 QA 验收）+ 部分回滚（reject 支持 targetBranch=rd/fe，仅回滚指定分支）。自测 AC1/AC2 通过（9/10 断言），详见《RD 开发说明》docs/prototype/req-019-rd-dev.md，请评审。",
+    "at": "2026-08-15T09:59:26.529Z",
+    "state": "resolved",
+    "thread": [],
+    "resolvedBy": "Coordinator",
+    "resolvedAt": "2026-08-15T10:01:42.877Z"
+  },
+  {
+    "id": "cm-cr-rd",
+    "requirementId": "req-019",
+    "nodeId": "n-09",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-rd"
+    },
+    "author": "Code Reviewer",
+    "role": "code-reviewer",
+    "reviewerRole": "Code Reviewer",
+    "text": "评审通过，无阻塞问题。代码质量/设计落地/边界与回归风险三点结论：① 设计落地：opDecide 并行组 join 判定（组内全部已通过才放行 n-11）与 targetBranch 部分回滚完整落实 AC1/AC2，数据层复用 M6 已就绪字段、无迁移，方案与既有状态机模型一致；② 自测：TC-01~04 覆盖 join 未满/满、部分回滚、回滚后重入，9/10 断言通过且自测发现（n-11 部分回滚后保持进行中）已如实披露，结论可接受、不影响验收点；③ 回归风险：既有门禁、串行流程、无 targetBranch 普通打回行为不变，回归范围声明合理。两条非阻塞建议：a) 对 targetBranch 增加防御性校验（非法分支名、目标分支非已通过态、组外 reject 的兜底行为），并说明无效参数时的返回与收件箱行为；b) 建议在状态机说明中显式写清 join 重算后 QA 复验复用同一 n-11 节点实例（不重置为未开始）的语义，便于 QA/后续节点理解。",
+    "at": "2026-08-15T10:00:35.000Z",
+    "state": "resolved",
+    "thread": [],
+    "resolvedBy": "Coordinator",
+    "resolvedAt": "2026-08-15T10:01:42.877Z"
+  },
+  {
+    "id": "cm-cr-fe",
+    "requirementId": "req-019",
+    "nodeId": "n-10",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-fe"
+    },
+    "author": "Code Reviewer",
+    "role": "code-reviewer",
+    "reviewerRole": "Code Reviewer",
+    "text": "评审通过，无阻塞问题。代码质量/设计落地/边界与回归风险三点结论：① 设计落地：双泳道并行呈现（parallelGroup/branch、跨分支不连线）、组内未全过时 QA 节点保持未开始、部分回滚后状态回进行中并渲染 ↩n 回滚次数与 lastDecision（verdict/reason/targetBranch），与 RD 状态机契约一致，仅消费既有字段、无新增接口；② 自测：TC-FE-01~05 覆盖 join 呈现、部分回滚呈现、评论落库、产物登记、评审流，口径完整；③ 回归风险：改动收敛在流程树/详情页展示层，不涉及后端，回归范围声明合理。一条非阻塞建议：实现要点中「流程树即时同步」宜明确数据刷新机制（进入页面 refetch / 事件推送 / 轮询），确保回滚后状态真实更新而非依赖静态渲染，并建议补充回滚理由超长/缺失 lastDecision 时的展示兜底。",
+    "at": "2026-08-15T10:00:35.000Z",
+    "state": "resolved",
+    "thread": [],
+    "resolvedBy": "Coordinator",
+    "resolvedAt": "2026-08-15T10:01:42.877Z"
+  },
+  {
+    "id": "cm-qa",
+    "requirementId": "req-019",
+    "nodeId": "n-11",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-test"
+    },
+    "author": "QA",
+    "role": "qa",
+    "reviewerRole": "QA",
+    "text": "验收通过总结：AC1 并行组 join 判定满足——数据核验 n-09（rd）/n-10（fe）两分支 Code Reviewer 均通过（10:05:46）后 n-11 才于 10:05:57 进入「进行中」，组内未满时不放行 QA 验收；AC2 部分回滚满足——QA 打回 targetBranch=fe 仅回滚 n-10（rolledBackAt+1、记 lastDecision），n-09 保持已通过，收件箱定向推送「部分打回 fe 分支」，回滚后 join 重算再放行 n-11。测试 6 项用例（TC-01~06）全部通过，《测试用例与结果》已登记 docs/prototype/req-019-test.md（art-test），无遗留问题，验收通过，可进入 n-12 用户验收。",
+    "at": "2026-08-15T10:06:35.000Z",
+    "state": "resolved",
+    "thread": [],
+    "resolvedBy": "User",
+    "resolvedAt": "2026-08-15T10:07:09.796Z"
+  },
+  {
+    "id": "cm-1786815044817",
+    "requirementId": "req-019",
+    "nodeId": "n-12",
+    "anchor": {
+      "kind": "document"
+    },
+    "author": "User",
+    "role": "leader",
+    "reviewerRole": "",
+    "type": "issue",
+    "assignee": "",
+    "text": "工具恢复验证：评论模型闭环测试（issue）。",
+    "at": "2026-08-15T17:30:44.817Z",
+    "state": "resolved",
+    "thread": [],
+    "resolve": {
+      "by": "Leader",
+      "at": "2026-08-15T17:30:48.172Z",
+      "note": "工具恢复验证：修复说明已确认",
+      "path": "fix",
+      "reviewerConfirmed": true,
+      "confirmedBy": "User",
+      "confirmedAt": "2026-08-15T17:30:51.509Z"
+    }
+  },
+  {
+    "id": "cm-1786816673834",
+    "requirementId": "req-019",
+    "nodeId": "n-12",
+    "anchor": {
+      "kind": "document"
+    },
+    "author": "User",
+    "role": "user",
+    "reviewerRole": "",
+    "type": "issue",
+    "assignee": "",
+    "text": "UI 超时 badge 验证：此评论 resolve 后将处于 pending-confirm 待复核。",
+    "at": "2026-08-15T17:57:53.834Z",
+    "state": "pending-confirm",
+    "thread": [],
+    "resolve": {
+      "by": "Leader",
+      "at": "2026-08-15T16:53:02.413Z",
+      "note": "超时 badge 验证：转待复核",
+      "path": "fix",
+      "reviewerConfirmed": false,
+      "remindedAt": "2026-08-15T18:02:26.337Z"
+    }
+  }
+]

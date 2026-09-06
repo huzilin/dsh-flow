@@ -1,0 +1,62 @@
+[
+  {
+    "id": "cm-p1",
+    "requirementId": "req-018",
+    "nodeId": "n-01",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-align"
+    },
+    "author": "PM",
+    "role": "pm",
+    "text": "候选范围价值确认。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-p2",
+    "requirementId": "req-018",
+    "nodeId": "n-03",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-research"
+    },
+    "author": "Architect",
+    "role": "architect",
+    "text": "调研覆盖充分，引入建议合理。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-p3",
+    "requirementId": "req-018",
+    "nodeId": "n-05",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-arch"
+    },
+    "author": "Leader",
+    "role": "leader",
+    "text": "范围与资源匹配。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  },
+  {
+    "id": "cm-p4",
+    "requirementId": "req-018",
+    "nodeId": "n-05",
+    "anchor": {
+      "kind": "document",
+      "artifactId": "art-arch"
+    },
+    "author": "PM",
+    "role": "pm",
+    "text": "排期可接受。",
+    "at": "2026-08-13T10:00:00.000Z",
+    "state": "resolved",
+    "thread": []
+  }
+]

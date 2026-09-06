@@ -1,0 +1,32 @@
+[
+  {
+    "id": "art-fe",
+    "nodeId": "n-10",
+    "label": "《FE 开发说明》",
+    "href": "docs/v1.1/req-019-join-rollback/fe/dev.md",
+    "kind": "document",
+    "note": "FE 自测完成待 CR",
+    "addedBy": "FE",
+    "addedAt": "2026-08-15T09:59:06.000Z"
+  },
+  {
+    "id": "art-1786787966530",
+    "nodeId": "n-09",
+    "label": "《RD 开发说明》",
+    "href": "docs/v1.1/req-019-join-rollback/rd/dev.md",
+    "kind": "document",
+    "note": "RD 自测完成待 CR",
+    "addedBy": "RD",
+    "addedAt": "2026-08-15T09:59:26.529Z"
+  },
+  {
+    "id": "art-test",
+    "nodeId": "n-11",
+    "label": "《测试用例与结果》",
+    "href": "docs/v1.1/req-019-join-rollback/qa/test.md",
+    "kind": "document",
+    "note": "QA 验收通过",
+    "addedBy": "QA",
+    "addedAt": "2026-08-15T10:06:35.000Z"
+  }
+]

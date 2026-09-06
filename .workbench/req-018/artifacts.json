@@ -1,0 +1,34 @@
+[
+  {
+    "id": "art-align",
+    "nodeId": "n-01",
+    "label": "需求对齐文档",
+    "href": "docs/v1.2/align.md",
+    "kind": "document",
+    "note": "范围与结论"
+  },
+  {
+    "id": "art-research",
+    "nodeId": "n-02",
+    "label": "调研文档",
+    "href": "docs/v1.2/research.md",
+    "kind": "document",
+    "note": "竞品与引入建议"
+  },
+  {
+    "id": "art-arch",
+    "nodeId": "n-04",
+    "label": "架构规划",
+    "href": "docs/v1.2/arch_design.md",
+    "kind": "document",
+    "note": "目标/能力/拆解"
+  },
+  {
+    "id": "art-reqlist",
+    "nodeId": "n-06",
+    "label": "需求清单",
+    "href": "docs/v1.2/roadmap.md",
+    "kind": "document",
+    "note": "版本内拆解的需求"
+  }
+]

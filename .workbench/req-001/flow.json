@@ -1,0 +1,39 @@
+{
+  "requirementId": "req-001",
+  "kind": "需求任务",
+  "currentNodeId": "n-03",
+  "nodes": [
+    {
+      "id": "n-01", "key": "待启动", "order": 1,
+      "ownerRole": "Leader", "gate": false,
+      "state": "已通过", "enteredAt": "2025-01-01T08:00:00.000Z", "rolledBackAt": []
+    },
+    {
+      "id": "n-02", "key": "产品设计", "order": 2,
+      "ownerRole": "PM", "gate": false,
+      "state": "进行中", "enteredAt": "2025-01-01T09:00:00.000Z",
+      "rolledBackAt": ["2025-01-01T15:00:00.000Z"]
+    },
+    {
+      "id": "n-03", "key": "产品设计评审", "order": 3,
+      "ownerRole": "PM", "gate": true,
+      "state": "待评审", "enteredAt": "2025-01-02T10:20:00.000Z", "rolledBackAt": [],
+      "reviewers": [
+        { "role": "Architect", "state": "有问题", "commentIds": ["cm-201", "cm-202"] },
+        { "role": "RD", "state": "有问题", "commentIds": ["cm-101", "cm-102", "cm-103", "cm-104"] },
+        { "role": "FE", "state": "有问题", "commentIds": ["cm-301", "cm-302"] },
+        { "role": "QA", "state": "有问题", "commentIds": ["cm-401", "cm-402"] }
+      ]
+    },
+    {
+      "id": "n-04", "key": "技术设计", "order": 4,
+      "ownerRole": "RD", "gate": false,
+      "state": "未开始", "enteredAt": null, "rolledBackAt": []
+    },
+    {
+      "id": "n-05", "key": "技术设计评审", "order": 5,
+      "ownerRole": "RD", "gate": true,
+      "state": "未开始", "enteredAt": null, "rolledBackAt": []
+    }
+  ]
+}

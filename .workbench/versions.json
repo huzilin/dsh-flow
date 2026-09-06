@@ -1,0 +1,26 @@
+[
+  {
+    "id": "v-1",
+    "name": "v1.0",
+    "isBacklog": false,
+    "state": "已发布"
+  },
+  {
+    "id": "v-11",
+    "name": "v1.1",
+    "isBacklog": false,
+    "state": "待启动"
+  },
+  {
+    "id": "v-backlog",
+    "name": "待分配",
+    "isBacklog": true,
+    "state": "待启动"
+  },
+  {
+    "id": "v-12",
+    "name": "v2.0",
+    "state": "已废弃",
+    "isBacklog": false
+  }
+]

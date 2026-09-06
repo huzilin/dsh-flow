@@ -1,0 +1,16 @@
+[
+  {
+    "id": "art-001", "nodeId": "n-03",
+    "label": "产品文档 product-spec.md",
+    "href": "docs/pm/premarket/product-spec.md",
+    "kind": "document",
+    "note": "以「5 分钟速览」为主线",
+    "sections": [
+      { "id": "sec-1", "level": 1, "heading": "功能范围", "startLine": 5, "endLine": 9, "children": [
+        { "id": "sec-1a", "level": 2, "heading": "盘前新闻聚合", "startLine": 6, "endLine": 7 }
+      ] },
+      { "id": "sec-2", "level": 1, "heading": "验收标准", "startLine": 11, "endLine": 15 },
+      { "id": "sec-3", "level": 1, "heading": "异常处理", "startLine": 17, "endLine": 19 }
+    ]
+  }
+]

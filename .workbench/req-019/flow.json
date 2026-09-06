@@ -1,0 +1,230 @@
+{
+  "requirementId": "req-019",
+  "kind": "需求任务",
+  "currentNodeId": "n-12",
+  "nodes": [
+    {
+      "id": "n-00",
+      "key": "待启动",
+      "order": 0,
+      "ownerRole": "Leader",
+      "gate": false,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": []
+    },
+    {
+      "id": "n-01",
+      "key": "产品设计",
+      "order": 1,
+      "ownerRole": "Architect",
+      "gate": false,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": []
+    },
+    {
+      "id": "n-02",
+      "key": "需求评审",
+      "order": 2,
+      "ownerRole": "PM",
+      "gate": true,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "PM",
+          "state": "已通过",
+          "commentIds": []
+        }
+      ]
+    },
+    {
+      "id": "n-03",
+      "key": "RD 技术设计",
+      "order": 3,
+      "ownerRole": "RD",
+      "gate": false,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": []
+    },
+    {
+      "id": "n-04",
+      "key": "RD 技术评审",
+      "order": 4,
+      "ownerRole": "RD",
+      "gate": true,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "Architect",
+          "state": "已通过",
+          "commentIds": []
+        },
+        {
+          "role": "RD",
+          "state": "已通过",
+          "commentIds": []
+        },
+        {
+          "role": "FE",
+          "state": "已通过",
+          "commentIds": []
+        },
+        {
+          "role": "QA",
+          "state": "已通过",
+          "commentIds": []
+        },
+        {
+          "role": "PM",
+          "state": "已通过",
+          "commentIds": []
+        }
+      ]
+    },
+    {
+      "id": "n-05",
+      "key": "FE 技术设计",
+      "order": 5,
+      "ownerRole": "FE",
+      "gate": false,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": []
+    },
+    {
+      "id": "n-06",
+      "key": "FE 设计评审",
+      "order": 6,
+      "ownerRole": "FE",
+      "gate": true,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "QA",
+          "state": "已通过",
+          "commentIds": []
+        }
+      ]
+    },
+    {
+      "id": "n-07",
+      "key": "用例设计",
+      "order": 7,
+      "ownerRole": "QA",
+      "gate": false,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": []
+    },
+    {
+      "id": "n-08",
+      "key": "用例设计评审",
+      "order": 8,
+      "ownerRole": "QA",
+      "gate": true,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "RD",
+          "state": "已通过",
+          "commentIds": []
+        },
+        {
+          "role": "FE",
+          "state": "已通过",
+          "commentIds": []
+        }
+      ]
+    },
+    {
+      "id": "n-09",
+      "key": "RD 开发",
+      "order": 9,
+      "ownerRole": "RD",
+      "gate": true,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "Code Reviewer",
+          "state": "已通过",
+          "commentIds": [],
+          "reviewedAt": "2026-08-15T10:05:46.970Z",
+          "reviewedBy": "Code Reviewer"
+        }
+      ],
+      "branch": "rd",
+      "parallelGroup": "dev-1"
+    },
+    {
+      "id": "n-10",
+      "key": "FE 开发",
+      "order": 10,
+      "ownerRole": "FE",
+      "gate": true,
+      "state": "已通过",
+      "enteredAt": "2026-08-16T12:00:00.000Z",
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "Code Reviewer",
+          "state": "已通过",
+          "commentIds": [],
+          "reviewedAt": "2026-08-15T10:05:46.999Z",
+          "reviewedBy": "Code Reviewer"
+        }
+      ],
+      "branch": "fe",
+      "parallelGroup": "dev-1"
+    },
+    {
+      "id": "n-11",
+      "key": "QA 验收",
+      "order": 11,
+      "ownerRole": "QA",
+      "gate": true,
+      "state": "已通过",
+      "enteredAt": "2026-08-15T10:05:57.090Z",
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "QA",
+          "state": "已通过",
+          "commentIds": [],
+          "reviewedAt": "2026-08-15T10:07:13.692Z",
+          "reviewedBy": "QA"
+        }
+      ]
+    },
+    {
+      "id": "n-12",
+      "key": "用户验收",
+      "order": 12,
+      "ownerRole": "User",
+      "gate": true,
+      "state": "已通过",
+      "enteredAt": "2026-08-15T10:07:17.979Z",
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "User",
+          "state": "已通过",
+          "commentIds": [],
+          "reviewedAt": "2026-08-15T10:07:22.754Z",
+          "reviewedBy": "User"
+        }
+      ]
+    }
+  ]
+}

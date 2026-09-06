@@ -1,0 +1,453 @@
+[
+  {
+    "id": "req-001",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "盘前简报模块",
+    "category": "需求任务",
+    "versionId": "v-1",
+    "priority": "P1",
+    "status": "进行中",
+    "owner": "Leader",
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2026-08-15T00:50:17.106Z",
+    "description": "# 盘前简报模块 描述测试\ntest\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n\n1. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n2. xxxxxxxxxxxxxxxxx\n3. xxxxxxxxxxxxxxxxx",
+    "history": [
+      {
+        "at": "2026-08-14T19:13:42.313Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "description",
+            "from": "",
+            "to": "# 盘前简报模块 描述测试\n## test"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-14T19:26:42.362Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "description",
+            "from": "# 盘前简报模块 描述测试\n## test",
+            "to": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-14T19:27:09.509Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "description",
+            "from": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "to": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n\n1. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n2. xxxxxxxxxxxxxxxxx\n3. xxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-15T00:35:27.531Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "description",
+            "from": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n\n1. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n2. xxxxxxxxxxxxxxxxx\n3. xxxxxxxxxxxxxxxxx",
+            "to": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-15T00:35:49.189Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "description",
+            "from": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx",
+            "to": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\n1"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-15T00:36:08.618Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "description",
+            "from": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\n1",
+            "to": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-15T00:40:00.042Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "description",
+            "from": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx",
+            "to": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n\n1. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n2. xxxxxxxxxxxxxxxxx\n3. xxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-15T00:41:19.014Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "description",
+            "from": "# 盘前简报模块 描述测试\n## test\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n\n1. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n2. xxxxxxxxxxxxxxxxx\n3. xxxxxxxxxxxxxxxxx",
+            "to": "# 盘前简报模块 描述测试\ntest\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n\n1. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n2. xxxxxxxxxxxxxxxxx\n3. xxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-15T00:50:17.106Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "priority",
+            "from": "P0",
+            "to": "P1"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "req-002",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "投资看板",
+    "category": "需求任务",
+    "versionId": "v-1",
+    "priority": "P1",
+    "status": "待启动",
+    "owner": "Leader",
+    "createdAt": "2025-01-03T00:00:00.000Z",
+    "updatedAt": "2025-01-03T00:00:00.000Z"
+  },
+  {
+    "id": "req-003",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "事件提醒",
+    "category": "需求任务",
+    "versionId": "v-1",
+    "priority": "P2",
+    "status": "已完成",
+    "owner": "Leader",
+    "createdAt": "2025-01-02T00:00:00.000Z",
+    "updatedAt": "2025-01-04T00:00:00.000Z"
+  },
+  {
+    "id": "req-004",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "本地持仓导入",
+    "category": "需求任务",
+    "versionId": "v-11",
+    "priority": "P1",
+    "status": "进行中",
+    "owner": "Leader",
+    "createdAt": "2025-01-05T00:00:00.000Z",
+    "updatedAt": "2025-01-05T00:00:00.000Z"
+  },
+  {
+    "id": "req-005",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "离线缓存",
+    "category": "需求任务",
+    "versionId": "v-11",
+    "priority": "P2",
+    "status": "待启动",
+    "owner": "Leader",
+    "createdAt": "2025-01-06T00:00:00.000Z",
+    "updatedAt": "2025-01-06T00:00:00.000Z"
+  },
+  {
+    "id": "req-006",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "性能优化专项",
+    "category": "需求任务",
+    "versionId": "v-backlog",
+    "priority": "P3",
+    "status": "待启动",
+    "owner": "Leader",
+    "createdAt": "2025-01-07T00:00:00.000Z",
+    "updatedAt": "2025-01-07T00:00:00.000Z"
+  },
+  {
+    "id": "req-007",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "需求1",
+    "description": "# test\n## test1",
+    "category": "需求任务",
+    "versionId": "v-backlog",
+    "priority": "P2",
+    "status": "待启动",
+    "owner": "Leader",
+    "createdAt": "2026-08-14T18:09:25.299Z",
+    "updatedAt": "2026-08-14T18:09:25.299Z",
+    "history": []
+  },
+  {
+    "id": "req-008",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "创建一个超长标题测试需求创建一个超长标题测试需求创建一个超长标题测试需求创建一个超长标题测试需求",
+    "description": "",
+    "category": "需求任务",
+    "versionId": "v-backlog",
+    "priority": "P2",
+    "status": "待启动",
+    "owner": "Leader",
+    "createdAt": "2026-08-15T01:14:49.776Z",
+    "updatedAt": "2026-08-15T01:14:49.776Z",
+    "history": []
+  },
+  {
+    "id": "req-009",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "持仓同步服务",
+    "description": "## 背景\nv1.1 需要持仓数据保持实时。与券商数据源对接，定时同步持仓快照。\n\n## 目标\n- 支持手动触发 + 定时全量同步\n- 同步失败可重试，有日志与告警\n- 同步结果写入本地存储，供看板/风险计算消费\n\n## 验收点\n1. 定时任务可配置间隔\n2. 失败重试不超过 3 次\n3. 同步后数据版本号递增",
+    "category": "需求任务",
+    "versionId": "v-11",
+    "priority": "P1",
+    "status": "待启动",
+    "owner": "RD",
+    "createdAt": "2026-08-15T01:16:33.898Z",
+    "updatedAt": "2026-08-15T01:16:33.898Z",
+    "history": []
+  },
+  {
+    "id": "req-010",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "组合风险计算",
+    "description": "## 背景\nv1.1 需要基于持仓聚合风险敞口，输出风险报告。\n\n## 目标\n- 按持仓计算风险敞口（行业/个股集中度）\n- 输出风险报告（PDF/页面）\n\n## 验收点\n1. 敞口计算与行情数据一致\n2. 报告可导出\n3. 超过阈值有预警提示",
+    "category": "需求任务",
+    "versionId": "v-11",
+    "priority": "P0",
+    "status": "待启动",
+    "owner": "RD",
+    "createdAt": "2026-08-15T01:16:33.911Z",
+    "updatedAt": "2026-08-15T01:16:33.911Z",
+    "history": []
+  },
+  {
+    "id": "req-011",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "移动端适配",
+    "description": "## 背景\nv1.1 页面需支持移动端浏览。\n\n## 目标\n- 看板/详情页移动端响应式适配\n- 触屏交互优化\n\n## 验收点\n1. 375px 宽度无横向滚动\n2. 关键操作触屏可用",
+    "category": "需求任务",
+    "versionId": "v-11",
+    "priority": "P2",
+    "status": "待启动",
+    "owner": "FE",
+    "createdAt": "2026-08-15T01:16:33.921Z",
+    "updatedAt": "2026-08-15T01:16:33.921Z",
+    "history": []
+  },
+  {
+    "id": "req-012",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "数据导入导出",
+    "description": "## 背景\nv1.1 支持 CSV/JSON 持仓导入导出，与离线缓存联动。\n\n## 目标\n- 持仓数据导入（CSV/JSON）\n- 持仓数据导出\n- 导入校验（格式/必填）\n\n## 验收点\n1. 非法数据提示行号\n2. 导出文件可被重新导入",
+    "category": "需求任务",
+    "versionId": "v-11",
+    "priority": "P2",
+    "status": "待启动",
+    "owner": "FE",
+    "createdAt": "2026-08-15T01:16:33.932Z",
+    "updatedAt": "2026-08-15T01:16:33.932Z",
+    "history": []
+  },
+  {
+    "id": "req-013",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "原型-业务需求：账单导出优化",
+    "description": "## 背景\n用户反馈账单导出慢且格式单一。\n## 目标\n支持多格式导出、异步生成、导出历史。\n## 验收点\n1. 支持 PDF/CSV/Excel 三种格式\n2. 大账单（>10万行）异步生成不阻塞\n3. 导出历史可查询",
+    "category": "需求任务",
+    "reqType": "业务需求",
+    "scope": "前后端都含",
+    "versionId": "v-11",
+    "priority": "P1",
+    "status": "待启动",
+    "owner": "RD",
+    "createdAt": "2026-08-15T02:00:00.000Z",
+    "updatedAt": "2026-08-15T02:00:00.000Z",
+    "history": []
+  },
+  {
+    "id": "req-014",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "原型-任务：修复登录偶发 500",
+    "description": "## 背景\n登录接口偶发 500，复现率低，疑似会话缓存竞态。\n## 目标\n定位根因并修复，补充回归用例。",
+    "category": "任务",
+    "reqType": "任务",
+    "scope": "仅后端",
+    "versionId": "v-11",
+    "priority": "P1",
+    "status": "待启动",
+    "owner": "RD",
+    "createdAt": "2026-08-15T02:00:00.000Z",
+    "updatedAt": "2026-08-15T02:00:00.000Z",
+    "history": []
+  },
+  {
+    "id": "req-015",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "原型-版本规划：v1.2 规划",
+    "description": "## 背景\nv1.1 交付在即，需启动 v1.2 规划。\n## 目标\n确定 v1.2 版本目标、范围与需求拆分。",
+    "category": "版本规划任务",
+    "reqType": "版本规划",
+    "scope": "前后端都含",
+    "versionId": "v-1",
+    "priority": "P0",
+    "status": "待启动",
+    "owner": "Architect",
+    "createdAt": "2026-08-15T02:00:00.000Z",
+    "updatedAt": "2026-08-15T02:00:00.000Z",
+    "history": []
+  },
+  {
+    "id": "req-016",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "修复：登录接口偶发 500 错误",
+    "description": "## 背景\n登录接口偶发返回 500，复现率约 0.3%，线上有用户投诉。\n## 目标\n定位根因并修复，补充回归用例，确保不再复发。\n## 验收点\n1. 压测 1 万次登录无 500\n2. 错误日志有完整堆栈\n3. 补并发场景回归用例",
+    "category": "任务",
+    "reqType": "任务",
+    "scope": "仅后端",
+    "versionId": "v-11",
+    "priority": "P1",
+    "status": "已完成",
+    "owner": "RD",
+    "createdAt": "2026-08-10T09:00:00.000Z",
+    "updatedAt": "2026-08-16T10:00:00.000Z",
+    "history": [
+      {
+        "at": "2026-08-10T09:05:00.000Z",
+        "by": "Leader",
+        "changes": [
+          {
+            "field": "owner",
+            "from": "Leader",
+            "to": "RD"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-14T18:00:00.000Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "status",
+            "from": "进行中",
+            "to": "已完成"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "req-017",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "优化：投资看板首屏加载性能",
+    "description": "## 背景\n看板首屏加载 4.2s，超过预期。\n## 目标\n首屏 < 1.5s，骨架屏过渡，接口并行。\n## 验收点\n1. Lighthouse 首屏 ≤ 1.5s\n2. 骨架屏无闪烁\n3. 弱网下可接受",
+    "category": "需求任务",
+    "reqType": "业务需求",
+    "scope": "前后端都含",
+    "versionId": "v-11",
+    "priority": "P1",
+    "status": "已完成",
+    "owner": "RD",
+    "createdAt": "2026-08-10T09:00:00.000Z",
+    "updatedAt": "2026-08-16T10:00:00.000Z",
+    "history": [
+      {
+        "at": "2026-08-10T09:05:00.000Z",
+        "by": "Leader",
+        "changes": [
+          {
+            "field": "owner",
+            "from": "Leader",
+            "to": "FE"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-14T18:00:00.000Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "status",
+            "from": "进行中",
+            "to": "已完成"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "req-018",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "版本规划：v1.2 版本规划",
+    "description": "## 背景\nv1.1 交付在即，启动 v1.2 规划。\n## 目标\n确定 v1.2 版本目标、范围、能力引入与需求拆分。\n## 验收点\n1. 产出需求对齐文档\n2. 产出调研文档\n3. 产出架构规划并拆解需求",
+    "category": "版本规划任务",
+    "reqType": "版本规划",
+    "scope": "前后端都含",
+    "versionId": "v-11",
+    "priority": "P1",
+    "status": "已完成",
+    "owner": "Architect",
+    "createdAt": "2026-08-10T09:00:00.000Z",
+    "updatedAt": "2026-08-16T10:00:00.000Z",
+    "history": [
+      {
+        "at": "2026-08-10T09:05:00.000Z",
+        "by": "Leader",
+        "changes": [
+          {
+            "field": "owner",
+            "from": "Leader",
+            "to": "RD"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-14T18:00:00.000Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "status",
+            "from": "进行中",
+            "to": "已完成"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "req-019",
+    "projectId": "/Users/huzilin/workdir/test-flow",
+    "title": "M7 编排演练：并行组 join 与部分回滚",
+    "description": "## 目标\n验证并行开发组 join 判定与 QA 部分回滚。\n## 验收点\n1. 两分支全过才进 QA 验收\n2. QA 打回仅回滚指定分支",
+    "category": "需求任务",
+    "reqType": "业务需求",
+    "scope": "前后端都含",
+    "versionId": "v-11",
+    "priority": "P3",
+    "status": "已完成",
+    "owner": "RD",
+    "createdAt": "2026-08-16T12:00:00.000Z",
+    "updatedAt": "2026-08-15T10:07:32.036Z",
+    "history": [
+      {
+        "at": "2026-08-15T10:07:32.036Z",
+        "by": "User",
+        "changes": [
+          {
+            "field": "status",
+            "from": "进行中",
+            "to": "已完成"
+          }
+        ]
+      }
+    ]
+  }
+]

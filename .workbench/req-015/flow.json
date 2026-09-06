@@ -1,0 +1,103 @@
+{
+  "requirementId": "req-015",
+  "kind": "版本规划任务",
+  "currentNodeId": "n-00",
+  "nodes": [
+    {
+      "id": "n-00",
+      "key": "待启动",
+      "order": 0,
+      "ownerRole": "Leader",
+      "gate": false,
+      "state": "进行中",
+      "enteredAt": "2026-08-15T02:00:00.000Z",
+      "rolledBackAt": []
+    },
+    {
+      "id": "n-01",
+      "key": "立项（需求对齐）",
+      "order": 1,
+      "ownerRole": "Architect",
+      "gate": true,
+      "state": "未开始",
+      "enteredAt": null,
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "PM",
+          "state": "未开始",
+          "commentIds": []
+        }
+      ]
+    },
+    {
+      "id": "n-02",
+      "key": "调研",
+      "order": 2,
+      "ownerRole": "Investigator",
+      "gate": false,
+      "state": "未开始",
+      "enteredAt": null,
+      "rolledBackAt": []
+    },
+    {
+      "id": "n-03",
+      "key": "调研评审",
+      "order": 3,
+      "ownerRole": "Investigator",
+      "gate": true,
+      "state": "未开始",
+      "enteredAt": null,
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "Architect",
+          "state": "未开始",
+          "commentIds": []
+        }
+      ]
+    },
+    {
+      "id": "n-04",
+      "key": "架构规划",
+      "order": 4,
+      "ownerRole": "Architect",
+      "gate": false,
+      "state": "未开始",
+      "enteredAt": null,
+      "rolledBackAt": []
+    },
+    {
+      "id": "n-05",
+      "key": "架构规划评审",
+      "order": 5,
+      "ownerRole": "Architect",
+      "gate": true,
+      "state": "未开始",
+      "enteredAt": null,
+      "rolledBackAt": [],
+      "reviewers": [
+        {
+          "role": "Leader",
+          "state": "未开始",
+          "commentIds": []
+        },
+        {
+          "role": "PM",
+          "state": "未开始",
+          "commentIds": []
+        }
+      ]
+    },
+    {
+      "id": "n-06",
+      "key": "创建需求·启动版本",
+      "order": 6,
+      "ownerRole": "Leader",
+      "gate": false,
+      "state": "未开始",
+      "enteredAt": null,
+      "rolledBackAt": []
+    }
+  ]
+}

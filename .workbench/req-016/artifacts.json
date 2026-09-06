@@ -1,0 +1,34 @@
+[
+  {
+    "id": "art-plan",
+    "nodeId": "n-02",
+    "label": "方案文档",
+    "href": "docs/v1.1/req-016-login-500/plan.md",
+    "kind": "document",
+    "note": "实施步骤与风险"
+  },
+  {
+    "id": "art-mr",
+    "nodeId": "n-03",
+    "label": "代码 MR #016",
+    "href": "https://git.example.com/test-flow/-/merge_requests/016",
+    "kind": "link",
+    "note": "Code Reviewer 已通过"
+  },
+  {
+    "id": "art-accept",
+    "nodeId": "n-04",
+    "label": "验收记录",
+    "href": "docs/v1.1/req-016-login-500/qa/accept.md",
+    "kind": "document",
+    "note": "QA 全部通过"
+  },
+  {
+    "id": "art-test",
+    "nodeId": "n-04",
+    "label": "测试用例与结果",
+    "href": "docs/v1.1/req-016-login-500/qa/test.md",
+    "kind": "document",
+    "note": "用例清单 + 结果"
+  }
+]
