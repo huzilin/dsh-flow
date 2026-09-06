@@ -23,7 +23,7 @@ tmp/
 .claude/launch.json
 .claude/settings.json
 .dsh/
-.agents/
+.agents
 .vscode/
 .DS_Store
 .idea
@@ -41,6 +41,6 @@ apps/web/dist/
 .orig
 .worktrees/
 worktrees/
-.agents/worktrees/
+.gents/worktrees/
 .typert-*/
 __pycache__
