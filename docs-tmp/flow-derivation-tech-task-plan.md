@@ -51,7 +51,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: be | reviewers: [ {cr: code
 | exec 首次 | backend-design.produce | to-rd-techdesign（接口面原则进门禁） | rd | 完成上报+判据 → 提评（plugin 轮转）→ review |
 | exec 重入 | backend-design.revise | revise（响应 B3 rejected——基于评审结论逐条修订） | rd | 完成上报+校验（按 B3 rejected 返工）→ 重新提评 → review 重开 |
 | review | code-review.review（CR 评本节点 rd_design） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | backend-design.clarify + backend-design.fix_on_review（rd 本节点响应 CR） | inline | rd | 全 resolve → confirming |
+| respond | backend-design.fix_on_review（**只修复不澄清**——节点内 CR 异化裁决） | inline | rd | 全 resolve → confirming |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决（机械，无 rejected 出口）→ approved → 提评迁移 B3。
 **产物**：rd_design。inputs 动态注入（✅D5）：tech=brd / business=product_doc。
@@ -86,7 +86,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: fe | reviewers: [ {cr: code
 | exec 首次 | frontend-design.produce | to-fe-techdesign | fe | 完成上报+判据 → 提评（plugin 轮转）→ review |
 | exec 重入 | frontend-design.revise | revise（响应 B5 rejected——基于评审结论逐条修订） | fe | 完成上报+校验（按 B5 rejected 返工）→ 重新提评 → review 重开 |
 | review | code-review.review（CR 评本节点 fe_design） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | frontend-design.clarify + frontend-design.fix_on_review（fe 本节点响应 CR） | inline | fe | 全 resolve → confirming |
+| respond | frontend-design.fix_on_review（**只修复不澄清**——节点内 CR 异化裁决） | inline | fe | 全 resolve → confirming |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决（机械，无 rejected 出口）→ approved → 提评迁移 B5。
 **产物**：fe_design。
@@ -208,7 +208,7 @@ node_type: produce | gate: 1 | user_gate: 0 | reviewers: [ {cr: code-review} ]
 | exec 首次 | plan-cap.produce | to-plan（基础=C1 对齐简单描述——✅D2：无 prd/brd，my_task 注入） | 执行者（rd|fe by scope） | 完成上报+判据 → 提评迁移 C3 |
 | exec 重入 | plan-cap.revise | revise（响应 C3 rejected——基于评审结论逐条修订） | 执行者 | 完成上报+校验（按 C3 rejected 返工）→ 重新提评 |
 | review | code-review.review（CR 评本节点 plan——技术设计文档） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | plan-cap.clarify + plan-cap.fix_on_review（执行者本节点响应 CR） | inline | 执行者 | 全 resolve → confirming |
+| respond | plan-cap.fix_on_review（**只修复不澄清**——节点内 CR 异化裁决） | inline | 执行者 | 全 resolve → confirming |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决（机械，无 rejected 出口）→ approved → 提评迁移 C3。**产物**：plan。
 
@@ -432,7 +432,7 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 | decide-cap | ——（join=plugin） | —— | — | D7(create_reqs, leader 直执行) |
 | ~~final-approve~~ | 退役（user_gate 取代） | | | |
 
-> 机制差异仅两处：**评审位配置位置**（节点内 CR=本节点 reviewers / 跨节点=独立评审节点）+ **reject 权**（跨节点评审输出 rejected 回退上一节点；节点内 CR 永不输出——不通过回 respond 修复）。rest 全同一套相位与 reviewState 词汇。
+> 机制差异仅三处：**评审位配置位置**（节点内 CR=本节点 reviewers / 跨节点=独立评审节点）+ **reject 权**（跨节点评审输出 rejected 回退上一节点；节点内 CR 永不输出——不通过回 respond 修复）+ **respond 挂载**（节点内评审=fix_on_review 单挂不澄清；跨节点评审=clarify+fix_on_review 双动作 R1）。rest 全同一套相位与 reviewState 词汇。
 
 ## 5. D1-D5 裁决记录（2026-09-05，全部定稿）
 

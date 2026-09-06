@@ -98,7 +98,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: be | reviewers: [ {cr: code
 | exec 首次 | backend-design.produce | to-rd-techdesign（接口面原则进门禁） | rd | 完成上报+判据（rd_design 落库）→ 提评（plugin 轮转）→ review |
 | exec 重入 | backend-design.revise | revise（响应节点 5 rejected——基于评审结论逐条修订） | rd | 完成上报+校验（按节点 5 rejected 返工）→ 重新提评 → review 重开 |
 | review | code-review.review（**CR 评本节点 rd_design**——节点内评审异化） | code-review-skill（Standards 轴为主） | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | backend-design.clarify + backend-design.fix_on_review（**澄清+修复双动作**——rd 本节点响应 CR） | inline | rd | 全 resolve → confirming |
+| respond | backend-design.fix_on_review（**只修复不澄清**——节点内 CR 异化裁决；一个 state 一个动作） | inline | rd | 全 resolve → confirming |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [reopen 循环] → agreed → 裁决。
 **裁决（机械，节点内评审无 rejected 出口）**：agreed → approved → 提评迁移节点 5（跨节点评审轮）。
@@ -138,7 +138,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: fe | reviewers: [ {cr: code
 | exec 首次 | frontend-design.produce | to-fe-techdesign（页面对照 rd 接口契约，不自造契约） | fe | 完成上报+判据 → 提评（plugin 轮转）→ review |
 | exec 重入 | frontend-design.revise | revise（响应节点 7 rejected——基于评审结论逐条修订） | fe | 完成上报+校验（按节点 7 rejected 返工）→ 重新提评 → review 重开 |
 | review | code-review.review（**CR 评本节点 fe_design**——节点内评审异化） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | frontend-design.clarify + frontend-design.fix_on_review（**澄清+修复双动作**——fe 本节点响应 CR） | inline | fe | 全 resolve → confirming |
+| respond | frontend-design.fix_on_review（**只修复不澄清**——节点内 CR 异化裁决） | inline | fe | 全 resolve → confirming |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [reopen 循环] → agreed → 裁决。
 **裁决（机械，无 rejected 出口）**：agreed → approved → 提评迁移节点 7。
@@ -260,8 +260,8 @@ node_type: gate | gate: 0 | user_gate: 0 | reviewers: [] | node_actions: []
 | 3 产品设计评审 | product-design.clarify/fix_on_review | pm（节点 2 owner） |
 | 5 RD 技术评审 | backend-design.clarify/fix_on_review | rd（节点 4 owner） |
 | 7 FE 设计评审 | frontend-design.clarify/fix_on_review | fe（节点 6 owner） |
-| 4 RD 技术设计 | backend-design.clarify/fix_on_review | rd（本节点，CR 内嵌轮——评设计文档） |
-| 6 FE 技术设计 | frontend-design.clarify/fix_on_review | fe（本节点，CR 内嵌轮） |
+| 4 RD 技术设计 | backend-design.fix_on_review | rd（本节点，CR 内嵌轮——只修复不澄清） |
+| 6 FE 技术设计 | frontend-design.fix_on_review | fe（本节点，CR 内嵌轮——只修复不澄清） |
 | 8 RD 开发 | backend-dev.fix_on_review | rd（本节点，CR 异化——只修复不澄清） |
 | 9 FE 开发 | frontend-dev.fix_on_review | fe |
 | 10 QA 验收 | backend-dev/frontend-dev.clarify | rd/fe（跨节点，缺陷确认/归属争议） |
