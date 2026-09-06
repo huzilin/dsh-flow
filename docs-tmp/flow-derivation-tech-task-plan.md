@@ -140,7 +140,7 @@ node_type: produce | gate: 1 | user_gate: 0 | reviewers: []
 | exec 首次 | acceptance-test.accept | qa-acceptance（用例设计+执行+AC 核对；缺陷登记 defect） | qa | 完成上报+判据 → respond |
 | exec 重入 | acceptance-test.补充缺陷 | inline：「登记 B10 报障澄清的新缺陷并分派」 | qa | 完成上报+校验 → respond 重开 |
 | review | ——跳过（**无评审位——qa 不自审**） | —— | —— | —— |
-| respond | backend-dev.clarify + frontend-dev.clarify（rd/fe 缺陷确认/归属争议——跨节点路由；修复在 B8a/B8b exec 重入） | inline | rd / fe | 全 resolve → confirming（qa 复核缺陷响应）→ agreed |
+| respond | backend-dev.clarify / frontend-dev.clarify（rd/fe 各自缺陷确认/归属争议——跨节点路由，按 assignee 分派；修复在 B8a/B8b exec 重入） | inline | rd / fe | 全 resolve → confirming（qa 复核缺陷响应）→ agreed |
 
 **reviewState 轮转**：'-' → clarifying → confirming → agreed → 裁决。
 **裁决（机械）**：无 reject 争议残留 → approved（迁移 B10）；真缺陷残留 → rejected → targetBranch=qa 分派 → plugin 回退 B8a/B8b exec 重入。
@@ -258,7 +258,7 @@ node_type: produce | gate: 1 | user_gate: 0 | reviewers: []   # qa 不自审
 | exec 首次 | acceptance-test.accept | qa-acceptance | qa | 完成上报+判据 → respond |
 | exec 重入 | acceptance-test.补充缺陷 | inline：「登记 C6 报障澄清的新缺陷并分派」 | qa | 完成上报+校验 → respond 重开 |
 | review | ——跳过（无评审位） | —— | —— | —— |
-| respond | backend-dev / frontend-dev.clarify（执行者 缺陷确认/归属争议——跨节点路由；修复在 C4 exec 重入） | inline | 执行者 | 全 resolve → confirming（qa 复核）→ agreed |
+| respond | backend-dev.clarify / frontend-dev.clarify（执行者 缺陷确认/归属争议——跨节点路由，按 assignee 分派；修复在 C4 exec 重入） | inline | 执行者 | 全 resolve → confirming（qa 复核）→ agreed |
 
 **reviewState 轮转**：'-' → clarifying → confirming → agreed → 裁决。
 **裁决（机械）**：无 reject 争议残留 → approved（迁移 C6）；真缺陷残留 → rejected → 回退 C4 exec 重入。
