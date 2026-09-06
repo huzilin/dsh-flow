@@ -29,7 +29,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | respond_to_cr（reviewed） | ——**已并入 clarify，退役**（2026-09-05：CR 意见=clarify 的实例，节点激活清单区分服务场景） | — | — |
 | respond_to_cr（reviewed） | 不挂 | — | 「读 reviewerRole=Code Reviewer 且 assignee=本角色 且 open 意见 → 逐条定位改动点回应（改代码或澄清）→ resolve」 |
 | confirm（replied） | 不挂 | — | 「读本人 pending-confirm 意见 → 核对澄清/修订 → wb_confirm_review 或 wb_reopen(附理由)」 |
-| fix_on_review（**respond**） | 不挂 | — | **节点内评审（CR 异化）轨道专用、只修复不澄清**——激活节点：开发节点（4/6/B2/B4/C2 技术设计节点内嵌 CR 轮同规则，2026-09-05 扩大）。评审轮内的意见修复响应（CR 复核 reopen 驱动）：读 CR 意见 → 逐条修复 → resolve → 重新进入复核；轮内闭环，不打回、不重入。**respond 挂载由评审轨道决定**：节点内评审=fix_on_review 单挂；跨节点评审=clarify+fix_on_review 双动作（R1） |
+| fix_on_review（**respond**） | 不挂 | — | **节点内评审（CR 异化）轨道专用、只修复不澄清**——激活节点：开发节点 + 技术设计节点内嵌 CR 轮（4/6/8/9/B2/B4/C2）。评审轮内的意见修复响应（CR 复核 reopen 驱动）：读 CR 意见 → 逐条修复 → resolve → 重新进入复核；轮内闭环，不打回、不重入。**普适约束：一个 state 只能挂一个动作**（2026-09-05 用户严正声明，取代 R1 双动作——undermined）——跨节点评审 respond=clarify 单挂（修复=rejected → 产出节点 exec 重入 revise/diagnosing-bugs） |
 | diagnosing-bugs（**exec 重入**） | **diagnosing-bugs**（已有 mp） | 已有 | **打回返工流程，仅 dev/fe 节点 exec 重入**（代码域）——agree 判 reject 后再次进入触发：基于评审结论（qa 缺陷/cr 真问题）复现→一次一变量定位→修在正确接缝→补回归 → 重新提评（plugin 轮转） |
 | revise（**exec 重入**） | 不挂——inline「基于评审结论逐条修订〈产物〉对应章节 → 模板自检 → 重新提评」 | — | **文档产出节点 exec 重入**（文档域）——响应评审打回的修订返工；与 diagnosing-bugs 按域分立（代码=diagnosing-bugs，文档=revise） |
 | review（各评审能力·对象化） | **{role}.{object}-review 各自独立 skill**（2026-09-05 两步裁决：①否决全局 review-protocol——解耦/维护/ctx；②评审能力对象化——最小上下文，inputs 仅含评审对象、skill 仅含该对象维度） | 待建×12 | — |

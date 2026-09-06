@@ -98,7 +98,7 @@ QA 打回 → plugin 回退 → exec 重入（diagnosing-bugs 响应缺陷）→
 ```
 [上游 exec 完成提评迁移激活]
    → review（arch/rd/fe/qa/pm 审批 skills map；collecting → barrier）
-      → 有 open → respond（owner clarify + fix_on_review，跨节点路由）→ review（confirming）→ 循环
+      → 有 open → respond（owner clarify 单动作，跨节点路由；修复=rejected → 产出节点 exec 重入 revise）→ review（confirming）→ 循环
       → agreed → User 终审（配置位）→ approve（上游节点完成，流转）| rejected → 上游 exec 重入 → 重提 → review 重开
 ```
 
@@ -171,6 +171,7 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 | decide-cap.decide（join 裁决动作） | join 裁决=plugin 内置轮转吸收；decide-cap 收缩为 create_reqs 单动作 | §1.3 + capability-actions-final |
 | final-approve 能力 | User 终审职责由 flow_def_nodes.user_gate 配置位承载 | §1.3 |
 | 产出类设计节点无内审（v3.1：技术设计 review/respond 跳过） | 用户补裁：技术设计文档也要过 CR——节点 4/6/B2/B4/C2 内嵌 CR 轮（评 rd/fe_design、plan） | §3 双轨（适用范围扩大） |
+| R1「跨节点评审 respond=clarify+fix_on_review 双动作」 | 「一个 state 只能挂一个动作」普适约束（用户严正声明）取代——跨节点 respond=clarify 单挂，修复=rejected → 产出节点 exec 重入 revise | §1.1 respond 行 |
 
 ---
 

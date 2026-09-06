@@ -68,7 +68,7 @@ reviewers: [ {arch(be): arch.rd-design-review}, {fe: fe.rd-design-review}, {qa: 
 |---|---|---|---|---|
 | entry / exec | ——跳过（**审批类节点 review=产出动作位，exec 不配置**） | —— | —— | —— |
 | review | arch.rd-design-review.review / fe.rd-design-review.review / qa.rd-design-review.review（评上一节点 rd_design） | 各自对象化评审 skill（rd-design-review-{arch,fe,qa}-skill） | arch / fe / qa | barrier → 有 open → clarifying；无 → agreed |
-| respond | backend-design.clarify + backend-design.fix_on_review（**澄清+修复双动作**——owner=rd 跨节点路由进入） | inline | rd | 全 resolve → confirming |
+| respond | backend-design.clarify（单动作；修复=B2 exec 重入 revise） | inline | rd | 全 resolve → confirming；reopen → rejected → B2 exec 重入 |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [reopen 循环] → agreed → 裁决。
 **裁决**：无 reject → User 终审 → approved（迁移 B4）；含 reject → rejected → 回退 B2 exec 重入；本节点维持 agreed。
@@ -102,7 +102,7 @@ reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
 | review | qa.fe-design-review.review（评上一节点 fe_design） | fe-design-review-qa-skill | qa | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | frontend-design.clarify + frontend-design.fix_on_review（**澄清+修复双动作**——owner=fe 跨节点路由进入） | inline | fe | 全 resolve → confirming |
+| respond | frontend-design.clarify（单动作；修复=B4 exec 重入 revise） | inline | fe | 全 resolve → confirming；reopen → rejected → B4 exec 重入 |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
 **裁决（机械）**：无 reject → approved（放行 B8a∥B8b）；含 reject → rejected → 回退 B4 exec 重入；本节点维持 agreed。
@@ -222,7 +222,7 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {arch: arch.plan-revie
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
 | review | arch.plan-review.review（评上一节点 plan） | plan-review-arch-skill | arch | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | plan-cap.clarify + plan-cap.fix_on_review（**澄清+修复双动作**——owner=执行者 跨节点路由进入） | inline | 执行者 | 全 resolve → confirming |
+| respond | plan-cap.clarify（单动作；修复=C2 exec 重入 revise） | inline | 执行者 | 全 resolve → confirming；reopen → rejected → C2 exec 重入 |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
 **裁决**：无 reject → User 终审 → approved（迁移 C4）；含 reject → rejected → 回退 C2 exec 重入；本节点维持 agreed。
@@ -323,7 +323,7 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {pm: pm.alignment-revi
 |---|---|---|---|---|
 | entry / exec | ——跳过（**审批类节点 review=产出动作位，exec 不配置**） | —— | —— | —— |
 | review | pm.alignment-review.review（评上一节点 alignment） | alignment-review-pm-skill | pm | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | alignment-cap.clarify + alignment-cap.fix_on_review（**澄清+修复双动作**——owner=arch 跨节点路由进入） | inline | arch | 全 resolve → confirming |
+| respond | alignment-cap.clarify（单动作；修复=D1 exec 重入 to-alignment 重写） | inline | arch | 全 resolve → confirming；reopen → rejected → D1 exec 重入 |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
 **裁决**：无 reject → User 终审 → approved（迁移 D3）；含 reject → rejected → 回退 D1 exec 重入；本节点维持 agreed。
@@ -353,7 +353,7 @@ node_type: review | gate: 1 | user_gate: 0 | reviewers: [ {arch: arch.research-r
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
 | review | arch.research-review.review（评上一节点 research） | research-review-arch-skill | arch | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | research-cap.clarify + research-cap.fix_on_review（**澄清+修复双动作**——owner=inv 跨节点路由进入） | inline | inv | 全 resolve → confirming |
+| respond | research-cap.clarify（单动作；修复=D3 exec 重入 revise） | inline | inv | 全 resolve → confirming；reopen → rejected → D3 exec 重入 |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
 **裁决（机械）**：无 reject → approved（迁移 D5）；含 reject → rejected → 回退 D3 exec 重入；本节点维持 agreed。
@@ -383,7 +383,7 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {pm: pm.alignment-revi
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
 | review | pm.architecture-review.review（评上一节点 architecture） | architecture-review-pm-skill | pm | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | arch-cap.clarify + arch-cap.fix_on_review（**澄清+修复双动作**——owner=arch 跨节点路由进入） | inline | arch | 全 resolve → confirming |
+| respond | arch-cap.clarify（单动作；修复=D5 exec 重入 revise） | inline | arch | 全 resolve → confirming；reopen → rejected → D5 exec 重入 |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
 **裁决**：无 reject → User 终审 → approved（迁移 D7）；含 reject → rejected → 回退 D5 exec 重入；本节点维持 agreed。
