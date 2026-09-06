@@ -74,7 +74,7 @@ agree（全部 open 项确定）→ plugin 收集多审批者结论（barrier）
 | | 节点内评审（CR 异化） | 跨节点评审 |
 |---|---|---|
 | 评审对象 | **本节点产物**（代码/MR） | **上一个节点的产物** |
-| 适用 | **开发节点 + 技术设计节点**（cr 评技术产物：rd/fe_design、plan——2026-09-05 用户补裁；产品设计文档是否内嵌 CR 待裁 N4） | 独立评审节点承载（产品设计评审等） |
+| 适用 | **仅开发节点**（编写文档节点没有 review——2026-09-05 用户澄清共识；此前技术设计节点内嵌 CR 补裁作废，见 §8） | 独立评审节点承载（产品设计评审等） |
 | 相位 | dev 节点 review 相位（collecting→respond→confirming 循环） | 评审节点同一套相位 |
 | 不通过 | **回 respond 直接修复（不做澄清）——永不输出 rejected** | agree 判定输出 rejected → 回退上一节点 |
 | User 终审 | 无（机械收口） | 按节点 user 拍板配置位 |
@@ -126,7 +126,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | respond | fix_on_review（只响应 CR，不做澄清） | rd |
 | review | code-review（评审位） | cr |
 
-QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认/归属争议）, 补充缺陷(inline, exec 重入)]。
+QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认/归属争议）]；exec 重入=复验重测（重新提测代码重测→核对修复→更新 defect：已解决/新增）。
 
 ---
 
@@ -172,6 +172,7 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 | final-approve 能力 | User 终审职责由 flow_def_nodes.user_gate 配置位承载 | §1.3 |
 | 产出类设计节点无内审（v3.1：技术设计 review/respond 跳过） | 用户补裁：技术设计文档也要过 CR——节点 4/6/B2/B4/C2 内嵌 CR 轮（评 rd/fe_design、plan） | §3 双轨（适用范围扩大） |
 | R1「跨节点评审 respond=clarify+fix_on_review 双动作」 | 「一个 state 只能挂一个动作」普适约束（用户严正声明）取代——跨节点 respond=clarify 单挂，修复=rejected → 产出节点 exec 重入 revise | §1.1 respond 行 |
+| 技术设计节点内嵌 CR 轮（77f9d96 补裁：节点 4/6/B2/B4/C2 review=code-review） | 用户澄清「编写文档节点没有 review」是共识——已回退（gate 回 0、reviewers 清空） | §2 产出类（无内审） |
 
 ---
 

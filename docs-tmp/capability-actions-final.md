@@ -62,8 +62,8 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | pm.alignment-review | pm | alignment | review / confirm | — |
 | arch.research-review | arch | research, alignment(false) | review / confirm | — |
 | pm.architecture-review | pm | architecture | review / confirm | — |
-| code-review | cr | 技术设计轮=rd_design/fe_design/plan；开发轮=dev_notes, code_mr（worktree readMode） | review(review→code-review-skill：Standards→Spec 两子步)/ confirm——作用节点：技术设计节点（4/6/B2/B4/C2，评设计文档）+ 开发节点（8/9/B8/C4，评代码） | — |
-| acceptance-test | qa | product_doc, rd_design(false), fe_design(false), dev_notes(false), code_mr(false) | accept(exec 首次→qa-acceptance)；exec 重入按 reopen_source 分派（rework-return→accept 重跑复验 / downstream-reject→补充缺陷 inline） | test_result, defect |
+| code-review | cr | dev_notes, code_mr（worktree readMode） | review(review→code-review-skill：Standards→Spec 两子步)/ confirm——作用节点：开发节点（8/9/B8a/B8b/C4，评代码；编写文档节点无 review） | — |
+| acceptance-test | qa | product_doc, rd_design(false), fe_design(false), dev_notes(false), code_mr(false) | accept(exec 首次→qa-acceptance)；exec 重入=复验重测（针对重新提测代码重测→核对修复→更新 defect：已解决标记/新增登记分派） | test_result, defect |
 | decide-cap | leader | ——（decide **退役**：join 裁决=plugin 内置轮转吸收；**create_reqs=leader 直执行 ✓**——不起 subagent） | create_reqs(exec@plan D7→to-tickets) | — |
 | final-approve | ——**退役**（2026-09-05：User 终审职责由 flow_def_nodes.user_gate 配置位承载） | —— | —— | — |
 

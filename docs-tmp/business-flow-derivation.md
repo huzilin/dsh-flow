@@ -88,20 +88,18 @@ reviewers: [ {arch: arch.prd-review}, {rd(be): rd.prd-review}, {fe(fe): fe.prd-r
 ## 节点 4：RD 技术设计
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | scope: be | reviewers: [ {cr: code-review} ]
-# 内嵌 CR 轮（2026-09-05 用户补裁）：CR 评设计文档（Standards 轴为主）——与开发节点同构
+node_type: produce | gate: 0 | user_gate: 0 | scope: be | reviewers: []
+# 编写文档节点没有 review 相位（2026-09-05 用户澄清共识；此前内嵌 CR 补裁作废——undermined 入模型 §8）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
-| exec 首次 | backend-design.produce | to-rd-techdesign（接口面原则进门禁） | rd | 完成上报+判据（rd_design 落库）→ 提评（plugin 轮转）→ review |
-| exec 重入 | backend-design.revise | revise（响应节点 5 rejected——基于评审结论逐条修订） | rd | 完成上报+校验（按节点 5 rejected 返工）→ 重新提评 → review 重开 |
-| review | code-review.review（**CR 评本节点 rd_design**——节点内评审异化） | code-review-skill（Standards 轴为主） | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | backend-design.fix_on_review（**只修复不澄清**——节点内 CR 异化裁决；一个 state 一个动作） | inline | rd | 全 resolve → confirming |
+| exec 首次 | backend-design.produce | to-rd-techdesign（接口面原则进门禁） | rd | 完成上报+判据（rd_design 落库）→ 提评迁移节点 5 |
+| exec 重入 | backend-design.revise | revise（响应节点 5 rejected——基于评审结论逐条修订） | rd | 完成上报+校验（按节点 5 rejected 返工）→ 重新提评 |
+| review / respond | ——跳过（评审在节点 5，跨节点） | —— | —— | —— |
 
-**reviewState 轮转**：collecting → clarifying → confirming → [reopen 循环] → agreed → 裁决。
-**裁决（机械，节点内评审无 rejected 出口）**：agreed → approved → 提评迁移节点 5（跨节点评审轮）。
+**reviewState**: 恒 '-'。
 **产物**：rd_design。
 
 ---
@@ -128,20 +126,18 @@ reviewers: [ {arch(be): arch.rd-design-review}, {fe: fe.rd-design-review}, {qa: 
 ## 节点 6：FE 技术设计
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | scope: fe | reviewers: [ {cr: code-review} ]
-# 内嵌 CR 轮（同节点 4）
+node_type: produce | gate: 0 | user_gate: 0 | scope: fe | reviewers: []
+# 编写文档节点没有 review 相位（同节点 4）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
-| exec 首次 | frontend-design.produce | to-fe-techdesign（页面对照 rd 接口契约，不自造契约） | fe | 完成上报+判据 → 提评（plugin 轮转）→ review |
-| exec 重入 | frontend-design.revise | revise（响应节点 7 rejected——基于评审结论逐条修订） | fe | 完成上报+校验（按节点 7 rejected 返工）→ 重新提评 → review 重开 |
-| review | code-review.review（**CR 评本节点 fe_design**——节点内评审异化） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | frontend-design.fix_on_review（**只修复不澄清**——节点内 CR 异化裁决） | inline | fe | 全 resolve → confirming |
+| exec 首次 | frontend-design.produce | to-fe-techdesign（页面对照 rd 接口契约，不自造契约） | fe | 完成上报+判据 → 提评迁移节点 7 |
+| exec 重入 | frontend-design.revise | revise（响应节点 7 rejected——基于评审结论逐条修订） | fe | 完成上报+校验（按节点 7 rejected 返工）→ 重新提评 |
+| review / respond | ——跳过（评审在节点 7，跨节点） | —— | —— | —— |
 
-**reviewState 轮转**：collecting → clarifying → confirming → [reopen 循环] → agreed → 裁决。
-**裁决（机械，无 rejected 出口）**：agreed → approved → 提评迁移节点 7。
+**reviewState**: 恒 '-'。
 **产物**：fe_design。
 
 ---
@@ -215,7 +211,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: '' | reviewers: []
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
 | exec 首次 | acceptance-test.accept | qa-acceptance（用例设计+执行+AC 核对；缺陷登记 defect，triage 纪律） | qa | 完成上报+判据（test_result/defect 落库）→ respond |
-| exec 重入 | acceptance-test.补充缺陷 | inline：「登记节点 11 报障澄清的新缺陷并分派」 | qa | 完成上报+校验 → respond 重开 |
+| exec 重入 | acceptance-test.复验重测 | inline：「针对重新提测的代码重新执行测试→核对是否修复→更新 defect 文档（已解决标记/新增缺陷登记并分派）」 | qa | 完成上报+校验 → respond 重开 |
 | review | ——跳过（**无评审位——qa 不自审**） | —— | —— | —— |
 | respond | backend-dev.clarify / frontend-dev.clarify（rd/fe 各自缺陷确认/归属争议——跨节点路由，按 assignee 分派；修复在节点 8/9 exec 重入） | inline | rd / fe | 全 resolve → confirming（qa 复核缺陷响应）→ agreed |
 
@@ -237,7 +233,7 @@ node_type: gate | gate: 1 | user_gate: 1 | scope: '' | reviewers: []
 | exec / review / respond | ——跳过（门禁类） | —— | —— | —— |
 
 **reviewState**: 恒 '-'。
-**裁决**：User 通过 → approved → 节点 12；rejected（报障经 qa 澄清确认）→ plugin 回退节点 10 exec 重入（补充缺陷）。死循环兜底：反复分歧走线下。
+**裁决**：User 通过 → approved → 节点 12；rejected（报障经 qa 澄清确认）→ plugin 回退节点 10 exec 重入（复验重测）。死循环兜底：反复分歧走线下。
 
 ---
 
@@ -260,8 +256,6 @@ node_type: gate | gate: 0 | user_gate: 0 | reviewers: [] | node_actions: []
 | 3 产品设计评审 | product-design.clarify | pm（节点 2 owner） |
 | 5 RD 技术评审 | backend-design.clarify | rd（节点 4 owner） |
 | 7 FE 设计评审 | frontend-design.clarify | fe（节点 6 owner） |
-| 4 RD 技术设计 | backend-design.fix_on_review | rd（本节点，CR 内嵌轮——只修复不澄清） |
-| 6 FE 技术设计 | frontend-design.fix_on_review | fe（本节点，CR 内嵌轮——只修复不澄清） |
 | 8 RD 开发 | backend-dev.fix_on_review | rd（本节点，CR 异化——只修复不澄清） |
 | 9 FE 开发 | frontend-dev.fix_on_review | fe |
 | 10 QA 验收 | backend-dev/frontend-dev.clarify | rd/fe（跨节点，缺陷确认/归属争议） |
