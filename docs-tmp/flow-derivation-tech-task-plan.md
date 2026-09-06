@@ -41,17 +41,20 @@ node_type: align | gate: 0 | user_gate: 1 | reviewers: []
 ### B2 RD 技术设计
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | scope: be | reviewers: []
+node_type: produce | gate: 1 | user_gate: 0 | scope: be | reviewers: [ {cr: code-review} ]
+# 内嵌 CR 轮（同 business 节点 4）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
-| exec 首次 | backend-design.produce | to-rd-techdesign（接口面原则进门禁） | rd | 完成上报+判据 → 提评迁移 B3 |
-| exec 重入 | backend-design.revise | revise（响应 B3 rejected——基于评审结论逐条修订） | rd | 完成上报+校验（按 B3 rejected 返工）→ 重新提评 |
-| review / respond | ——跳过（评审在 B3，跨节点） | —— | —— | —— |
+| exec 首次 | backend-design.produce | to-rd-techdesign（接口面原则进门禁） | rd | 完成上报+判据 → 提评（plugin 轮转）→ review |
+| exec 重入 | backend-design.revise | revise（响应 B3 rejected——基于评审结论逐条修订） | rd | 完成上报+校验（按 B3 rejected 返工）→ 重新提评 → review 重开 |
+| review | code-review.review（CR 评本节点 rd_design） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
+| respond | backend-design.clarify + backend-design.fix_on_review（rd 本节点响应 CR） | inline | rd | 全 resolve → confirming |
 
-**reviewState**: 恒 '-'。**产物**：rd_design。inputs 动态注入（✅D5）：tech=brd / business=product_doc。
+**reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决（机械，无 rejected 出口）→ approved → 提评迁移 B3。
+**产物**：rd_design。inputs 动态注入（✅D5）：tech=brd / business=product_doc。
 
 ### B3 RD 技术评审（按需）
 
@@ -73,17 +76,20 @@ reviewers: [ {arch(be): arch.rd-design-review}, {fe: fe.rd-design-review}, {qa: 
 ### B4 FE 技术设计（按需）
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | scope: fe | reviewers: []
+node_type: produce | gate: 1 | user_gate: 0 | scope: fe | reviewers: [ {cr: code-review} ]
+# 内嵌 CR 轮（同 B2）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
-| exec 首次 | frontend-design.produce | to-fe-techdesign | fe | 完成上报+判据 → 提评迁移 B5 |
-| exec 重入 | frontend-design.revise | revise（响应 B5 rejected——基于评审结论逐条修订） | fe | 完成上报+校验（按 B5 rejected 返工）→ 重新提评 |
-| review / respond | ——跳过（评审在 B5，跨节点） | —— | —— | —— |
+| exec 首次 | frontend-design.produce | to-fe-techdesign | fe | 完成上报+判据 → 提评（plugin 轮转）→ review |
+| exec 重入 | frontend-design.revise | revise（响应 B5 rejected——基于评审结论逐条修订） | fe | 完成上报+校验（按 B5 rejected 返工）→ 重新提评 → review 重开 |
+| review | code-review.review（CR 评本节点 fe_design） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
+| respond | frontend-design.clarify + frontend-design.fix_on_review（fe 本节点响应 CR） | inline | fe | 全 resolve → confirming |
 
-**reviewState**: 恒 '-'。**产物**：fe_design。
+**reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决（机械，无 rejected 出口）→ approved → 提评迁移 B5。
+**产物**：fe_design。
 
 ### B5 FE 技术评审（按需）
 
@@ -192,7 +198,8 @@ node_type: align | gate: 0 | user_gate: 1 | reviewers: []
 ### C2 技术设计
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
+node_type: produce | gate: 1 | user_gate: 0 | reviewers: [ {cr: code-review} ]
+# 内嵌 CR 轮（同 B2）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
@@ -200,9 +207,10 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 | entry | ——跳过 | —— | —— | —— |
 | exec 首次 | plan-cap.produce | to-plan（基础=C1 对齐简单描述——✅D2：无 prd/brd，my_task 注入） | 执行者（rd|fe by scope） | 完成上报+判据 → 提评迁移 C3 |
 | exec 重入 | plan-cap.revise | revise（响应 C3 rejected——基于评审结论逐条修订） | 执行者 | 完成上报+校验（按 C3 rejected 返工）→ 重新提评 |
-| review / respond | ——跳过（评审在 C3，跨节点） | —— | —— | —— |
+| review | code-review.review（CR 评本节点 plan——技术设计文档） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
+| respond | plan-cap.clarify + plan-cap.fix_on_review（执行者本节点响应 CR） | inline | 执行者 | 全 resolve → confirming |
 
-**reviewState**: 恒 '-'。**产物**：plan。
+**reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决（机械，无 rejected 出口）→ approved → 提评迁移 C3。**产物**：plan。
 
 ### C3 技术评审
 
@@ -419,7 +427,7 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 | alignment-review-pm | — | — | — | D2 |
 | research-review-arch | — | — | — | D4 |
 | architecture-review-pm | — | — | — | D6 |
-| code-review | 节点 8/9 | B8a/B8b | C4 | — |
+| code-review | 节点 4/6（评设计文档）+ 8/9（评代码） | B2/B4 + B8a/B8b | C2 + C4 | — |
 | acceptance-test | 节点 10 | B9 | C5 | — |
 | decide-cap | ——（join=plugin） | —— | — | D7(create_reqs, leader 直执行) |
 | ~~final-approve~~ | 退役（user_gate 取代） | | | |
