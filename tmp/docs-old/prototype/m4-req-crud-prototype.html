@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M4 需求池增删改 · 原型</title>
+<style>
+  :root {
+    --bg:#14161c; --panel:#1b1e27; --panel2:#212530; --border:#2b2f3d;
+    --text:#e6e8ef; --muted:#8a90a3; --accent:#e8b34a; --blue:#7ab8ff;
+    --green:#58c07a; --red:#d98080;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:24px; font-size:14px; }
+  .note { color:var(--muted); font-size:13px; margin-bottom:18px; }
+  .note b { color:var(--accent); }
+  h2 { font-size:18px; margin:26px 0 12px; border-left:3px solid var(--accent); padding-left:10px; }
+  .demo { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; }
+
+  /* 顶栏 */
+  .topbar { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--panel); border:1px solid var(--border); border-radius:8px; margin-bottom:14px; }
+  .title { font-size:16px; font-weight:600; }
+  .badge { font-size:11px; padding:2px 10px; border-radius:10px; background:var(--panel2); border:1px solid var(--border); color:var(--muted); }
+  .filter { margin-left:auto; display:flex; gap:6px; align-items:center; }
+  .sel { font-size:12px; padding:4px 8px; border-radius:6px; background:var(--panel2); border:1px solid var(--border); color:var(--text); outline:none; }
+  .flabel { font-size:12px; color:var(--muted); }
+  .btn { font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .btn-green { border-color:rgba(88,192,122,0.6); color:var(--green); background:rgba(88,192,122,0.08); }
+
+  /* 看板泳道 */
+  .swim { display:flex; gap:12px; align-items:flex-start; }
+  .status-col { flex:1; min-width:200px; background:var(--panel2); border-radius:8px; padding:10px; }
+  .shead { font-size:13px; font-weight:600; padding:4px 6px 8px; display:flex; align-items:center; gap:6px; }
+  .dot { width:8px; height:8px; border-radius:50%; }
+  .reqcard { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:10px 12px; margin-bottom:8px; cursor:pointer; }
+  .reqcard:hover { border-color:var(--accent); }
+  .reqcard .t { font-size:13px; font-weight:500; }
+  .reqcard .meta { font-size:11px; color:var(--muted); margin-top:5px; }
+  .reqcard .cat { display:inline-block; font-size:10px; padding:1px 6px; border-radius:6px; background:rgba(122,184,255,0.15); color:var(--blue); margin-right:6px; }
+  .reqcard .pri { display:inline-block; font-size:10px; padding:1px 6px; border-radius:6px; background:rgba(232,179,74,0.15); margin-right:6px; }
+  .reqcard .act { position:absolute; top:6px; right:8px; display:none; gap:4px; }
+  .reqcard:hover .act { display:flex; }
+  .icon-btn { font-size:11px; padding:1px 7px; border-radius:4px; cursor:pointer; background:var(--panel2); border:1px solid var(--border); color:var(--muted); }
+  .icon-btn:hover { color:var(--accent); border-color:var(--accent); }
+
+  /* 模态框 */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:50; }
+  .modal { width:460px; background:var(--panel); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .mhead { display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); font-size:15px; font-weight:600; }
+  .mhead .x { margin-left:auto; cursor:pointer; color:var(--muted); }
+  .mbody { padding:16px; }
+  .field { margin-bottom:12px; }
+  .field label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .field label b { color:var(--red); }
+  .field input, .field select { width:100%; font-size:13px; padding:7px 10px; border-radius:6px; background:var(--panel2); border:1px solid var(--border); color:var(--text); outline:none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color:var(--blue); }
+  .field textarea { width:100%; font-size:13px; padding:7px 10px; border-radius:6px; background:var(--panel2); border:1px solid var(--border); color:var(--text); outline:none; min-height:84px; resize:vertical; font-family:inherit; line-height:1.5; }
+  .row2 { display:flex; gap:10px; }
+  .row2 .field { flex:1; }
+  .mfoot { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
+  .mfoot .sp { flex:1; }
+  .btn-danger { border-color:rgba(217,128,128,0.6); color:var(--red); background:rgba(217,128,128,0.08); }
+  .btn-primary { border-color:rgba(88,192,122,0.6); color:var(--green); background:rgba(88,192,122,0.1); font-weight:500; }
+  .hidden { display:none; }
+
+  /* 删除确认 */
+  .confirm-msg { font-size:13px; color:var(--text); line-height:1.6; }
+  .confirm-msg .q { color:var(--red); font-weight:600; }
+</style>
+</head>
+<body>
+  <div class="note">M4 需求池增删改原型 <b>（交互：① 顶栏「+ 新建需求」 ② 卡片 hover「✎ 编辑 / 🗑 删除」 ③ 删除二次确认 ④ 表单含描述 textarea ⑤ 详情页「需求描述」卡片 + 「变更历史」审计面板）</b>。点击按钮演示对应弹窗。</div>
+
+  <!-- 看板视图 -->
+  <h2>看板（泳道）+ 顶栏新建入口</h2>
+  <div class="demo">
+    <div class="topbar">
+      <span class="title">项目</span>
+      <span class="badge">test-flow</span>
+      <span class="filter">
+        <span class="flabel">版本</span>
+        <select class="sel"><option>全部</option><option>v1.0</option><option>v1.1</option><option>待分配</option></select>
+        <span class="flabel">优先级</span>
+        <select class="sel"><option>全部</option><option>P0</option><option>P1</option><option>P2</option><option>P3</option></select>
+        <button class="btn viewbtn">看板</button>
+        <button class="btn viewbtn">列表</button>
+        <button class="btn btn-green" onclick="openModal('new')">＋ 新建需求</button>
+      </span>
+    </div>
+    <div class="swim">
+      <div class="status-col">
+        <div class="shead"><span class="dot" style="background:var(--muted)"></span>待启动 <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:auto">3</span></div>
+        <div class="reqcard">
+          <span class="act"><span class="icon-btn" onclick="event.stopPropagation();openModal('edit','投资看板')">✎ 编辑</span><span class="icon-btn" onclick="event.stopPropagation();openModal('del','投资看板')">🗑</span></span>
+          <div class="t">投资看板</div><div class="meta"><span class="cat">需求任务</span><span class="pri" style="color:#e8a34a">P1</span>v1.0 · Leader</div>
+        </div>
+        <div class="reqcard">
+          <span class="act"><span class="icon-btn" onclick="event.stopPropagation();openModal('edit','离线缓存')">✎ 编辑</span><span class="icon-btn" onclick="event.stopPropagation();openModal('del','离线缓存')">🗑</span></span>
+          <div class="t">离线缓存</div><div class="meta"><span class="cat">需求任务</span><span class="pri" style="color:#7ab8ff">P2</span>v1.1 · Leader</div>
+        </div>
+        <div class="reqcard">
+          <span class="act"><span class="icon-btn" onclick="event.stopPropagation();openModal('edit','性能优化专项')">✎ 编辑</span><span class="icon-btn" onclick="event.stopPropagation();openModal('del','性能优化专项')">🗑</span></span>
+          <div class="t">性能优化专项</div><div class="meta"><span class="cat">需求任务</span><span class="pri" style="color:#8a90a3">P3</span>待分配 · Leader</div>
+        </div>
+      </div>
+      <div class="status-col">
+        <div class="shead"><span class="dot" style="background:var(--accent)"></span>进行中 <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:auto">2</span></div>
+        <div class="reqcard">
+          <span class="act"><span class="icon-btn" onclick="event.stopPropagation();openModal('edit','盘前简报模块')">✎ 编辑</span><span class="icon-btn" onclick="event.stopPropagation();openModal('del','盘前简报模块')">🗑</span></span>
+          <div class="t">盘前简报模块</div><div class="meta"><span class="cat">需求任务</span><span class="pri" style="color:var(--red)">P0</span>v1.0 · Leader</div>
+        </div>
+        <div class="reqcard">
+          <span class="act"><span class="icon-btn" onclick="event.stopPropagation();openModal('edit','本地持仓导入')">✎ 编辑</span><span class="icon-btn" onclick="event.stopPropagation();openModal('del','本地持仓导入')">🗑</span></span>
+          <div class="t">本地持仓导入</div><div class="meta"><span class="cat">需求任务</span><span class="pri" style="color:#e8a34a">P1</span>v1.1 · Leader</div>
+        </div>
+      </div>
+      <div class="status-col">
+        <div class="shead"><span class="dot" style="background:var(--green)"></span>已完成 <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:auto">1</span></div>
+        <div class="reqcard">
+          <span class="act"><span class="icon-btn" onclick="event.stopPropagation();openModal('edit','事件提醒')">✎ 编辑</span><span class="icon-btn" onclick="event.stopPropagation();openModal('del','事件提醒')">🗑</span></span>
+          <div class="t">事件提醒</div><div class="meta"><span class="cat">需求任务</span><span class="pri" style="color:#7ab8ff">P2</span>v1.0 · Leader</div>
+        </div>
+      </div>
+      <div class="status-col">
+        <div class="shead"><span class="dot" style="background:var(--red)"></span>已取消 <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:auto">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建/编辑弹窗（共用表单） -->
+  <div class="overlay hidden" id="modal-form">
+    <div class="modal">
+      <div class="mhead"><span id="form-title">新建需求</span><span class="x" onclick="closeModal()">✕</span></div>
+      <div class="mbody">
+        <div class="field"><label>标题 <b>*</b></label><input id="f-title" placeholder="需求标题" value=""></div>
+        <div class="field"><label>描述（支持 Markdown，可贴文档/链接）</label>
+          <textarea id="f-desc" placeholder="背景 / 目标 / 验收点…&#10;支持 **加粗**、`行内代码`、``` 代码块、[链接](url)"></textarea>
+        </div>
+        <div class="field"><label>类别</label>
+          <select id="f-cat"><option>需求任务</option><option>规划审批任务</option><option>版本规划任务</option></select>
+        </div>
+        <div class="row2">
+          <div class="field"><label>版本</label>
+            <select id="f-ver"><option>v1.0</option><option>v1.1</option><option selected>待分配</option></select>
+          </div>
+          <div class="field"><label>优先级</label>
+            <select id="f-pri"><option>P0</option><option>P1</option><option selected>P2</option><option>P3</option></select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>状态</label>
+            <select id="f-status"><option>待启动</option><option>进行中</option><option>已完成</option><option>已取消</option></select>
+          </div>
+          <div class="field"><label>负责人</label>
+            <input id="f-owner" list="roles" value="Leader">
+            <datalist id="roles"><option>Leader</option><option>PM</option><option>RD</option><option>FE</option><option>QA</option><option>Architect</option><option>Investigator</option></datalist>
+          </div>
+        </div>
+      </div>
+      <div class="mfoot">
+        <button class="btn btn-danger hidden" id="btn-del">删除</button>
+        <span class="sp"></span>
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除二次确认弹窗 -->
+  <div class="overlay hidden" id="modal-del">
+    <div class="modal" style="width:400px">
+      <div class="mhead">删除需求</div>
+      <div class="mbody"><div class="confirm-msg">删除后不可恢复，确定删除需求 <span class="q" id="del-name">「投资看板」</span>？<br>（其流程树数据将保留在磁盘，不再展示）</div></div>
+      <div class="mfoot">
+        <span class="sp"></span>
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn btn-danger">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 详情页：需求描述展示 -->
+  <h2>详情页 · 需求描述卡片（Markdown 渲染）</h2>
+  <div class="demo">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <span style="color:var(--blue);font-size:13px;cursor:pointer">← 返回看板</span>
+      <span style="font-size:16px;font-weight:600">盘前简报模块</span>
+      <span class="badge">需求任务</span>
+      <span class="badge" style="border-color:rgba(217,128,128,0.6);color:var(--red)">P0</span>
+      <span class="badge" style="border-color:rgba(232,179,74,0.4);color:var(--accent)">进行中</span>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:10px">需求描述</div>
+      <div style="font-size:14px;line-height:1.8;color:var(--text)">
+        <div style="font-weight:700;font-size:16px;margin:6px 0">背景</div>
+        <div>盘前 5 分钟窗口用户需要快速了解持仓异动与市场要点，当前无聚合视图。</div>
+        <div style="font-weight:700;font-size:16px;margin:12px 0 4px">目标</div>
+        <div>单页聚合 <b>持仓异动</b> / <b>市场要点</b> / <b>今日提醒</b>，5 分钟内可读完。</div>
+        <div style="margin:10px 0;border-left:3px solid var(--accent);padding-left:10px;color:var(--muted);font-size:13px">引用参考：<a href="#" style="color:var(--blue)">产品文档 product-spec.md</a> · <a href="#" style="color:var(--blue)">原型链接</a></div>
+        <div style="font-weight:700;font-size:16px;margin:12px 0 4px">验收点</div>
+        <div>▪ 按优先级 P0 排期，v1.0 交付<br>▪ 支持 <code style="background:var(--panel2);padding:0 6px;border-radius:3px;font-size:13px">--preview</code> 命令预览<br>▪ 离线可用（降级横幅）</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;color:var(--muted);font-size:12px">→ 下方继续渲染 M2 流程树（步骤条 / 产物 / 评审 / 关卡），描述卡片插在标题与流程树之间。</div>
+  </div>
+
+  <!-- 详情页：变更历史审计 -->
+  <h2>详情页 · 变更历史（编辑审计）</h2>
+  <div class="demo">
+    <div style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <span style="font-size:13px;font-weight:600;color:var(--accent)">▾ 变更历史</span>
+      <span style="font-size:11px;color:var(--muted)">3 次编辑</span>
+    </div>
+    <div style="margin-top:10px;font-size:13px;line-height:1.9;color:var(--text)">
+      <div style="padding:6px 10px;border-left:2px solid var(--blue);background:var(--panel2);border-radius:4px;margin-bottom:6px">
+        <span style="color:var(--muted);font-size:12px">2025-01-02 10:30 · User</span><br>
+        <span>优先级：</span><span style="color:var(--muted);text-decoration:line-through">P1</span><span style="color:var(--green)"> → P0</span><br>
+        <span>版本：</span><span style="color:var(--muted);text-decoration:line-through">待分配</span><span style="color:var(--green)"> → v1.0</span>
+      </div>
+      <div style="padding:6px 10px;border-left:2px solid var(--border);background:var(--panel2);border-radius:4px;margin-bottom:6px">
+        <span style="color:var(--muted);font-size:12px">2025-01-01 09:12 · User</span><br>
+        <span>描述：</span><span style="color:var(--muted);text-decoration:line-through">（空）</span><span style="color:var(--green)"> → 已填写（Markdown）</span><br>
+        <span>负责人：</span><span style="color:var(--muted);text-decoration:line-through">Leader</span><span style="color:var(--green)"> → PM</span>
+      </div>
+      <div style="padding:6px 10px;border-left:2px solid var(--border);background:var(--panel2);border-radius:4px">
+        <span style="color:var(--muted);font-size:12px">2025-01-01 08:00 · User</span><br>
+        <span>状态：</span><span style="color:var(--muted);text-decoration:line-through">待启动</span><span style="color:var(--green)"> → 进行中</span>
+      </div>
+    </div>
+    <div style="margin-top:12px;color:var(--muted);font-size:12px">审计由 Host 在保存时计算字段级 diff 写入 <code>requirements.json</code> 的 <code>history[]</code>，客户端只读展示（无法伪造）。</div>
+  </div>
+
+<script>
+  function openModal(kind, name) {
+    if (kind === 'new') {
+      document.getElementById('form-title').textContent = '新建需求'
+      document.getElementById('btn-del').classList.add('hidden')
+      document.getElementById('f-title').value = ''
+    } else if (kind === 'edit') {
+      document.getElementById('form-title').textContent = '编辑需求'
+      document.getElementById('btn-del').classList.remove('hidden')
+      document.getElementById('f-title').value = name
+    } else if (kind === 'del') {
+      document.getElementById('del-name').textContent = '「' + name + '」'
+      document.getElementById('modal-del').classList.remove('hidden')
+      return
+    }
+    document.getElementById('modal-form').classList.remove('hidden')
+  }
+  function closeModal() {
+    document.getElementById('modal-form').classList.add('hidden')
+    document.getElementById('modal-del').classList.add('hidden')
+  }
+</script>
+</body>
+</html>

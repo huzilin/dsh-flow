@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M3 版本看板 + 需求池 · 两个方案对比</title>
+<style>
+  :root {
+    --bg:#14161c; --panel:#1b1e27; --panel2:#212530; --border:#2b2f3d;
+    --text:#e6e8ef; --muted:#8a90a3; --accent:#e8b34a; --blue:#7ab8ff;
+    --green:#58c07a; --red:#d98080; --yellow:#e8b34a;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:24px; font-size:14px; }
+  .note { color:var(--muted); font-size:13px; margin-bottom:18px; }
+  .note b { color:var(--accent); }
+  h2 { font-size:18px; margin:26px 0 12px; border-left:3px solid var(--accent); padding-left:10px; }
+  .demo { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; }
+
+  /* 顶部条 */
+  .topbar { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--panel); border:1px solid var(--border); border-radius:8px; margin-bottom:14px; }
+  .title { font-size:16px; font-weight:600; }
+  .badge { font-size:11px; padding:2px 10px; border-radius:10px; background:var(--panel2); border:1px solid var(--border); color:var(--muted); }
+  .filter { margin-left:auto; display:flex; gap:6px; align-items:center; }
+  .pill { font-size:12px; padding:4px 12px; border-radius:12px; cursor:pointer; background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .pill.on { background:rgba(122,184,255,0.18); border-color:var(--blue); color:var(--blue); }
+  .viewbtn { font-size:12px; padding:4px 12px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .viewbtn.on { background:rgba(232,179,74,0.15); border-color:var(--accent); color:var(--accent); }
+
+  /* 方案A：列=版本 */
+  .colboard { display:flex; gap:12px; align-items:flex-start; overflow-x:auto; }
+  .version-col { flex:0 0 280px; background:var(--panel2); border-radius:8px; padding:10px; min-height:200px; }
+  .version-col .vhead { font-size:13px; font-weight:600; padding:4px 6px 8px; }
+  .vhead .cnt { color:var(--muted); font-weight:400; font-size:11px; margin-left:6px; }
+  .reqcard { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:10px 12px; margin-bottom:8px; cursor:pointer; }
+  .reqcard:hover { border-color:var(--accent); }
+  .reqcard .t { font-size:13px; font-weight:500; }
+  .reqcard .meta { font-size:11px; color:var(--muted); margin-top:5px; }
+  .reqcard .cat { display:inline-block; font-size:10px; padding:1px 6px; border-radius:6px; background:rgba(122,184,255,0.15); color:var(--blue); margin-right:6px; }
+
+  /* 方案B：列=状态 */
+  .swim { display:flex; gap:12px; align-items:flex-start; overflow-x:auto; }
+  .status-col { flex:1; min-width:200px; background:var(--panel2); border-radius:8px; padding:10px; }
+  .status-col .shead { font-size:13px; font-weight:600; padding:4px 6px 8px; display:flex; align-items:center; gap:6px; }
+  .dot { width:8px; height:8px; border-radius:50%; }
+
+  /* 方案B：列表 */
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  td .cat { font-size:10px; padding:1px 6px; border-radius:6px; background:rgba(122,184,255,0.15); color:var(--blue); margin-right:6px; }
+  .status-tag { font-size:11px; padding:1px 8px; border-radius:10px; }
+  .st-待启动 { background:rgba(138,144,163,0.2); color:var(--muted); }
+  .st-进行中 { background:rgba(232,179,74,0.18); color:var(--accent); }
+  .st-已完成 { background:rgba(88,192,122,0.18); color:var(--green); }
+  .st-已取消 { background:rgba(217,128,128,0.18); color:var(--red); }
+</style>
+</head>
+<body>
+  <div class="note">M3 版本看板 + 需求池 两个方案 <b>（点击需求卡均可进入流程树，流程树略，因为就是现有 M2）</b></div>
+
+  <!-- 方案 A -->
+  <h2>方案 A：看板列 = 版本（飞书项目列式）</h2>
+  <div class="demo">
+    <div class="topbar">
+      <span class="title">项目</span>
+      <span class="badge">test-flow</span>
+    </div>
+    <div class="colboard">
+      <div class="version-col">
+        <div class="vhead">v1.0 <span class="cnt">3</span></div>
+        <div class="reqcard"><div class="t">盘前简报模块</div><div class="meta"><span class="cat">需求任务</span>进行中 · Leader</div></div>
+        <div class="reqcard"><div class="t">投资看板</div><div class="meta"><span class="cat">需求任务</span>待启动 · Leader</div></div>
+        <div class="reqcard"><div class="t">事件提醒</div><div class="meta"><span class="cat">需求任务</span>已完成 · Leader</div></div>
+      </div>
+      <div class="version-col">
+        <div class="vhead">v1.1 <span class="cnt">2</span></div>
+        <div class="reqcard"><div class="t">本地持仓导入</div><div class="meta"><span class="cat">需求任务</span>进行中 · Leader</div></div>
+        <div class="reqcard"><div class="t">离线缓存</div><div class="meta"><span class="cat">需求任务</span>待启动 · Leader</div></div>
+      </div>
+      <div class="version-col">
+        <div class="vhead">待分配需求 <span class="cnt">1</span></div>
+        <div class="reqcard"><div class="t">性能优化专项</div><div class="meta"><span class="cat">需求任务</span>待启动 · Leader</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 方案 B -->
+  <h2>方案 B：顶部版本筛选 + 状态泳道看板 / 列表切换</h2>
+  <div class="demo">
+    <div class="topbar">
+      <span class="title">项目</span>
+      <span class="badge">test-flow</span>
+      <span class="filter">
+        <span style="font-size:12px;color:var(--muted)">版本</span>
+        <select style="font-size:13px;padding:5px 10px;border-radius:6px;background:var(--panel2);border:1px solid var(--border);color:var(--text);outline:none;">
+          <option>全部</option>
+          <option>v1.0</option>
+          <option>v1.1</option>
+          <option>待分配</option>
+        </select>
+        <span style="width:1px;height:14px;background:var(--border);display:inline-block;margin:0 6px;"></span>
+        <span class="viewbtn on">看板</span>
+        <span class="viewbtn">列表</span>
+      </span>
+    </div>
+
+    <!-- 看板视图 -->
+    <div class="swim">
+      <div class="status-col">
+        <div class="shead"><span class="dot" style="background:var(--muted)"></span>待启动 <span style="margin-left:auto;color:var(--muted);font-size:11px">3</span></div>
+        <div class="reqcard"><div class="t">投资看板</div><div class="meta"><span class="cat">需求任务</span>v1.0</div></div>
+        <div class="reqcard"><div class="t">离线缓存</div><div class="meta"><span class="cat">需求任务</span>v1.1</div></div>
+        <div class="reqcard"><div class="t">性能优化专项</div><div class="meta"><span class="cat">需求任务</span>待分配</div></div>
+      </div>
+      <div class="status-col">
+        <div class="shead"><span class="dot" style="background:var(--accent)"></span>进行中 <span style="margin-left:auto;color:var(--muted);font-size:11px">2</span></div>
+        <div class="reqcard"><div class="t">盘前简报模块</div><div class="meta"><span class="cat">需求任务</span>v1.0</div></div>
+        <div class="reqcard"><div class="t">本地持仓导入</div><div class="meta"><span class="cat">需求任务</span>v1.1</div></div>
+      </div>
+      <div class="status-col">
+        <div class="shead"><span class="dot" style="background:var(--green)"></span>已完成 <span style="margin-left:auto;color:var(--muted);font-size:11px">1</span></div>
+        <div class="reqcard"><div class="t">事件提醒</div><div class="meta"><span class="cat">需求任务</span>v1.0</div></div>
+      </div>
+      <div class="status-col">
+        <div class="shead"><span class="dot" style="background:var(--red)"></span>已取消 <span style="margin-left:auto;color:var(--muted);font-size:11px">0</span></div>
+      </div>
+    </div>
+
+    <!-- 列表视图（示意，默认隐藏在真实实现里是切换） -->
+    <div style="margin-top:16px; border:1px dashed var(--border); border-radius:8px; padding:8px 12px; color:var(--muted); font-size:12px;">
+      【列表视图示意】切换到列表后，改为表格：
+      <table style="margin-top:8px;">
+        <tr><th>标题</th><th>类别</th><th>版本</th><th>状态</th><th>负责人</th></tr>
+        <tr><td>盘前简报模块</td><td><span class="cat">需求任务</span></td><td>v1.0</td><td><span class="status-tag st-进行中">进行中</span></td><td>Leader</td></tr>
+        <tr><td>投资看板</td><td><span class="cat">需求任务</span></td><td>v1.0</td><td><span class="status-tag st-待启动">待启动</span></td><td>Leader</td></tr>
+        <tr><td>事件提醒</td><td><span class="cat">需求任务</span></td><td>v1.0</td><td><span class="status-tag st-已完成">已完成</span></td><td>Leader</td></tr>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

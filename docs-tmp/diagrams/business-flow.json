@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "business 业务需求流程 · 节点与人员",
+    "quality_profile": "showcase",
+    "viewBox": [1500, 1200]
+  },
+  "lanes": [
+    { "id": "leader", "label": "Leader" },
+    { "id": "arch",   "label": "Architect" },
+    { "id": "pm",     "label": "PM" },
+    { "id": "rd",     "label": "RD" },
+    { "id": "fe",     "label": "FE" },
+    { "id": "qa",     "label": "QA" },
+    { "id": "cr",     "label": "Code Reviewer" },
+    { "id": "user",   "label": "User" }
+  ],
+  "phases": [
+    { "id": "p0",  "label": "启动",   "fromCol": 0, "toCol": 0 },
+    { "id": "p1",  "label": "设计",   "fromCol": 1, "toCol": 1 },
+    { "id": "p2",  "label": "需求评审", "fromCol": 2, "toCol": 2 },
+    { "id": "p3",  "label": "RD 设计", "fromCol": 3, "toCol": 4 },
+    { "id": "p4",  "label": "FE 设计", "fromCol": 5, "toCol": 6 },
+    { "id": "p5",  "label": "用例",   "fromCol": 7, "toCol": 8 },
+    { "id": "p6",  "label": "开发(并行)", "fromCol": 9, "toCol": 10 },
+    { "id": "p7",  "label": "QA 验收", "fromCol": 11, "toCol": 11 },
+    { "id": "p8",  "label": "用户验收", "fromCol": 12, "toCol": 12 }
+  ],
+  "nodes": [
+    { "id": "n0",  "lane": "leader", "col": 0, "type": "backend", "label": "待启动", "sublabel": "Leader 启动" },
+    { "id": "n1",  "lane": "arch",   "col": 1, "type": "backend", "label": "产品设计", "sublabel": "Architect 产出《产品设计文档》" },
+    { "id": "n2a", "lane": "pm",     "col": 2, "type": "security", "label": "需求评审", "sublabel": "PM 主导 · 评审：PM/Architect/User(拍板)" },
+    { "id": "n2b", "lane": "arch",   "col": 2, "type": "security", "label": "", "sublabel": "Architect 参与评审" },
+    { "id": "n2c", "lane": "user",   "col": 2, "type": "security", "label": "", "sublabel": "User 拍板" },
+    { "id": "n3",  "lane": "rd",     "col": 3, "type": "backend", "label": "RD 技术设计", "sublabel": "RD 产出《RD 技术设计》" },
+    { "id": "n4a", "lane": "rd",     "col": 4, "type": "security", "label": "RD 技术评审", "sublabel": "评审：Arch/RD/FE/QA/PM + User" },
+    { "id": "n4b", "lane": "arch",   "col": 4, "type": "security", "label": "", "sublabel": "Architect 审技术路线" },
+    { "id": "n4c", "lane": "fe",     "col": 4, "type": "security", "label": "", "sublabel": "FE 审接口契约" },
+    { "id": "n4d", "lane": "qa",     "col": 4, "type": "security", "label": "", "sublabel": "QA 审可测性" },
+    { "id": "n4e", "lane": "pm",     "col": 4, "type": "security", "label": "", "sublabel": "PM 审工期" },
+    { "id": "n4f", "lane": "user",   "col": 4, "type": "security", "label": "", "sublabel": "User 方案确认" },
+    { "id": "n5",  "lane": "fe",     "col": 5, "type": "backend", "label": "FE 技术设计", "sublabel": "FE 产出《FE 技术设计》" },
+    { "id": "n6",  "lane": "fe",     "col": 6, "type": "security", "label": "FE 设计评审", "sublabel": "QA 评审" },
+    { "id": "n7",  "lane": "qa",     "col": 7, "type": "backend", "label": "用例设计", "sublabel": "QA 产出《用例/联调设计》" },
+    { "id": "n8",  "lane": "qa",     "col": 8, "type": "security", "label": "用例设计评审", "sublabel": "评审：RD/FE" },
+    { "id": "n9",  "lane": "rd",     "col": 9, "type": "backend", "label": "RD 开发", "sublabel": "RD 开发+自测+MR" },
+    { "id": "n10", "lane": "fe",     "col": 10, "type": "backend", "label": "FE 开发", "sublabel": "FE 开发+自测+MR" },
+    { "id": "n9r", "lane": "cr",     "col": 9, "type": "security", "label": "CR 评审", "sublabel": "Code Reviewer 评审 RD MR" },
+    { "id": "n10r", "lane": "cr",    "col": 10, "type": "security", "label": "", "sublabel": "Code Reviewer 评审 FE MR" },
+    { "id": "n11", "lane": "qa",     "col": 11, "type": "security", "label": "QA 验收", "sublabel": "QA 按用例验收 + 缺陷闭环" },
+    { "id": "n12", "lane": "user",   "col": 12, "type": "security", "label": "用户验收", "sublabel": "User 最终拍板" }
+  ],
+  "edges": [
+    { "id": "e0",  "from": "n0",  "to": "n1",  "label": "启动" },
+    { "id": "e1",  "from": "n1",  "to": "n2a", "label": "产出后提评" },
+    { "id": "e2",  "from": "n2a", "to": "n3",  "label": "通过 → RD 技术设计" },
+    { "id": "e3",  "from": "n3",  "to": "n4a", "label": "产出后提评" },
+    { "id": "e4",  "from": "n4a", "to": "n5",  "label": "通过 → FE 技术设计" },
+    { "id": "e5",  "from": "n5",  "to": "n6",  "label": "产出后提评" },
+    { "id": "e6",  "from": "n6",  "to": "n7",  "label": "通过 → 用例设计" },
+    { "id": "e7",  "from": "n7",  "to": "n8",  "label": "产出后提评" },
+    { "id": "e8",  "from": "n8",  "to": "n9",  "label": "通过 → RD 开发" },
+    { "id": "e9",  "from": "n8",  "to": "n10", "label": "通过 → FE 开发", "variant": "dashed" },
+    { "id": "e10", "from": "n9",  "to": "n11", "label": "CR 通过(join)" },
+    { "id": "e11", "from": "n10", "to": "n11", "label": "CR 通过" },
+    { "id": "e12", "from": "n11", "to": "n12", "label": "验收通过" }
+  ],
+  "cards": [
+    { "dot": "amber", "title": "门禁节点（需评审/拍板）", "items": ["需求评审：PM + Architect + User 拍板", "RD 技术评审：Arch/RD/FE/QA/PM + User", "FE 设计评审：QA", "用例设计评审：RD/FE", "开发评审：Code Reviewer（并行组）", "QA 验收：QA（自评）", "用户验收：User 拍板"] },
+    { "dot": "emerald", "title": "产出节点（owner 产出）", "items": ["产品设计：Architect → product_doc", "RD 技术设计：RD → rd_design", "FE 技术设计：FE → fe_design", "用例设计：QA → case_design", "RD/FE 开发 → dev_notes + code_mr", "QA 验收 → test_result + defect"] }
+  ]
+}

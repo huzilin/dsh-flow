@@ -1,0 +1,1144 @@
+{
+  "roles": [
+    {
+      "role_id": "rd",
+      "name": "后端研发",
+      "note": "后端工程规范/接口数据设计/自测/开发完成检查（对照设计）"
+    },
+    {
+      "role_id": "fe",
+      "name": "前端研发",
+      "note": "前端工程规范/组件状态/联调/自测/开发完成检查（对照设计）"
+    },
+    {
+      "role_id": "cr",
+      "name": "代码评审",
+      "note": "评审维度：代码质量/设计落地/边界与回归风险；结论格式统一"
+    },
+    {
+      "role_id": "arch",
+      "name": "架构师",
+      "note": "技术路线/架构一致/产品方案把关（产品设计、架构规划、需求对齐产出者）"
+    },
+    {
+      "role_id": "pm",
+      "name": "产品经理",
+      "note": "需求价值/优先级/范围/工期依赖把关"
+    },
+    {
+      "role_id": "qa",
+      "name": "测试",
+      "note": "用例设计/验收/缺陷根因判定（domain 归属）"
+    },
+    {
+      "role_id": "inv",
+      "name": "调研员",
+      "note": "竞品调研/引入 or 重写建议（结论附依据）"
+    },
+    {
+      "role_id": "leader",
+      "name": "团队负责人",
+      "note": "编排推进：分派、协调、门禁决策（wb_decide）"
+    },
+    {
+      "role_id": "user",
+      "name": "用户",
+      "note": "需求真实性与最终拍板（破坏性操作授权）"
+    }
+  ],
+  "capabilities": [
+    {
+      "capability_id": "acceptance-test",
+      "name": "验收与缺陷管理",
+      "role_id": "qa",
+      "how": [
+        "读输入：prd/prd.md（AC）+ qa/cases.md（用例）+ rd/design.md + fe/design.md（接口协议）+ MR/featureBranch（代码）",
+        "按 AC + 接口协议创建测试数据构造脚本与种子（qa/data/，幂等可重建）+ 自动化/回归测试用例（qa/code/，含运行命令、依赖、输出）——随需求入库供回测与修复后复验",
+        "执行自动化 + 按用例验收：产出《测试用例与验收记录》（qa-acceptance 模板，含 AC 核对/联调/结论 + §3 测试资产必填）→ qa/test.md",
+        "发现缺陷：登记《缺陷文档》（qa-defect-management 模板：现象/复现/预期/实际 + 归属判定 domain=rd|fe，缺陷分析依赖代码）→ qa/defect.md",
+        "缺陷返工：wb_comment(domain=rd|fe) 自动路由 assignee → 返工 → resolve → 重跑自动化回测复验 → confirm/reopen 闭环（roundCount 拉锯）",
+        "登记产物 wb_add_artifact(test.md + qa/data/ + qa/code/ link, nodeId=当前节点) → 缺陷闭环后提评/推进"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/<需求名>/qa/test.md",
+          "template_path": "docs/templates/qa-acceptance-template.md",
+          "demo_path": "docs/templates/qa-acceptance-demo.md"
+        },
+        {
+          "doc_path": "docs/<版本号>/<需求名>/qa/defect.md",
+          "template_path": "docs/templates/qa-defect-management-template.md",
+          "demo_path": "docs/templates/qa-defect-management-demo.md"
+        }
+      ]
+    },
+    {
+      "capability_id": "alignment-cap",
+      "name": "需求对齐",
+      "role_id": "arch",
+      "how": [
+        "读输入：待启动版本需求池 + roadmap.md（上版本路线）",
+        "产出《需求对齐文档》alignment：版本方向/需求池梳理/范围界定",
+        "自检：价值评估可溯源、分歧有结论、后续动作明确",
+        "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=PM)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/align.md",
+          "template_path": "docs/templates/arch-version-scope-align-template.md",
+          "demo_path": "docs/templates/arch-version-scope-align-demo.md"
+        }
+      ]
+    },
+    {
+      "capability_id": "arch-tech-review",
+      "name": "技术方案评审（架构视角）",
+      "role_id": "arch",
+      "how": [
+        "读输入：被评审设计文档（rd-design/fe-design/case-design）",
+        "按 focus 评审：技术路线/架构一致/重构影响/调研建议合理性（评审维度见 how 结尾）",
+        "评论 wb_comment(reviewerRole=arch) → wb_review 表态",
+        "复核：意见闭环后确认（resolve）"
+      ],
+      "products": []
+    },
+    {
+      "capability_id": "arch-cap",
+      "name": "架构规划",
+      "role_id": "arch",
+      "how": [
+        "读输入：research.md（调研建议）+ align.md（版本方向/范围）",
+        "产出《架构规划》architecture：版本目标/能力规划/需求拆解",
+        "自检：拆解覆盖版本目标、架构约束可供 rd/fe-design 遵循",
+        "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=Leader/PM)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/arch_design.md",
+          "template_path": "docs/templates/arch-version-design-template.md",
+          "demo_path": "docs/templates/arch-version-design-demo.md"
+        }
+      ]
+    },
+    {
+      "capability_id": "backend-design",
+      "name": "后端技术设计",
+      "role_id": "rd",
+      "how": [
+        "读输入：prd/prd.md（产品设计）+ 版本 arch_design.md（大方向）",
+        "产出《RD 技术设计》：按模板 backend-design-doc 章节骨架逐节编写",
+        "自检质量门禁：接口/数据设计对照 prd/prd.md+arch_design.md 一致",
+        "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=评审归属)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/<需求名>/rd/design.md",
+          "template_path": "docs/templates/backend-design-doc-template.md",
+          "demo_path": "docs/templates/backend-design-doc-demo.md"
+        }
+      ]
+    },
+    {
+      "capability_id": "backend-dev",
+      "name": "后端开发",
+      "role_id": "rd",
+      "how": [
+        "读输入：rd/design.md + qa/cases.md（用例口径）+ featureBranch",
+        "开发实现 + 自测：按 dev-notes 模板记录实现-设计对照表",
+        "自检质量门禁：设计要点逐项落地、边界处理、回归风险说明",
+        "登记产物 wb_add_artifact(MR link, nodeId=当前节点) → 提评 wb_comment(to=cr)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/<需求名>/rd/dev.md",
+          "template_path": "docs/templates/dev-notes-template.md",
+          "demo_path": null
+        }
+      ]
+    },
+    {
+      "capability_id": "case-design-cap",
+      "name": "用例/联调设计",
+      "role_id": "qa",
+      "how": [
+        "读输入：rd/design.md + fe/design.md（前后端口径）",
+        "产出《用例/联调设计》：按模板 qa-testcase-review 章节骨架逐节编写",
+        "自检质量门禁：AC 逐条映射用例、联调场景可执行",
+        "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=RD/FE)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/<需求名>/qa/cases.md",
+          "template_path": "docs/templates/qa-testcase-review-template.md",
+          "demo_path": "docs/templates/qa-testcase-review-demo.md"
+        }
+      ]
+    },
+    {
+      "capability_id": "code-review",
+      "name": "代码评审",
+      "role_id": "cr",
+      "how": [
+        "读输入：MR link + dev-notes（实现-设计对照表）+ 对应设计文档",
+        "按质量门禁评审：代码质量/设计落地/边界与回归风险",
+        "评论 wb_comment(锚到代码/对照表) → wb_review 表态",
+        "复核：作者 resolve 后 confirm 或 reopen"
+      ],
+      "products": []
+    },
+    {
+      "capability_id": "decide-cap",
+      "name": "门禁决策",
+      "role_id": "leader",
+      "how": [
+        "读输入：评审表态汇总（reviewers[].state）+ 未解决评论",
+        "门禁判定：全部通过且无 open 评论 → pass；否则 reject（并行组可 targetBranch 部分回滚）",
+        "wb_decide 推进状态机（join 判定并行组）",
+        "记录决策 last_decision"
+      ],
+      "products": []
+    },
+    {
+      "capability_id": "fe-tech-review",
+      "name": "技术方案评审（前端视角）",
+      "role_id": "fe",
+      "how": [
+        "读输入：被评审设计文档（rd-design/fe-design/case-design）",
+        "按 focus 评审：接口契约可对接/前端口径（各审各的，评审维度见 how 结尾）",
+        "评论 wb_comment(reviewerRole=fe) → wb_review 表态",
+        "复核：意见闭环后确认（resolve）"
+      ],
+      "products": []
+    },
+    {
+      "capability_id": "final-approve",
+      "name": "最终拍板",
+      "role_id": "user",
+      "how": [
+        "读输入：qa/test.md（测试用例与验收记录，含验收结论）+ qa/defect.md",
+        "核对需求目标是否达成、是否可交付",
+        "wb_review 表态（通过/不通过）→ 收尾或打回",
+        "通过后 wb_update_requirement(status=已完成)"
+      ],
+      "products": []
+    },
+    {
+      "capability_id": "frontend-design",
+      "name": "前端技术设计",
+      "role_id": "fe",
+      "how": [
+        "读输入：prd/prd.md（产品方案）+ rd/design.md（接口契约）",
+        "产出《FE 技术设计》：按模板 frontend-design-doc 章节骨架逐节编写",
+        "自检质量门禁：接口消费与 rd 契约一致、关键路径可验证",
+        "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=QA)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/<需求名>/fe/design.md",
+          "template_path": "docs/templates/frontend-design-doc-template.md",
+          "demo_path": "docs/templates/frontend-design-doc-demo.md"
+        }
+      ]
+    },
+    {
+      "capability_id": "frontend-dev",
+      "name": "前端开发",
+      "role_id": "fe",
+      "how": [
+        "读输入：fe/design.md + qa/cases.md（用例口径）+ featureBranch",
+        "开发实现 + 自测：按 dev-notes 模板记录实现-设计对照表",
+        "自检质量门禁：接口消费与契约一致、关键路径可用、回归风险说明",
+        "登记产物 wb_add_artifact(MR link, nodeId=当前节点) → 提评 wb_comment(to=cr)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/<需求名>/fe/dev.md",
+          "template_path": "docs/templates/dev-notes-template.md",
+          "demo_path": null
+        }
+      ]
+    },
+    {
+      "capability_id": "plan-cap",
+      "name": "方案设计（任务）",
+      "role_id": "executor",
+      "how": [
+        "读输入：任务说明（缺陷报告/需求描述）+ arch_design.md",
+        "产出《方案文档》plan：根因/方案/影响面/验证方案/分支约定",
+        "自检：方案可落地、验证可执行、分支名符合 fix/<需求id>-<主题>",
+        "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=QA)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/<需求名>/plan.md",
+          "template_path": "docs/templates/plan-template.md",
+          "demo_path": null
+        }
+      ]
+    },
+    {
+      "capability_id": "pm-review",
+      "name": "价值/排期评审",
+      "role_id": "pm",
+      "how": [
+        "读输入：prd/prd.md（价值/优先级/范围）+ rd/design.md（工期依赖）",
+        "按 focus 评审：需求价值/优先级/范围/工期依赖（各审各的，评审维度见 how 结尾）",
+        "评论 wb_comment(reviewerRole=pm) → wb_review 表态",
+        "复核：意见闭环后确认（resolve）"
+      ],
+      "products": []
+    },
+    {
+      "capability_id": "product-design",
+      "name": "产品设计",
+      "role_id": "arch",
+      "how": [
+        "读输入：需求池需求描述 + 版本架构文档 arch_design.md（大方向）",
+        "产出《产品设计文档》：按 prd 模板章节骨架逐节编写",
+        "自检质量门禁：AC 可验证、范围与架构方向不冲突",
+        "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=PM)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/<需求名>/prd/prd.md",
+          "template_path": "docs/templates/prd-template.md",
+          "demo_path": "docs/templates/prd-demo.md"
+        }
+      ]
+    },
+    {
+      "capability_id": "qa-tech-review",
+      "name": "技术方案评审（测试视角）",
+      "role_id": "qa",
+      "how": [
+        "读输入：被评审设计文档（rd-design/fe-design/case-design）",
+        "按 focus 评审：可测性/联调口径/用例覆盖（各审各的，评审维度见 how 结尾）",
+        "评论 wb_comment(reviewerRole=qa) → wb_review 表态",
+        "复核：意见闭环后确认（resolve）"
+      ],
+      "products": []
+    },
+    {
+      "capability_id": "rd-tech-review",
+      "name": "技术方案评审（后端视角）",
+      "role_id": "rd",
+      "how": [
+        "读输入：被评审设计文档（rd-design/case-design）+ prd/prd.md",
+        "按 focus 评审：设计完整性/自测方案/后端口径（各审各的，评审维度见 how 结尾）",
+        "评论 wb_comment(reviewerRole=rd) → wb_review 表态",
+        "复核：意见闭环后确认（resolve）"
+      ],
+      "products": []
+    },
+    {
+      "capability_id": "research-cap",
+      "name": "竞品调研",
+      "role_id": "inv",
+      "how": [
+        "读输入：align.md（立项范围）+ roadmap.md（上版本路线）",
+        "调研竞品/开源方案：GitHub 等，产出《调研文档》research",
+        "自检：候选覆盖 align 范围、结论附依据、建议明确（引入/重写）",
+        "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=Architect)"
+      ],
+      "products": [
+        {
+          "doc_path": "docs/<版本号>/research.md",
+          "template_path": "docs/templates/research-open-source-tech-template.md",
+          "demo_path": "docs/templates/research-open-source-tech-demo.md"
+        }
+      ]
+    }
+  ],
+  "flow_templates": [
+    {
+      "flow_templates_id": "business",
+      "scope_options": [
+        "full",
+        "fe-only",
+        "be-only"
+      ]
+    },
+    {
+      "flow_templates_id": "tech",
+      "scope_options": [
+        "be-only",
+        "full"
+      ]
+    },
+    {
+      "flow_templates_id": "task",
+      "scope_options": []
+    },
+    {
+      "flow_templates_id": "plan",
+      "scope_options": []
+    }
+  ],
+  "flow_template_nodes": [
+    {
+      "flow_templates_id": "business",
+      "node_order": 0,
+      "key": "待启动",
+      "role_id": "leader",
+      "capability_id": "decide-cap",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 1,
+      "key": "产品设计",
+      "role_id": "arch",
+      "capability_id": "product-design",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [],
+      "expected_outputs": [
+        {
+          "capability_id": "product-design",
+          "label": "《产品设计文档》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 2,
+      "key": "需求评审",
+      "role_id": "pm",
+      "capability_id": "pm-review",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "pm",
+          "capability_id": "pm-review"
+        },
+        {
+          "role": "arch",
+          "capability_id": "arch-tech-review"
+        },
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 3,
+      "key": "RD 技术设计",
+      "role_id": "rd",
+      "capability_id": "backend-design",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "be",
+      "reviewers": [],
+      "expected_outputs": [
+        {
+          "capability_id": "backend-design",
+          "label": "《RD 技术设计》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 4,
+      "key": "RD 技术评审",
+      "role_id": "rd",
+      "capability_id": "rd-tech-review",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "be",
+      "reviewers": [
+        {
+          "role": "arch",
+          "capability_id": "arch-tech-review",
+          "scope": "be"
+        },
+        {
+          "role": "rd",
+          "capability_id": "rd-tech-review",
+          "scope": "be"
+        },
+        {
+          "role": "fe",
+          "capability_id": "fe-tech-review",
+          "scope": "fe"
+        },
+        {
+          "role": "qa",
+          "capability_id": "qa-tech-review"
+        },
+        {
+          "role": "pm",
+          "capability_id": "pm-review"
+        },
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 5,
+      "key": "FE 技术设计",
+      "role_id": "fe",
+      "capability_id": "frontend-design",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "fe",
+      "reviewers": [],
+      "expected_outputs": [
+        {
+          "capability_id": "frontend-design",
+          "label": "《FE 技术设计》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 6,
+      "key": "FE 设计评审",
+      "role_id": "fe",
+      "capability_id": "fe-tech-review",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "fe",
+      "reviewers": [
+        {
+          "role": "qa",
+          "capability_id": "qa-tech-review"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 7,
+      "key": "用例设计",
+      "role_id": "qa",
+      "capability_id": "case-design-cap",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [],
+      "expected_outputs": [
+        {
+          "capability_id": "case-design-cap",
+          "label": "《用例/联调设计》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 8,
+      "key": "用例设计评审",
+      "role_id": "qa",
+      "capability_id": "qa-tech-review",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "rd",
+          "capability_id": "rd-tech-review",
+          "scope": "be"
+        },
+        {
+          "role": "fe",
+          "capability_id": "fe-tech-review",
+          "scope": "fe"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 9,
+      "key": "RD 开发",
+      "role_id": "rd",
+      "capability_id": "backend-dev",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "rd",
+      "parallel_group": "dev-1",
+      "scope": "be",
+      "reviewers": [
+        {
+          "role": "cr",
+          "capability_id": "code-review"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "backend-dev",
+          "label": "《RD 开发说明》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 10,
+      "key": "FE 开发",
+      "role_id": "fe",
+      "capability_id": "frontend-dev",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "fe",
+      "parallel_group": "dev-1",
+      "scope": "fe",
+      "reviewers": [
+        {
+          "role": "cr",
+          "capability_id": "code-review"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "frontend-dev",
+          "label": "《FE 开发说明》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 11,
+      "key": "QA 验收",
+      "role_id": "qa",
+      "capability_id": "acceptance-test",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "qa",
+          "capability_id": "acceptance-test"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "acceptance-test",
+          "label": "《测试用例与验收记录》",
+          "kind": "document"
+        },
+        {
+          "capability_id": "acceptance-test",
+          "label": "《缺陷文档》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "business",
+      "node_order": 12,
+      "key": "用户验收",
+      "role_id": "user",
+      "capability_id": "final-approve",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 0,
+      "key": "待启动",
+      "role_id": "leader",
+      "capability_id": "decide-cap",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 1,
+      "key": "需求对齐",
+      "role_id": "rd",
+      "capability_id": null,
+      "mode": "align",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 2,
+      "key": "RD 技术设计",
+      "role_id": "rd",
+      "capability_id": "backend-design",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "be",
+      "reviewers": [],
+      "expected_outputs": [
+        {
+          "capability_id": "backend-design",
+          "label": "《RD 技术设计》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 3,
+      "key": "RD 技术评审（按需）",
+      "role_id": "rd",
+      "capability_id": "rd-tech-review",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "be",
+      "reviewers": [
+        {
+          "role": "arch",
+          "capability_id": "arch-tech-review",
+          "scope": "be"
+        },
+        {
+          "role": "rd",
+          "capability_id": "rd-tech-review",
+          "scope": "be"
+        },
+        {
+          "role": "fe",
+          "capability_id": "fe-tech-review",
+          "scope": "fe"
+        },
+        {
+          "role": "qa",
+          "capability_id": "qa-tech-review"
+        },
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 4,
+      "key": "FE 技术设计（按需）",
+      "role_id": "fe",
+      "capability_id": "frontend-design",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "fe",
+      "reviewers": [],
+      "expected_outputs": [
+        {
+          "capability_id": "frontend-design",
+          "label": "《FE 技术设计》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 5,
+      "key": "用例设计",
+      "role_id": "qa",
+      "capability_id": "case-design-cap",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "rd",
+          "capability_id": "rd-tech-review",
+          "scope": "be"
+        },
+        {
+          "role": "fe",
+          "capability_id": "fe-tech-review",
+          "scope": "fe"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "case-design-cap",
+          "label": "《用例设计》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 6,
+      "key": "并行开发",
+      "role_id": "rd",
+      "capability_id": "backend-dev",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "rd",
+      "parallel_group": "dev-1",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "cr",
+          "capability_id": "code-review"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "backend-dev",
+          "label": "《RD 开发说明》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 7,
+      "key": "QA 验收",
+      "role_id": "qa",
+      "capability_id": "acceptance-test",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "qa",
+          "capability_id": "acceptance-test"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "acceptance-test",
+          "label": "《测试用例与验收记录》",
+          "kind": "document"
+        },
+        {
+          "capability_id": "acceptance-test",
+          "label": "《缺陷文档》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "tech",
+      "node_order": 8,
+      "key": "用户验收",
+      "role_id": "user",
+      "capability_id": "final-approve",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "task",
+      "node_order": 0,
+      "key": "待启动",
+      "role_id": "leader",
+      "capability_id": "decide-cap",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "task",
+      "node_order": 1,
+      "key": "需求对齐",
+      "role_id": "executor",
+      "capability_id": null,
+      "mode": "align",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "task",
+      "node_order": 2,
+      "key": "方案评审",
+      "role_id": "executor",
+      "capability_id": "plan-cap",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "qa",
+          "capability_id": "qa-tech-review"
+        },
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "plan-cap",
+          "label": "《方案文档》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "task",
+      "node_order": 3,
+      "key": "开发",
+      "role_id": "executor",
+      "capability_id": "backend-dev",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "cr",
+          "capability_id": "code-review"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "backend-dev",
+          "label": "《开发说明》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "task",
+      "node_order": 4,
+      "key": "QA 验收",
+      "role_id": "qa",
+      "capability_id": "acceptance-test",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "qa",
+          "capability_id": "acceptance-test"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "acceptance-test",
+          "label": "《测试用例与验收记录》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "task",
+      "node_order": 5,
+      "key": "用户验收",
+      "role_id": "user",
+      "capability_id": "final-approve",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "plan",
+      "node_order": 0,
+      "key": "待启动",
+      "role_id": "leader",
+      "capability_id": "decide-cap",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [],
+      "expected_outputs": []
+    },
+    {
+      "flow_templates_id": "plan",
+      "node_order": 1,
+      "key": "立项（需求对齐）",
+      "role_id": "arch",
+      "capability_id": "alignment-cap",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "pm",
+          "capability_id": "pm-review"
+        },
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "alignment-cap",
+          "label": "《需求对齐文档》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "plan",
+      "node_order": 2,
+      "key": "调研",
+      "role_id": "inv",
+      "capability_id": "research-cap",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "arch",
+          "capability_id": "arch-tech-review"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "research-cap",
+          "label": "《调研文档》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "plan",
+      "node_order": 3,
+      "key": "架构规划",
+      "role_id": "arch",
+      "capability_id": "arch-cap",
+      "mode": "produce",
+      "gate": 1,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [
+        {
+          "role": "pm",
+          "capability_id": "pm-review"
+        },
+        {
+          "role": "user",
+          "capability_id": "final-approve"
+        }
+      ],
+      "expected_outputs": [
+        {
+          "capability_id": "arch-cap",
+          "label": "《架构规划》",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "flow_templates_id": "plan",
+      "node_order": 4,
+      "key": "创建需求·启动版本",
+      "role_id": "leader",
+      "capability_id": "decide-cap",
+      "mode": "produce",
+      "gate": 0,
+      "branch": "",
+      "parallel_group": "",
+      "scope": "",
+      "reviewers": [],
+      "expected_outputs": []
+    }
+  ],
+  "meta": [
+    {
+      "meta_key": "schema_version",
+      "meta_value": "28"
+    }
+  ]
+}
