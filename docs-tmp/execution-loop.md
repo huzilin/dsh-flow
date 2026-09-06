@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：currentTrigger 决策树（trigger 词汇）、subagent 返回契约（完成/新反馈/阻塞/异常四类）——被 v3 相位判据表（§0.6）+ 完成上报 event:'complete' + reviewState 轮转取代。
+**仍有效**：schedule 包+端点兜底载体、最小返回集、three-way 身份校验、wb_assign_task/wb_task_update 心跳（均已并入 data-tools-final）。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # 执行闭环链路：触发 → 派发 → 执行 → 返回 → 再调度
 
 > **状态**：设计文档（临时稿）。把「agent 发起任务 → subagent 执行并返回 → agent 再调度 → subagent 再执行」的完整闭环固化，供后续推演使用。

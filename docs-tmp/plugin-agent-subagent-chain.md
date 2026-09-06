@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：文中 trigger/hook 词汇与「Leader 启动器」编排描述（v3 下 wbflow 程序直启 + Leader 可选）。
+**仍有效**：D1-D6 机制结论——subagent 程序化直启实测、persona 由节点配置传入、followup 唤醒、D6 节点会话入口（并入 sessions 表与按需会话通道）。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # plugin → 主 agent → subagent 执行链路推演（可行性验证 + 设计定稿）
 
 > **状态**：链路推演定稿（2026-08-27）。主推演「执行闭环确认」工单的输入。

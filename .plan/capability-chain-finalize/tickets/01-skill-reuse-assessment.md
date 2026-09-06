@@ -28,3 +28,8 @@ mattpocock/skills 技能包（本地已装全套 mp-\*，上游为 [mattpocock/s
 2. **dev + self_test 合并**单动作（三子步实现/自测/记录），trigger 链简化（dev_complete 只剩 submit 唯一动作），v2 草案第 9 条冲突消解 → 03 票执行
 3. **模板变更已落盘**：4 模板加「动机场景（用户故事）」节 + 骨架标注同步（prd/arch/backend/fe）→ 与 05 票（模板骨架同步）同向，05 需覆盖 qa 系列遗留 + 核对 gen_flow_rows.py 引用
 4. code-review 单动作串行两子步（Standards→Spec）；codebase-design 接口面原则 4 条进 backend-design（受控术语：deep module/接口面/seam）；to-tickets/triage 挂 decide-cap.create_reqs；writing 三件套挂需求对齐环节（align.discuss + alignment-cap.produce）；domain-modeling 挂设计类环节
+
+## 结论时效（2026-09-05 v3 定稿后标注）
+
+- **已取代**：回填裁决 1（respond_to_qa 补建）——已撤销（缺陷响应由轨道规则承载：跨节点评审 respond=clarify、节点内 CR=fix_on_review、打回返工=revise/diagnosing-bugs）；裁决 6 中「writing 三件套挂需求对齐」——已消解（对齐节点无专属能力，node action to-brd 承载）。
+- **仍有效**：dev+self_test 合并（现为 implement-techdesign 编排内含自测）、动机场景节、接口面原则、code-review Standards→Spec 两子步、to-tickets/triage 挂 create_reqs、domain-modeling 挂设计环节。

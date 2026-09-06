@@ -43,3 +43,8 @@ D1–D5 与前置能力已在输入素材定稿（见上）；本工单三个待
 3. **必补/升级工具** ✅（收敛）：**wb_assign_task**（Leader 派发时写 TASK：goal/context/action_id/assignee_role——派发事实记录 + D4 身份校验源）；**wb_task_update**（**仅心跳 ack/progress，取消 done**——完成由程序从数据层推导，不靠显式 done 汇报）；**wb_my_task 升级**（返回 currentTrigger + activeActions + action[最小集]，见 how-spec-v2 / my-task-response-model）。cd duty 载体 = D1 定稿（schedule 包 + 端点兜底）。
 
 **联动**：execution-loop.md 标记 D1–D5/数据层即返回/工具缺口已定稿，待 MVP 定稿收尾时统一整理；team preset 角色补齐随实现阶段。
+
+## 结论时效（2026-09-05 v3 定稿后标注）
+
+- **已取代**：currentTrigger 计算规则（trigger 决策树词汇）——被 v3 相位判据表（capability-model-final §0.6/§1.2 reviewState 轮转）取代；「常驻 Leader」——被 subagent 程序化直启弱化（Leader 可选，wbflow 程序承担启动）。
+- **仍有效**：schedule 包+端点兜底、最小返回集 relatedNodes、three-way 身份校验、wb_assign_task/wb_task_update（均并入 data-tools-final；complete 完成上报为其精化）。

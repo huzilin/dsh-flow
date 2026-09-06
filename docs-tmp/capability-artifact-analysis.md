@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：评审型能力划分（review/review_response 双动作、focus 字段）被评审能力对象化（{role}.{object}-review）与 reviewState 审批子状态取代；19 能力池、trigger 挂载表述过时。
+**仍有效**：产物链路分析中与 ProductType 相关的结论。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # 能力 × 产物 逐能力分析（临时稿）
 
 > **状态**：临时分析文档（未并入架构总集）。确认后合并至 `docs/v1.0/arch_design.md`（建议作为 §8.7「能力 × 产物 · 逐能力分析」或独立附录）。

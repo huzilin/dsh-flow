@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：action 字段（trigger 枚举、when_to_use/reference/focus）与 trigger 词汇被 v3 相位模型（on=可配相位 4 值）取代。
+**仍有效**：inputs[]（ProductType+use_threads 默认 true）、sessionsByNode 废弃裁决、relatedNodes 最小返回集。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # 产物可见性建模 v2：节点产物视图 + 评论增量 + how 声明依赖
 
 > **状态**：方案稿 v2（未改任何架构/代码文档）。v2 吸收用户三点纠正：①产物含评论/评审增量；②产物区分当前/历史节点；③可见性由 **capability.how 声明「看定义节点 X 的产物」** 驱动，取代 `artifactsToReview` 特设字段。

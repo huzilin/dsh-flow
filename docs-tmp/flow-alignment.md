@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：节点拓扑全表（business 含用例设计/用例设计评审节点、tech 13、plan 拆分前 gate 值）——被四流程 v3.1 取代（business 13 / tech 11 / task 8 / plan 9；用例两节点删除；gate 语义=有准出判定即 1）。
+**仍有效**：§5 评审拆分判据思想（其「一律拆独立评审节点」已被评审双轨制修正：技术设计节点内嵌 CR + 跨节点评审节点并存）。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # 四流程 · 节点与人员对齐（流程图）
 
 > **目的**：澄清 4 个流程的节点结构与涉及人员（owner + reviewers），作为 Excel 链路表修正与能力推演的对齐基准。

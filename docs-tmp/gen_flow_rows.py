@@ -1,3 +1,6 @@
+# ⚠️ 已过时（2026-09-05 v3 编排模型定稿）：本生成器基于旧模型（旧节点拓扑/trigger 词汇/
+# respond_to_cr 等已废止动作）——将按 v3.1 节点配置（business/flow-derivation-tech-task-plan.md）
+# 重写（工单 07 seed 重写计划）；配套 能力链路-流程-节点-能力-动作.xlsx 同步过时。勿据本文档生成。
 # -*- coding: utf-8 -*-
 """工作台能力链路 xlsx 生成数据：流程 -> 节点 -> 能力 -> action -> how
 来源：workbench-sql/seed.json（流程/节点/能力绑定）+ docs-tmp/capability-review-v2.md（action/how 推演）

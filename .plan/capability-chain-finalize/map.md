@@ -1,5 +1,7 @@
 # 能力链路推演定稿 · Wayfinder 地图
 
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿）**：下方 Decisions-so-far 各条中涉及 trigger 词汇、轮次制循环、评审能力名（arch-tech-review 等）、how 字段的表述已被 **v3 两层属性状态机 + 评审能力对象化** 取代——现行权威 = `dsh-flow/docs-tmp/capability-model-final.md` v3 及四份配套文档（提交 d6cefcf/77f9d96/41f7c06）；工单内时效标注见各 ticket「结论时效」节。
+
 ## Destination
 
 **将 MVP 版本（v1.0）的设计确定下来**——docs-tmp 推演（产物可见性 v2 → 能力×动作 → 执行闭环 → wb_my_task 模型 → 四流程对齐）逐个敲定，形成**可供实现阶段直接照做的完整 MVP 设计**（docs-tmp 定稿层）。

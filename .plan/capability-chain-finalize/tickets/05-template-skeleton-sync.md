@@ -44,3 +44,7 @@ claimed_at: 2026-09-02
 - flow-alignment.md 节点表（business A7/A8、tech B6/B7 删除、QA 验收描述改"用例设计+执行验收一体"）——同上移交
 
 **同步规则记录**：正文标题以骨架标注为准；新增节必须同步骨架表；废弃模板移出 docs/templates；ProductType 废弃后其引用（脚本/能力表/流程）随能力回填工单统一清理。
+
+## 结论时效（2026-09-05 复核）
+
+qa-acceptance-template 重写与用例节点清理结论**仍有效**；gen_flow_rows/xlsx 的 case_design 行清理未失效但生成器整体已标过时（将按 v3.1 重写）。

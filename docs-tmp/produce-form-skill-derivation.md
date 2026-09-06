@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：case_design 相关推导（qa 职责重定义后废弃）、how 挂载表述（skill 挂载制后 how 退役）。
+**仍有效**：to-xxx 产出 skill 形态推导（Process+Template+门禁）。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # 产出形态 × skill 固化推演（v2 第 1 条骨架的形态分化依据）
 
 > **状态**：推演临时稿（2026-09-02）。供 how 编写规范 v2 第 1 条（五段式骨架）定稿使用；是工单 05 的输入之一。

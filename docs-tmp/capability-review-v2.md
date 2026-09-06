@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：19 能力总览（含 case-design-cap、final-approve、decide-cap.decide、respond_to_cr/respond_to_qa/retest）、how 四要素字段、trigger 枚举、「自评+评审」位——分别被 case-design-cap/final-approve 退役、decide 退役、clarify/fix_on_review/revise/diagnosing-bugs 轨道分立、skill 挂载制、可配相位+reviewState、自审禁令与评审对象化取代。
+**仍有效**：inputs 声明格式（ProductType 化）、各产物 AC 对照思路。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # 能力 · 逐能力 Review（新产物可见性模型 v2）
 
 > **状态**：临时评审稿。基于 `artifact-visibility-rework.md`（产物可见性 v2）= 统一产物模型（document 含评论 / link / 节点级 comment）+ 可见性由 `capabilities.inputs` 声明驱动。

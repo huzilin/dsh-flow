@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：判定 1（respond_to_qa 补建——已撤销，缺陷响应由轨道规则承载：跨节点=clarify、节点内=fix_on_review、打回返工=revise/diagnosing-bugs）；判定 2 表述（dev+self_test 合并——现为 implement-techdesign 编排内含自测）；writing 三件套挂需求对齐（已消解——对齐节点无专属能力，node action to-brd）；code-review 挂载表述（评审能力对象化后为 code-review-skill）。
+**仍有效**：接口面原则 4 条进技术设计门禁、to-tickets/triage 挂 create_reqs、维度判定方法论。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # 技能包评估稿：mattpocock skills × 团队项目工作台
 
 > **状态**：评估稿 v1（2026-08-27 定稿）。本稿为 wayfinder 地图「技能包评估地图」票 06（技能→能力×动作 how 参考映射采纳判定）的 Resolution 产物。

@@ -51,3 +51,8 @@ claimed_at: 2026-09-05
 5. **跨流程复用验证（第 4 项）**：18 能力 × 4 流程矩阵全覆盖，**无流程专属能力/动作**；差异仅节点组合+评审位集合+scope 裁剪；inputs[]=可见性上限、按流程可用产物动态注入 my_task（skill 内写明来源，实现时校验）。
 
 **遗留**：无。**前沿**：工单 07（数据层+工具清单定稿——my_task 上下文契约、wb_assign_task/wb_task_update、schema 调整以其为输入）。
+
+## 结论时效（2026-09-05 v3 定稿后标注）
+
+Answer 第 1 项 **trigger 8 词模型与轮次制澄清循环已被 v3 两层属性状态机取代**（node.state 4 相位 + node.reviewState 7 值 + 轨道规则：节点内 CR 只修复不澄清/跨节点双动作；审批类节点 review=产出位；评审能力对象化 {role}.{object}-review；after-exec 等 hook 退役）——现行权威见 `capability-model-final.md` v3 及提交 77f9d96/41f7c06。
+Answer 其余各项仍有效：case-design-cap 移除、skill 挂载制、to-brd/brd、跨流程复用验证结论（能力池计数已因对象化变为 24，见 actions-final）。

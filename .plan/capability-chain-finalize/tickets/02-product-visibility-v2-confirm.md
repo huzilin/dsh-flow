@@ -26,3 +26,7 @@ docs-tmp/artifact-visibility-rework.md 中遗留的待确认点逐个敲定：
 3. **sessionsByNode 去留** ✅ 定稿（用户 2026-09-02）：**废弃 sessionsByNode**——被最小返回集（工单 04 D3）的 relatedNodes（当前+相关节点，顶层 doc/link/评论平等）取代；不再全量返回全需求每 node 会话（与"只返回具体 action + 相关上下文"方向一致，防上下文爆炸；深排查需求如需要可走按需查询，不随 my_task 返回）。
 
 **联动影响**：my-task-response-model.md 移除 sessionsByNode 表述（现有补充说明 §4 提的旧结构待改）；capability-artifact-analysis §3.3 sessionsByNode 条目标记废弃；inputs/use_threads 语义进 how-spec-v2 字段收敛后的相关定义。
+
+## 结论时效（2026-09-05 复核）
+
+三项结论（inputs ProductType 化 / use_threads 默认 true / sessionsByNode 废弃）**全部仍有效**，已并入 v3（capability.inputs[] 与 data-tools-final）。

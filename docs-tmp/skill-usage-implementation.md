@@ -1,3 +1,7 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：能力×动作映射表（旧能力名/trigger 词汇）、case_design 引用。
+**仍有效**：交互模式结论（对齐开场白、subagent 直接对话）。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # 技能使用实现清单（mp-* 37 技能最终处置）
 
 > **状态**：实现期清单（2026-09-02 定稿）。37 个 mp-* 技能全部裁定完毕，按四层归类；含交互模式、qa 职责重定义、开发链路编排——实现期直接照此落位。

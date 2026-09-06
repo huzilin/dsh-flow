@@ -1,3 +1,6 @@
+> ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：返回结构全表（sessionsByNode、roleObjective/behaviors/onFeedback、capability.how[]）——被 data-tools-final 的 wb_my_task v3 契约取代（currentPhase + activeActions{action_id,on,skill|inline,上下文} + relatedNodes 最小集 + three-way 校验）。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
+
+
 # `wb_my_task` 预期返回 JSON 模型（示例）
 
 > **依据**：`artifact-visibility-rework.md`（产物可见性建模 v2）+ `.workbench/req-019` 真实数据。
