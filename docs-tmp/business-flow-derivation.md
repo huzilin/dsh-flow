@@ -57,7 +57,7 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: '' | reviewers: []
 | entry | ——跳过（非交互型） | —— | —— | —— |
 | exec 首次 | product-design.produce | to-prd | pm | 完成上报+判据（product_doc 落库）→ 提评迁移节点 3 |
 | exec 重入 | product-design.revise | revise（响应节点 3 rejected——基于评审结论逐条修订） | pm | 完成上报+校验（按节点 3 rejected 结论返工）→ 重新提评 |
-| review | ——跳过（评审在节点 3，跨节点） | —— | —— | —— |
+| review | ——跳过（评审在节点 3，跨节点；**prd 不内嵌 CR**——CR 职责域=技术产物，✅N4 2026-09-05） | —— | —— | —— |
 | respond | ——跳过（响应在节点 3，跨节点路由） | —— | —— | —— |
 
 **reviewState**: 恒 '-'。

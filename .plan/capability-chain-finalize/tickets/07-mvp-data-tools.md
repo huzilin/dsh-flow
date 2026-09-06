@@ -1,7 +1,7 @@
 ---
 type: grilling
 blocked_by: []
-claimed_by: agent session (2026-09-05)
+claimed_by: agent session (2026-09-05, closed 2026-09-07)
 claimed_at: 2026-09-05
 ---
 
@@ -26,3 +26,14 @@ claimed_at: 2026-09-05
 3. **seed.json 演进路径**：现 capabilities 仅 how 字符串数组 → 目标形态（actions[]/inputs）的迁移步骤。
 
 依据：how-spec-v2.md（字段收敛）、plugin-agent-subagent-chain.md（D1-D5/返回语义）、工单 02（use_threads/sessionsByNode）、工单 03（能力终稿——本工单依赖其产出）、workbench-sql/schema.sql、execution-loop.md §12。
+
+## Answer（2026-09-07 关闭）
+
+产出 = `docs-tmp/data-tools-final.md`（提交 d6cefcf，含后续修正 bc7220f）：
+
+1. **schema v0.29**（对照 11 表逐表 delta）：flow_templates→flow_defs / flow_template_nodes→flow_def_nodes 更名（引用列 flow_defs_id、实例列 def_node_id）；capabilities 移 how 加 inputs/actions；flow_def_nodes 加 template_node_id/node_type(四值)/user_gate/node_actions（激活清单+node action 两类条目）；flow_nodes 加 review_state(7 值)/reopen_source（state 白名单收窄 4 相位）；tasks 加 action_id（completed 仅 plugin 判据校验后置）；artifacts 加 product_type（含 brd，−case_design）；issues 加 escalate；新表 sessions；flows 加 dependencies（依赖树 plugin 内置）。边界：project registry=plugin 全局配置（非 sqlite）；需求/版本 JSON 源不动；幂等声明三条。
+2. **wb_* 工具 22→23**：+wb_assign_task / wb_task_update（event:'complete' 相位收口信号+判据校验防谎报）；wb_decide 移出 agent 清单（裁决=plugin 内置轮转+User 拍板 UI→service）；wb_my_task 升级（currentPhase+activeActions+relatedNodes 最小集+three-way）；wb_review 契约=写 reviewers[].verdict（barrier 判据=全评审位 verdict.round==rolled_back_count）；resolve/reopen+escalate。
+3. **seed 演进路径**：直接重写（不增量迁移）+ gen_flow_rows.py 按 v3.1 重写。
+4. **扫描器参数表**：agent/status 判 running/ended；5min followup 催办；10min user 介入（参数化）。
+
+**验收修正记录**（review 轮）：技术设计节点补内嵌 CR（77f9d96）；respond 收敛 clarify 单挂+一 state 一动作全量 sweep（41f7c06/647a493）；协议复检修正（bc7220f）。**遗留**：无（N4 已落：prd 不内嵌 CR）。**前沿**：工单 08 交互层定稿。
