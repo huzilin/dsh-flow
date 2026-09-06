@@ -113,7 +113,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 
 - **skill 挂载制**：复杂动作挂 skill（内部按需编排其他 skill、自带目标/自检/门禁）；短动作一句话内联；**how 四要素退出框架**（how-spec-v2 降级为 skill 写作参考）。
 - **依赖注入**：my_task 上下文（{action_id, skill, nodeId, reqId, inputs 引用}）；inputs[]=跨流程可见性上限，按流程可用产物动态注入（skill 内写明来源，实现阶段校验）。
-- **节点动作激活清单**：能力动作=通用词表；**节点决定激活子集**（flow_template_nodes.node_actions=[{capability_id, actions:[…]}]，与 reviewers[] 同模式）。例：backend-dev.clarify 仅 QA 验收节点激活（缺陷确认/归属争议）；开发节点激活 [dev, diagnosing-bugs(exec 重入), fix_on_review(respond)]——无 clarify。
+- **节点动作激活清单**：能力动作=通用词表；**节点决定激活子集**（flow_template_nodes.node_actions=[{capability_id, actions:[…]}]，与 reviewers[] 同模式）。按域分立（2026-09-05 用户纠错）：**开发节点激活 [dev, diagnosing-bugs(exec 重入——响应打回), fix_on_review(respond——只响应 CR 不做澄清)]，无 clarify**；**文档产出节点激活 [produce, revise(exec 重入——响应打回修订), clarify(respond——只澄清不修复)]，无 diagnosing-bugs**；backend-dev/frontend-dev.clarify 仅 QA 验收节点激活（缺陷确认/归属争议）。
 - **issue 即产物**：评审类动作产出=issue（plugin 内一等数据，展示于文档/节点 comment），outputProductTypes 空=正确语义。
 - **完成上报**：长任务/交互等待动作完成时 `event:'complete'`（上报即数据写入，plugin 校验判据，谎报拒绝，遗漏→扫描器兜底）；短动作（表态/澄清/复核）数据写入即完成，不上报。
 
@@ -167,6 +167,9 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 | after-exec hook（提评+评审派发） | 两层属性模型吸收其职责；hook 层全部退役 | §5 完成上报 + §1.2 轮转 |
 | 取消独立评审节点（提案） | 评审双轨制确立：跨节点评审需独立节点承载 | §3 |
 | pending / done / gate 状态占位 | 编排进度展示无占位；approve=通过终态 | §1.1 |
+| pm-review@产品设计评审（自审位，gen_flow_rows:88） | 文档评审产出者不自审（节点=送评委）；自审在产出阶段 | §2 审批类 + business 配置 |
+| decide-cap.decide（join 裁决动作） | join 裁决=plugin 内置轮转吸收；decide-cap 收缩为 create_reqs 单动作 | §1.3 + capability-actions-final |
+| final-approve 能力 | User 终审职责由 flow_def_nodes.user_gate 配置位承载 | §1.3 |
 
 ---
 
