@@ -286,18 +286,94 @@ let cur=0;
 function show(){panels.forEach(([id],i)=>document.getElementById(id).classList.toggle('on',i===cur));document.getElementById('lb').textContent=panels[cur][1];scrollTo(0,0)}
 function mv(d){cur=(cur+d+panels.length)%panels.length;show();history.replaceState(null,'','#'+panels[cur][0])}
 document.addEventListener('keydown',e=>{if(/input|textarea/i.test(document.activeElement.tagName))return;if(e.key==='ArrowRight')mv(1);if(e.key==='ArrowLeft')mv(-1)});
-function setScope(sc){
-  document.querySelectorAll('#flow .nd').forEach(g=>{
-    const expr=g.dataset.s;
-    let show=true;
-    if(sc==='rd') show = expr==='any'||expr.includes('rd');
-    else if(sc==='fe') show = expr==='any'||expr.includes('fe');
-    else show = true;
-    g.style.display=show?'':'none';
-  });
-  document.querySelectorAll('.flowhead .sbtn').forEach(b=>b.classList.remove('on'));
-  event.target.classList.add('on');
+const NODES=[
+ {k:'待启动',s:'any',st:'done'},{k:'需求对齐',s:'any',st:'done'},{k:'产品设计',s:'any',st:'done'},
+ {k:'产品设计评审',s:'any',st:'done'},
+ {k:'RD 技术设计',s:'rd|full',st:'done',cap:'rd'},{k:'RD 技术评审',s:'rd|full',st:'cur',cap:'rd',rb:1,ph:'clarifying'},
+ {k:'FE 技术设计',s:'fe|full',st:'todo',cap:'fe'},{k:'FE 设计评审',s:'fe|full',st:'todo',cap:'fe'},
+ {k:'RD 开发',s:'rd|full',st:'todo',cap:'rd',pg:'dev'},{k:'FE 开发',s:'fe|full',st:'todo',cap:'fe',pg:'dev'},
+ {k:'QA 验收',s:'full',st:'todo'},{k:'用户验收',s:'any',st:'todo'},{k:'完成',s:'any',st:'todo'},
+];
+function renderSet(node,scope){
+  const e=node.s;
+  if(e==='any')return true;
+  if(e==='full')return scope==='full';
+  if(e==='rd|full')return scope==='full'||scope==='rd';
+  if(e==='fe|full')return scope==='full'||scope==='fe';
+  return true;
 }
+function layoutFlow(scope){
+  const vis=NODES.map((n,i)=>({...n,idx:i})).filter(n=>renderSet(n,scope));
+  const NW=118,NH=38,GAP=36,padX=10,centerY=88,topY=20,botY=122;
+  const groups=[];let cur=null;
+  vis.forEach(n=>{
+    const pg=n.pg&&vis.filter(v=>v.pg===n.pg).length>1;
+    if(pg){if(!cur||cur.pg!==n.pg){cur={pg:n.pg,items:[]};groups.push(cur)}cur.items.push(n)}
+    else{cur=null;groups.push({pg:null,items:[n]})}
+  });
+  let x=padX;
+  groups.forEach(g=>{g.width=NW;g.x=x;x+=NW+GAP});
+  const W=x-padX+10,H=botY+NH+30;
+  let paths=[],nodes='';
+  groups.forEach((g,gi)=>{
+    let items=[];
+    if(g.pg){
+      ['rd','fe'].forEach(sd=>{
+        g.items.filter(n=>n.cap===sd).forEach(n=>{
+          items.push({n,x:g.x,y:sd==='rd'?topY:botY,sd});
+        });
+      });
+      svg_lane='';
+      nodes+=`<text x="${g.x+NW/2}" y="${topY-6}" text-anchor="middle" font-size="10.5" font-weight="600" fill="#7ab8ff">RD</text>`;
+      nodes+=`<text x="${g.x+NW/2}" y="${botY+NH+16}" text-anchor="middle" font-size="10.5" font-weight="600" fill="#58c07a">FE</text>`;
+    } else {
+      items.push({n:g.items[0],x:g.x,y:centerY-NH/2,sd:null});
+    }
+    g.items=items;
+    for(let k=0;k<items.length-1;k++){
+      const a=items[k],b=items[k+1];
+      if(a.y===b.y)paths.push('M'+(a.x+NW)+','+(a.y+NH/2)+' H'+b.x);
+    }
+  });
+  groups.forEach((g,gi)=>{
+    if(gi===0)return;
+    const prev=groups[gi-1];
+    if(prev.items.length===1&&g.items.length===1){
+      const a=prev.items[0],b=g.items[0];
+      if(a.y===b.y)paths.push('M'+(a.x+NW)+','+(a.y+NH/2)+' H'+b.x);
+      else{const jx=Math.round((a.x+NW+b.x)/2);paths.push('M'+(a.x+NW)+','+(a.y+NH/2)+' H'+jx+' V'+(b.y+NH/2)+' H'+b.x)}
+    } else if(prev.items.length===1){
+      const a=prev.items[0];
+      g.items.forEach(p=>{const jx=Math.round((a.x+NW+p.x)/2);paths.push('M'+(a.x+NW)+','+(a.y+NH/2)+' H'+jx+' V'+(p.y+NH/2)+' H'+p.x)});
+    } else if(g.items.length===1){
+      const b=g.items[0];
+      prev.items.forEach(p=>{const jx=Math.round((p.x+NW+b.x)/2);paths.push('M'+(p.x+NW)+','+(p.y+NH/2)+' H'+jx+' V'+(b.y+NH/2)+' H'+b.x)});
+    } else {
+      g.items.forEach((p,k)=>{const a=prev.items[k];paths.push('M'+(a.x+NW)+','+(a.y+NH/2)+' H'+p.x)});
+    }
+  });
+  vis.forEach((n,seq)=>{
+    const g=groups.find(g=>g.items.some(it=>it.n===n));
+    const it=g.items.find(it=>it.n===n);
+    const selected=n.st==='cur';
+    const edge=n.pg?(n.cap==='rd'?'#7ab8ff':'#58c07a'):(selected?'#e8b34a':'#2b2f3d');
+    const fill=selected?'rgba(232,179,74,0.10)':'#1b1e27';
+    const dot=n.st==='done'?'#58c07a':(n.st==='cur'?'#e8b34a':'#4a4f60');
+    nodes+=`<g><rect x="${it.x}" y="${it.y}" width="${NW}" height="${NH}" rx="7" fill="${fill}" stroke="${selected?'#e8b34a':edge}" stroke-width="${selected?2.4:1.2}"/>`;
+    nodes+=`<circle cx="${it.x+12}" cy="${it.y+NH/2}" r="4" fill="${dot}"/>`;
+    nodes+=`<text x="${it.x+NW/2+6}" y="${it.y+NH/2+4}" text-anchor="middle" font-size="11.5" fill="#e6e8ef">${seq} ${n.k}</text>`;
+    if(n.rb)nodes+=`<text x="${it.x+NW-10}" y="${it.y+NH/2+4}" text-anchor="end" font-size="9.5" fill="#d98080">↩${n.rb}</text>`;
+    if(n.ph)nodes+=`<rect x="${it.x+2}" y="${it.y+NH+3}" width="64" height="15" rx="4" fill="rgba(179,157,255,.15)"/><text x="${it.x+34}" y="${it.y+NH+14}" text-anchor="middle" font-size="9.5" fill="#b39dff">${n.ph}</text>`;
+    nodes+='</g>';
+  });
+  const el=document.getElementById('flow');
+  el.setAttribute('viewBox','0 0 '+W+' '+H);
+  el.innerHTML=paths.map(d=>`<path d="${d}" stroke="#3a4356" stroke-width="1.6" fill="none"/>`).join('')+nodes;
+  const hint={full:'scope=full：两侧全渲染，并行泳道（RD/FE）+ QA 联调节点',rd:'scope=rd：fe 侧不渲染——过滤后重排重编号、无泳道；QA（full）不渲染',fe:'scope=fe：rd 侧不渲染——4 即 FE 技术设计（重编号、无泳道）；QA 不渲染'}[scope];
+  document.getElementById('flowhint').textContent=hint;
+}
+function setScope(sc){layoutFlow(sc);document.querySelectorAll('.flowhead .sbtn').forEach(b=>b.classList.remove('on'));event.target.classList.add('on')}
+
 const h=location.hash.replace('#','');const hi=panels.findIndex(([id])=>id===h);if(hi>=0)cur=hi;
 show();
 </script>
