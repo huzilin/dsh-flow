@@ -62,7 +62,7 @@ collect 收集全部评审位上报（agree / unagree）：
 
 ## 1.5 评审轮内部小状态机（2026-09-07 详细设计）
 
-**① collect · 无状态机（纯等待）**：表态三值 ⏳未表态 / ⛔unagree / ✅agree（agent 自判上报，plugin 不判 open 工单）。推进规则：全表态（实时查询 verdict 全非空）即进入判定，无子机。
+**① collect · 无状态机（纯等待）**：每个评审位 agent 独立轮转 reviewing → 上报 agree / unagree（agent 自判——有 open 工单报 unagree，没有报 agree；plugin 不判）。推进规则：实时查询 review_results 全部 agent 均已上报（无 reviewing）即进入判定，无子机。
 
 **② 澄清阶段 · issue 状态机**（owner respond 相位，逐 issue）：
 ```
@@ -80,7 +80,7 @@ to-fix（待修复）→ fixed（已修复）→ 复核 → resolved（修复成
 
 **计数器**：单字段 loop_count（回退计数），阶段语义解释——澄清阶段读=reopen 次数、修复阶段读=revise 次数。
 
-**UI 视角规则**：collect 看表态标签矩阵（角色×三值）；澄清/修复看 **issue 视角**（每条工单的子状态+计数），非角色状态栏。
+**UI 视角规则**：reviewing 看表态标签矩阵（各评审位 × reviewing/agree/unagree）；澄清/修复看 **issue 视角**（每条工单的子状态+计数），非角色状态栏。
 
 ## 2. 节点类型实例化（统一词汇，四类）
 
