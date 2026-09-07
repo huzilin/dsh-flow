@@ -31,7 +31,8 @@ func NewFlowService(r *repo.Repo) *FlowService {
 // 出参：node（目标节点摘要；未进入编排且未指定 nodeId 时未填充）、
 // current_phase（=node.state，""=未进入编排）、active_actions（节点激活清单 ×
 // 相位 on × 角色归属过滤）、review_summary（per-agent 聚合计数与明细）、
-// related_nodes（该角色相关节点最小集：评审位 / node action 响应者 / 能力归属）。
+// related_nodes（该角色相关节点最小集：评审位 / node action 响应者 / 能力归属）、
+// related_tasks（该需求该节点在途任务 task_id/action/status 摘要，T5 任务侧注入）。
 //
 // 错误集：ErrInvalidArgument（requirement_id/role 缺失）；ErrNotFound（需求 /
 // 流程实例 / 节点未命中）。
@@ -182,7 +183,32 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 		Reviewing: summary.Reviewing,
 		Details:   details,
 	}
+	if err := s.appendRelatedTasks(ctx, resp, req.RequirementId, node.NodeID); err != nil {
+		return nil, err
+	}
 	return resp, nil
+}
+
+// appendRelatedTasks wb_my_task 响应补 relatedTasks 摘要（T5 任务侧注入点，
+// 独立函数便于 T6/T7 同文件改动合并）：该需求该节点在途任务（status 非
+// completed/rejected/closed）的 task_id/action/status 最小集。
+//
+// 错误集：底层 IO 错误经 Trace 上抛。
+func (s *FlowService) appendRelatedTasks(ctx context.Context, resp *api.MyTaskResp, requirementID string, nodeID string) error {
+	tasks, err := s.repo.ListInflightTasksByRequirementAndNode(ctx, requirementID, nodeID)
+	if err != nil {
+		return errs.Trace(err)
+	}
+	items := make([]*api.RelatedTaskItem, 0, len(tasks))
+	for _, task := range tasks {
+		items = append(items, &api.RelatedTaskItem{
+			TaskId:   task.TaskID,
+			ActionId: task.ActionID,
+			Status:   task.Status,
+		})
+	}
+	resp.RelatedTasks = items
+	return nil
 }
 
 // DependencyTree 依赖树只读端点：以当前需求为根，沿 flows.dependencies 递归展开

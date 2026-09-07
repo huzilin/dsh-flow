@@ -61,11 +61,13 @@ func main() {
 	var reqSvc *service.RequirementService
 	var verSvc *service.VersionService
 	var flowSvc *service.FlowService
+	var taskSvc *service.TaskService
 	if db.Gorm != nil {
 		r := repo.NewRepo(db.Gorm)
 		reqSvc = service.NewRequirementService(r)
 		verSvc = service.NewVersionService(r)
 		flowSvc = service.NewFlowService(r)
+		taskSvc = service.NewTaskService(r)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
@@ -76,6 +78,7 @@ func main() {
 		Reqs:   reqSvc,
 		Vers:   verSvc,
 		Flows:  flowSvc,
+		Tasks:  taskSvc,
 	})
 	srv := &http.Server{
 		Addr:    ":" + strconv.FormatInt(cfg.HTTP.Port, 10),
