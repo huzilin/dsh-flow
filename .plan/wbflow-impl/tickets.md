@@ -90,11 +90,11 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4, 5, 7
 
-- [ ] per-agent 表态 AC：review_results 单字段读写一致，reviewing→agree/unagree 判据正确（spec §4.2）
-- [ ] 并发 collect 竞争测试：行锁下仅一次推进生效
-- [ ] 门禁 approved 后节点推进、下一节点相位正确激活
-- [ ] unagree → owner 澄清循环进入 respond 相位（消费 7 的 issue 链）
-- [ ] 拍板路由仅 user_gate=1 节点可拍；agreed 后唤醒 User 语义正确
+- [x] per-agent 表态 AC：review_results 单字段读写一致，reviewing→agree/unagree 判据正确（spec §4.2）
+- [x] 并发 collect 竞争测试：行锁下仅一次推进生效
+- [x] 门禁 approved 后节点推进、下一节点相位正确激活
+- [x] unagree → owner 澄清循环进入 respond 相位（消费 7 的 issue 链）
+- [x] 拍板路由仅 user_gate=1 节点可拍；agreed 后唤醒 User 语义正确
 
 ## 9. 打回链路
 
