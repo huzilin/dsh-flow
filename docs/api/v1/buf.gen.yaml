@@ -1,0 +1,9 @@
+# protoc 生成配置：Go DTO 产出到 rd/api/（paths=source_relative → api.pb.go 平铺）。
+# 复现：cd docs/api/v1 && buf generate（或 rd/Makefile 的 make proto）。
+# 工具链：buf（brew install bufbuild/buf/buf）+ protoc-gen-go
+# （go install google.golang.org/protobuf/cmd/protoc-gen-go@latest，需在 PATH）。
+version: v2
+plugins:
+  - local: protoc-gen-go
+    out: ../../../rd/api
+    opt: paths=source_relative

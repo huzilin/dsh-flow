@@ -1,0 +1,403 @@
+// wbflow v1.0 内部接口契约真相源（spec §1.1）。
+//
+// 口径：
+//   - wb_* 语义一份、HTTP 一张皮：Web 前端 / DSH 嵌入 / agent 侧统一消费同一 API 层；
+//   - HTTP JSON 序列化走 protojson（EmitUnpopulated：零值字段可见，出参字段恒显式）；
+//   - 命名：请求消息 XxxReq、响应消息 XxxResp；
+//   - 枚举态字段用 string 而非 enum（如 status="待启动"）；
+//   - 短字段直接 typed；结构化载荷一律 string 承载 JSON 文本（与 TEXT 列同构）；
+//   - 统一响应：成功 {ok:true, …数据}；失败 {ok:false, error, code, blocked?, missing?}
+//     （失败出参见 ErrorResp，由 handler errs.MapToHTTP 集中产出）。
+//
+// int64 与 JSON 的映射取舍（protojson 规范行为，FE 契约按此对齐）：
+//   int64 字段（时间戳 unix 毫秒 / 分页计数等）JSON 出参为**字符串**（如 "1730000000000"），
+//   入参接受字符串或数字两种形式；避免 JS Number 精度丢失（2^53），不改用 int32。
+//
+// 版本状态机（versions.state，单向）：待启动 → 进行中 → 已发布；任意阶段废弃=终态（已废弃）。
+// 需求状态机（requirements.status）：待启动 / 进行中 / 已完成 / 已取消。
+// 类别（requirements.category，决定流程类型绑定，domain 层表驱动）：
+//   需求任务 → {business, tech, task}（默认 business）；
+//   规划审批任务 / 版本规划任务 → {plan}。
+//   出处：docs-tmp/ui-interaction-final.md §2「类别↔流程类型绑定」定稿 +
+//   docs/v1.0/arch_design.md §8.2（category/reqType 选模板）。
+syntax = "proto3";
+
+package wbflow.api.v1;
+
+option go_package = "github.com/huzilin/wbflow/rd/api;api";
+
+// ErrorResponse 统一失败出参（所有失败路径同形；HTTP 状态码由 errs.MapToHTTP 集中映射）。
+message ErrorResp {
+  // ok 恒 false
+  bool ok = 1;
+  // error 人类可读错误摘要
+  string error = 2;
+  // code 机器可读错误码（如 OPTIMISTIC_LOCK / GATE_BLOCKED / NOT_FOUND）
+  string code = 3;
+  // blocked 门禁拦截标记（判据不满足的操作）
+  bool blocked = 4;
+  // missing 判据缺项清单（仅判据校验类拦截有值）
+  repeated string missing = 5;
+}
+
+// ---------------------------------------------------------------------------
+// requirements（wb_list / wb_create / wb_get / wb_update / wb_delete_requirement）
+// ---------------------------------------------------------------------------
+
+// ListRequirementsReq GET /api/requirements 查询参数。
+message ListRequirementsReq {
+  // version_id 按版本筛选；空=不过滤
+  string version_id = 1;
+  // backlog true=仅看待分配池（version_id IS NULL）；与 version_id 互斥，同给时 backlog 优先
+  bool backlog = 2;
+  // priority 按 P0-P3 筛选；空=不过滤
+  string priority = 3;
+  // status 按需求状态筛选；空=不过滤
+  string status = 4;
+  // page 页码，1 起；0 视为 1
+  int64 page = 5;
+  // page_size 页大小；0 视为默认 20，上限 100（强制分页，禁全量）
+  int64 page_size = 6;
+}
+
+// RequirementItem 需求行（列表与详情快照共用）。
+message RequirementItem {
+  // requirement_id 需求业务 id，如 req-001
+  string requirement_id = 1;
+  // title 标题
+  string title = 2;
+  // description Markdown 描述
+  string description = 3;
+  // category 类别标签：需求任务/规划审批任务/版本规划任务
+  string category = 4;
+  // flow_defs_id 流程类型（由 category 绑定派生，可创建时在允许集内显式指定）
+  string flow_defs_id = 5;
+  // version_id 归属版本；空串=待分配池（DB 侧 NULL）
+  string version_id = 6;
+  // priority P0-P3
+  string priority = 7;
+  // status 待启动/进行中/已完成/已取消
+  string status = 8;
+  // owner 负责人角色；空=未指派
+  string owner = 9;
+  // created_by 创建人
+  string created_by = 10;
+  // created_at 创建时间，unix 毫秒（JSON 字符串）
+  int64 created_at = 11;
+  // updated_at 更新时间，unix 毫秒（乐观锁基线，更新时回传）
+  int64 updated_at = 12;
+}
+
+// ListRequirementsResp GET /api/requirements 出参。
+message ListRequirementsResp {
+  // ok 恒 true
+  bool ok = 1;
+  // total 筛选后总数（分页基数）
+  int64 total = 2;
+  // page 当前页码
+  int64 page = 3;
+  // page_size 当前页大小
+  int64 page_size = 4;
+  // items 当前页需求行
+  repeated RequirementItem items = 5;
+}
+
+// GetRequirementReq GET /api/requirements/:reqId 入参（reqId 取路径）。
+message GetRequirementReq {
+  // requirement_id 需求业务 id
+  string requirement_id = 1;
+}
+
+// FlowItem 流程实例行（聚合快照基础版；T4 实例化前为空集）。
+message FlowItem {
+  // flow_defs_id 流程类型
+  string flow_defs_id = 1;
+  // dependencies 前置依赖 JSON 文本（TEXT 列同构）：["req-…"]
+  string dependencies = 2;
+  // current_node_id 当前节点 id；空=未进入编排（DB 侧 NULL）
+  string current_node_id = 3;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 4;
+  // updated_at 更新时间，unix 毫秒
+  int64 updated_at = 5;
+}
+
+// FlowNodeItem 流程实例节点行（T4 实例化前为空集）。
+message FlowNodeItem {
+  // node_id 实例节点 id，如 n-05
+  string node_id = 1;
+  // def_node_id 定义节点引用
+  string def_node_id = 2;
+  // node_order 渲染序号（scope 过滤后重排）
+  int64 node_order = 3;
+  // node_key 节点名
+  string node_key = 4;
+  // state 可配相位：""=未进入编排 / entry / exec / review / respond
+  string state = 5;
+  // review_results 评审轮结果 JSON 文本（TEXT 列同构）
+  string review_results = 6;
+  // reopen_source 重开来源：""/upstream-reject/downstream-reject/rework-return
+  string reopen_source = 7;
+  // rolled_back_count 回退计数
+  int64 rolled_back_count = 8;
+  // feature_branch 评审敲定后的分支名；空=未敲定
+  string feature_branch = 9;
+  // entered_at 进入执行时间，unix 毫秒；0=未进入
+  int64 entered_at = 10;
+}
+
+// ArtifactItem 产物行（T6 前为空集）。
+message ArtifactItem {
+  // artifact_id 产物业务 id
+  string artifact_id = 1;
+  // node_id 节点 id
+  string node_id = 2;
+  // product_type 产物受控类型
+  string product_type = 3;
+  // label 产物显示名
+  string label = 4;
+  // href 相对项目路径（document）或外链（link）
+  string href = 5;
+  // kind document | link
+  string kind = 6;
+  // note 备注；空=无
+  string note = 7;
+  // added_by 登记人角色
+  string added_by = 8;
+  // created_at 登记时间，unix 毫秒
+  int64 created_at = 9;
+}
+
+// IssueItem 评论/问题行（T7 前为空集）。
+message IssueItem {
+  // issue_id 评论业务 id
+  string issue_id = 1;
+  // node_id 节点 id
+  string node_id = 2;
+  // anchor_kind 锚点：document/line/range/block
+  string anchor_kind = 3;
+  // author 发表者
+  string author = 4;
+  // role_id 发表者角色
+  string role_id = 5;
+  // text 根评论内容
+  string text = 6;
+  // state issue 状态机 v2 状态
+  string state = 7;
+  // escalate 冲突上升标记：1=已上升
+  int64 escalate = 8;
+  // loop_count 回退计数
+  int64 loop_count = 9;
+  // round_count 对话轮数
+  int64 round_count = 10;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 11;
+}
+
+// GetRequirementResp 聚合快照出参（基础版：需求 + 版本信息 + 实例集合字段先立住）。
+message GetRequirementResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement 需求行
+  RequirementItem requirement = 2;
+  // version 归属版本；待分配池为未填充（protojson 出 null）
+  VersionItem version = 3;
+  // flows 流程实例集（T4 前空集）
+  repeated FlowItem flows = 4;
+  // flow_nodes 实例节点集（T4 前空集）
+  repeated FlowNodeItem flow_nodes = 5;
+  // artifacts 产物集（T6 前空集）
+  repeated ArtifactItem artifacts = 6;
+  // issues 评论集（T7 前空集）
+  repeated IssueItem issues = 7;
+  // review_results 评审轮结果汇总 JSON 文本（TEXT 列同构，默认 "[]"）
+  string review_results = 8;
+}
+
+// CreateRequirementReq POST /api/requirements 入参。
+message CreateRequirementReq {
+  // title 标题（必填）
+  string title = 1;
+  // description Markdown 描述
+  string description = 2;
+  // category 类别标签（必填，决定流程类型绑定）
+  string category = 3;
+  // flow_defs_id 可选：在类别允许集内显式指定流程类型；空=按类别默认派生
+  // （需求任务默认 business；规划审批任务/版本规划任务恒 plan）
+  string flow_defs_id = 4;
+  // version_id 归属版本；空=待分配池（默认）
+  string version_id = 5;
+  // priority P0-P3；空=默认 P2
+  string priority = 6;
+  // owner 负责人角色；空=未指派
+  string owner = 7;
+  // created_by 创建人（必填）
+  string created_by = 8;
+}
+
+// CreateRequirementResp POST /api/requirements 出参。
+message CreateRequirementResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement 创建后的需求行（含生成的 requirement_id）
+  RequirementItem requirement = 2;
+}
+
+// UpdateRequirementReq PUT /api/requirements/:reqId 入参（全字段替换语义；
+// updated_at 为读取基线，冲突返回 409 OPTIMISTIC_LOCK）。
+message UpdateRequirementReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // title 标题
+  string title = 2;
+  // description Markdown 描述
+  string description = 3;
+  // category 类别标签（变更后 flow_defs_id 按绑定规则重派生）
+  string category = 4;
+  // priority P0-P3
+  string priority = 5;
+  // status 需求状态（待启动/进行中/已完成/已取消）
+  string status = 6;
+  // owner 负责人角色；空=未指派
+  string owner = 7;
+  // version_id 归属版本；空串=移回待分配池
+  string version_id = 8;
+  // updated_at 读取基线，unix 毫秒（乐观锁）
+  int64 updated_at = 9;
+}
+
+// UpdateRequirementResp PUT /api/requirements/:reqId 出参。
+message UpdateRequirementResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement 更新后的需求行（新 updated_at 基线）
+  RequirementItem requirement = 2;
+}
+
+// DeleteRequirementReq DELETE /api/requirements/:reqId 入参。
+message DeleteRequirementReq {
+  // requirement_id 需求业务 id
+  string requirement_id = 1;
+  // confirm 必须显式 true——删除需 User 明确指令口径；缺省 blocked
+  bool confirm = 2;
+}
+
+// DeleteRequirementResp DELETE /api/requirements/:reqId 出参。
+message DeleteRequirementResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement_id 被删需求业务 id
+  string requirement_id = 2;
+}
+
+// ---------------------------------------------------------------------------
+// versions（wb_list / wb_create / wb_update_version、wb_advance_version、wb_deprecate_version）
+// ---------------------------------------------------------------------------
+
+// ListVersionsReq GET /api/versions 入参（无筛选，含待分配池标记行）。
+message ListVersionsReq {
+}
+
+// VersionItem 版本行。
+message VersionItem {
+  // version_id 版本业务 id，如 v-1
+  string version_id = 1;
+  // name 版本名（自由文本）
+  string name = 2;
+  // state 待启动/进行中/已发布/已废弃
+  string state = 3;
+  // is_backlog 待分配池标记
+  bool is_backlog = 4;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 5;
+  // updated_at 更新时间，unix 毫秒（乐观锁基线）
+  int64 updated_at = 6;
+}
+
+// ListVersionsResp GET /api/versions 出参。
+message ListVersionsResp {
+  // ok 恒 true
+  bool ok = 1;
+  // items 版本行全集（含待分配池标记行）
+  repeated VersionItem items = 2;
+}
+
+// CreateVersionReq POST /api/versions 入参。
+message CreateVersionReq {
+  // name 版本名（必填，自由文本）
+  string name = 1;
+  // is_backlog 待分配池标记
+  bool is_backlog = 2;
+}
+
+// CreateVersionResp POST /api/versions 出参。
+message CreateVersionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // version 创建后的版本行（含生成的 version_id）
+  VersionItem version = 2;
+}
+
+// UpdateVersionReq PUT /api/versions/:versionId 入参（改名；状态迁移走 advance/deprecate）。
+message UpdateVersionReq {
+  // version_id 版本业务 id（versionId 取路径）
+  string version_id = 1;
+  // name 新版本名
+  string name = 2;
+  // updated_at 读取基线，unix 毫秒（乐观锁）
+  int64 updated_at = 3;
+}
+
+// UpdateVersionResp PUT /api/versions/:versionId 出参。
+message UpdateVersionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // version 更新后的版本行（新 updated_at 基线）
+  VersionItem version = 2;
+}
+
+// AdvanceVersionReq POST /api/versions/:versionId/advance 入参（发布）。
+message AdvanceVersionReq {
+  // version_id 版本业务 id
+  string version_id = 1;
+  // updated_at 读取基线，unix 毫秒（乐观锁）
+  int64 updated_at = 2;
+}
+
+// RequirementRef 版本内需求引用（发布软约束提示用）。
+message RequirementRef {
+  // requirement_id 需求业务 id
+  string requirement_id = 1;
+  // title 标题
+  string title = 2;
+  // status 需求状态
+  string status = 3;
+}
+
+// AdvanceVersionResp POST /api/versions/:versionId/advance 出参。
+// 发布软约束：版本内 unfinished（status 非 已完成/已取消）需求仅提示不拦截。
+message AdvanceVersionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // version 更新后的版本行（state=已发布）
+  VersionItem version = 2;
+  // unfinished 未完成需求清单（仅提示）
+  repeated RequirementRef unfinished = 3;
+}
+
+// DeprecateVersionReq POST /api/versions/:versionId/deprecate 入参（废弃=终态）。
+message DeprecateVersionReq {
+  // version_id 版本业务 id
+  string version_id = 1;
+  // updated_at 读取基线，unix 毫秒（乐观锁）
+  int64 updated_at = 2;
+}
+
+// DeprecateVersionResp POST /api/versions/:versionId/deprecate 出参。
+// 有引用（version_id 引用且状态非 已取消/已完成 的需求存在）时 blocked。
+message DeprecateVersionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // version 更新后的版本行（state=已废弃）
+  VersionItem version = 2;
+}
