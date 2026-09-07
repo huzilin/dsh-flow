@@ -19,12 +19,12 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 ## 2. Schema 14 表落库 + seed + repo 基线
 
-**What to build:** spec §0 全量 14 表 DDL 迁移在真实 MySQL 上执行通过；GORM model + updated_at 乐观锁 helper（0 行命中→ErrOptimisticLock）+ TEXT 列 JSON 序列化 util；seed 数据以 docs-tmp 定稿为口径重制：4 条 flow_defs + 41 定义节点 + 21 能力 + roles 全集。旧 `workbench-sql/`（sqlite v0.15，11 表旧表名）不迁移，仅参考。
+**What to build:** spec §0 全量 14 表 DDL 迁移在真实 MySQL 上执行通过；GORM model + updated_at 乐观锁 helper（0 行命中→ErrOptimisticLock）+ TEXT 列 JSON 序列化 util；seed 数据以 docs-tmp 定稿为口径重制：4 条 flow_defs + 40 定义节点 + 21 能力 + roles 全集。旧 `workbench-sql/`（sqlite v0.15，11 表旧表名）不迁移，仅参考。
 
 **Blocked by:** 1
 
 - [ ] 14 表 DDL testcontainers 真实执行通过，逐表列注释与 spec §0 一致
-- [ ] seed 装载后：41 定义节点 scope_expr/reviewers/node_actions 与 docs-tmp 定稿逐项对得上
+- [ ] seed 装载后：40 定义节点 scope_expr/reviewers/node_actions 与 docs-tmp 定稿逐项对得上
 - [ ] 乐观锁 helper：并发更新一胜一败（败者收 ErrOptimisticLock）
 - [ ] append-only 表（audit_log）created_at=updated_at 恒同值由 helper 保证
 
