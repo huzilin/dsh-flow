@@ -12,10 +12,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** None — can start immediately.
 
-- [ ] MySQL 8.0 假设实测确认（连接 + 版本断言），低于 8.0 提前暴露
-- [ ] /healthz 返回服务与数据库连通状态
-- [ ] 哨兵错误骨架（ErrOptimisticLock/ErrGateBlocked/ErrIdempotentConflict/ErrStaleReport）定义并集中映射
-- [ ] httptest 冒烟：路由注册 + 日志入口/出口埋点生效
+- [x] MySQL 8.0 假设实测确认（连接 + 版本断言），低于 8.0 提前暴露
+- [x] /healthz 返回服务与数据库连通状态
+- [x] 哨兵错误骨架（ErrOptimisticLock/ErrGateBlocked/ErrIdempotentConflict/ErrStaleReport）定义并集中映射
+- [x] httptest 冒烟：路由注册 + 日志入口/出口埋点生效
 
 ## 2. Schema 14 表落库 + seed + repo 基线
 
