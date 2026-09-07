@@ -972,3 +972,83 @@ message RelatedTaskItem {
   // status 任务状态
   string status = 3;
 }
+
+// ---------------------------------------------------------------------------
+// review / collect / decision（T8：wb_review 表态 + collect 聚合门禁 + User 拍板）
+// ---------------------------------------------------------------------------
+
+// ReviewReq POST /api/requirements/:reqId/nodes/:nodeId/review 入参。
+// agent 自判上报表态（capability-model-final §1.2：知道自己有 open 工单报 unagree、
+// 没有报 agree，plugin 不判）；同轮同角色覆写取最后（spec §2 幂等行）。
+// round 由服务端按节点当前评审轮推导（澄清后重入新轮），入参不携带。
+message ReviewReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 实例节点 id（nodeId 取路径；须处于 review 相位）
+  string node_id = 2;
+  // role 表态角色（须在该节点实例评审位声明中）
+  string role = 3;
+  // capability_id 评审能力（须与该角色评审位声明一致）
+  string capability_id = 4;
+  // state 表态结果：agree | unagree（reviewing 为系统初始化态，不接受上报）
+  string state = 5;
+}
+
+// ReviewResp POST /api/requirements/:reqId/nodes/:nodeId/review 出参。
+// 写入 + 同事务 collect 聚合判定（flow_nodes 行锁，并发双 collect 仅一次生效）。
+message ReviewResp {
+  // ok 恒 true
+  bool ok = 1;
+  // node_id 实例节点 id（回显）
+  string node_id = 2;
+  // role 表态角色（回显）
+  string role = 3;
+  // state 落库后的表态（agree | unagree）
+  string state = 4;
+  // round 本次表态所在评审轮
+  int64 round = 5;
+  // review_results 落库后该节点评审轮结果 JSON 文本（单字段全量）
+  string review_results = 6;
+  // collect_outcome collect 聚合判定结果：pending=未齐继续收票 /
+  // approved=全表态且全 agree / clarify=存在 unagree 转 owner 澄清
+  // （capability-model-final §1.2a 三段口径）
+  string collect_outcome = 7;
+  // gate_state 门禁侧状态：agreed=评审全 agree 待 User 拍板（user_gate=1）/
+  // approved=机械通过已落 last_decision（user_gate=0）；其余空串
+  string gate_state = 8;
+  // next_node_id 门禁通过后前移到的节点 id（未推进为空串）
+  string next_node_id = 9;
+}
+
+// DecisionReq POST /api/requirements/:reqId/nodes/:nodeId/decision 入参。
+// User 终审拍板专用路由（spec §1.2 移出清单：wb_decide 收编为 decision）；
+// 仅 user_gate=1 节点、当前评审轮全 agree 后可拍（否则 blocked）。
+message DecisionReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 实例节点 id（nodeId 取路径）
+  string node_id = 2;
+  // verdict 拍板结论：approved | rejected
+  string verdict = 3;
+  // reason 拍板理由（rejected 必填——打回走 reject 结论协议，T9 消费）
+  string reason = 4;
+  // branch 评审敲定分支名；空=不落（feature_branch NULL 保持）
+  string branch = 5;
+}
+
+// DecisionResp POST /api/requirements/:reqId/nodes/:nodeId/decision 出参。
+// 重复拍板同 verdict 幂等 no-op（noop=true）；改判（verdict 不一致）冲突拒绝。
+message DecisionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // node_id 实例节点 id（回显）
+  string node_id = 2;
+  // verdict 落库结论（noop 时=既有结论回显）
+  string verdict = 3;
+  // noop true=重复拍板幂等 no-op（库未变更）
+  bool noop = 4;
+  // last_decision 门禁裁决 JSON 文本：{"verdict","reason","at","branch"?}
+  string last_decision = 5;
+  // next_node_id approved 后前移到的节点 id（未推进/重复拍板为空串）
+  string next_node_id = 6;
+}
