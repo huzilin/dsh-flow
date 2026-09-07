@@ -50,19 +50,24 @@ func bindProtoBody(c *gin.Context, req proto.Message) error {
 }
 
 // AbortWithErr 错误集中映射出参：业务 handler 捕获 service 错误后统一走此写出
-// （哨兵错误 → HTTP 状态码/错误码/blocked 标记，映射表见 errs.MapToHTTP）。
+// （哨兵错误 → HTTP 状态码/错误码/blocked 标记，映射表见 errs.MapToHTTP）；
+// 判据校验类拦截（errs.WithMissing 载体）出参附带 missing 缺项清单。
 func AbortWithErr(c *gin.Context, err error) {
 	mapping := errs.MapToHTTP(err)
-	writeErrJSON(c, mapping.HTTPStatus, mapping.Code, err.Error(), mapping.Blocked)
+	writeErrJSON(c, mapping.HTTPStatus, mapping.Code, err.Error(), mapping.Blocked, errs.MissingOf(err))
 }
 
 // writeErrJSON 统一失败出参写出（api.ErrorResp 契约：{ok:false, error, code, blocked, missing}）。
-func writeErrJSON(c *gin.Context, status int, code errs.Code, msg string, blocked bool) {
+func writeErrJSON(c *gin.Context, status int, code errs.Code, msg string, blocked bool, missing []string) {
+	if missing == nil {
+		missing = make([]string, 0)
+	}
 	data, mErr := protoJSONMarshal.Marshal(&api.ErrorResp{
 		Ok:      false,
 		Error:   msg,
 		Code:    string(code),
 		Blocked: blocked,
+		Missing: missing,
 	})
 	if mErr != nil {
 		// 出参编码失败兜底：纯状态 500（不 panic）

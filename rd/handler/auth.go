@@ -40,5 +40,5 @@ func TokenAuth(token string) gin.HandlerFunc {
 
 // unauthorized 401 出参（api.ErrorResp 契约，code=UNAUTHORIZED）。
 func unauthorized(c *gin.Context, msg string) {
-	writeErrJSON(c, http.StatusUnauthorized, errs.CodeUnauthorized, msg, false)
+	writeErrJSON(c, http.StatusUnauthorized, errs.CodeUnauthorized, msg, false, nil)
 }

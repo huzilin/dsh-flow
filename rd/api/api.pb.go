@@ -2801,8 +2801,10 @@ type MyTaskResp struct {
 	// related_artifacts 目标节点已登记产物摘要（产物侧上下文注入；
 	// 未进入编排/未解析目标节点时为空集）
 	RelatedArtifacts []*RelatedArtifactItem `protobuf:"bytes,9,rep,name=related_artifacts,json=relatedArtifacts,proto3" json:"related_artifacts,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// related_tasks 该需求该节点在途任务摘要（status 非 completed/rejected/closed）
+	RelatedTasks  []*RelatedTaskItem `protobuf:"bytes,10,rep,name=related_tasks,json=relatedTasks,proto3" json:"related_tasks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MyTaskResp) Reset() {
@@ -2894,6 +2896,13 @@ func (x *MyTaskResp) GetRelatedNodes() []*RelatedNodeItem {
 func (x *MyTaskResp) GetRelatedArtifacts() []*RelatedArtifactItem {
 	if x != nil {
 		return x.RelatedArtifacts
+	}
+	return nil
+}
+
+func (x *MyTaskResp) GetRelatedTasks() []*RelatedTaskItem {
+	if x != nil {
+		return x.RelatedTasks
 	}
 	return nil
 }
@@ -3510,6 +3519,590 @@ func (x *RelatedArtifactItem) GetKind() string {
 	return ""
 }
 
+// AssignTaskReq POST /api/tasks 入参。
+// 幂等键 = requirement_id + node_id + action_id + assignee（Further Notes 口径）：
+// 同键存在未终态任务（status 非 completed/rejected/closed）时返回既有任务，
+// 不重复建（幂等 no-op，resp.reused=true）；终态后同键可再派（重开语义）。
+type AssignTaskReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 需求业务 id（必填，幂等键成员）
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 实例节点 id（必填，幂等键成员）
+	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// action_id 动作定位（必填，幂等键成员）：kind=capability 为
+	// "<capabilityId>.<actionId>"（如 backend-dev.dev）；kind=node 为 node action id
+	ActionId string `protobuf:"bytes,3,opt,name=action_id,json=actionId,proto3" json:"action_id,omitempty"`
+	// assignee 执行角色（必填，幂等键成员）；capability 动作须与 capabilities.role_id 一致
+	Assignee string `protobuf:"bytes,4,opt,name=assignee,proto3" json:"assignee,omitempty"`
+	// goal 任务目标；空=按节点×动作确定性装配缺省目标
+	Goal string `protobuf:"bytes,5,opt,name=goal,proto3" json:"goal,omitempty"`
+	// context 补充上下文 JSON 文本（TEXT 列同构）；须为合法 JSON 对象，
+	// 原样透传至 tasks.context 的 supplement 字段（产物引用/意见清单等
+	// 由 T6/T7 注入点同级），非合法 JSON → 400
+	Context       string `protobuf:"bytes,6,opt,name=context,proto3" json:"context,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssignTaskReq) Reset() {
+	*x = AssignTaskReq{}
+	mi := &file_api_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignTaskReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignTaskReq) ProtoMessage() {}
+
+func (x *AssignTaskReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignTaskReq.ProtoReflect.Descriptor instead.
+func (*AssignTaskReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *AssignTaskReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *AssignTaskReq) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *AssignTaskReq) GetActionId() string {
+	if x != nil {
+		return x.ActionId
+	}
+	return ""
+}
+
+func (x *AssignTaskReq) GetAssignee() string {
+	if x != nil {
+		return x.Assignee
+	}
+	return ""
+}
+
+func (x *AssignTaskReq) GetGoal() string {
+	if x != nil {
+		return x.Goal
+	}
+	return ""
+}
+
+func (x *AssignTaskReq) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+// TaskItem 任务行（任务总线出参同构，断点恢复字段齐备）。
+type TaskItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// task_id 任务业务 id，如 t-<ts>-<seq>
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// requirement_id 需求 id
+	RequirementId string `protobuf:"bytes,2,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 节点 id
+	NodeId string `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// action_id 能力×动作定位
+	ActionId string `protobuf:"bytes,4,opt,name=action_id,json=actionId,proto3" json:"action_id,omitempty"`
+	// branch 泳道：rd/fe/空（按需求 scope 派生）
+	Branch string `protobuf:"bytes,5,opt,name=branch,proto3" json:"branch,omitempty"`
+	// role_id 执行角色
+	RoleId string `protobuf:"bytes,6,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	// task_type 任务族：produce/dev/review/respond/accept/create_reqs
+	TaskType string `protobuf:"bytes,7,opt,name=task_type,json=taskType,proto3" json:"task_type,omitempty"`
+	// goal 任务目标
+	Goal string `protobuf:"bytes,8,opt,name=goal,proto3" json:"goal,omitempty"`
+	// context 确定性上下文 JSON 文本（TEXT 列同构）
+	Context string `protobuf:"bytes,9,opt,name=context,proto3" json:"context,omitempty"`
+	// status todo/in-progress/awaiting-reply/completed/rejected/closed
+	Status string `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
+	// dispatch_at 派发时间，unix 毫秒；0=未派发（DB 侧 NULL，ack 时落值）
+	DispatchAt int64 `protobuf:"varint,11,opt,name=dispatch_at,json=dispatchAt,proto3" json:"dispatch_at,omitempty"`
+	// last_ack 最近确认时刻，unix 毫秒；0=未送达（断点恢复关键）
+	LastAck int64 `protobuf:"varint,12,opt,name=last_ack,json=lastAck,proto3" json:"last_ack,omitempty"`
+	// last_progress 执行进度；空=未开始
+	LastProgress string `protobuf:"bytes,13,opt,name=last_progress,json=lastProgress,proto3" json:"last_progress,omitempty"`
+	// resume_hint 断点续接提示；空=无
+	ResumeHint string `protobuf:"bytes,14,opt,name=resume_hint,json=resumeHint,proto3" json:"resume_hint,omitempty"`
+	// reply_count 回复数
+	ReplyCount int64 `protobuf:"varint,15,opt,name=reply_count,json=replyCount,proto3" json:"reply_count,omitempty"`
+	// created_at 创建时间，unix 毫秒
+	CreatedAt int64 `protobuf:"varint,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// updated_at 更新时间，unix 毫秒（乐观锁基线）
+	UpdatedAt int64 `protobuf:"varint,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// done_at 完成时间，unix 毫秒；0=未完成
+	DoneAt        int64 `protobuf:"varint,18,opt,name=done_at,json=doneAt,proto3" json:"done_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskItem) Reset() {
+	*x = TaskItem{}
+	mi := &file_api_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskItem) ProtoMessage() {}
+
+func (x *TaskItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskItem.ProtoReflect.Descriptor instead.
+func (*TaskItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *TaskItem) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskItem) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *TaskItem) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *TaskItem) GetActionId() string {
+	if x != nil {
+		return x.ActionId
+	}
+	return ""
+}
+
+func (x *TaskItem) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *TaskItem) GetRoleId() string {
+	if x != nil {
+		return x.RoleId
+	}
+	return ""
+}
+
+func (x *TaskItem) GetTaskType() string {
+	if x != nil {
+		return x.TaskType
+	}
+	return ""
+}
+
+func (x *TaskItem) GetGoal() string {
+	if x != nil {
+		return x.Goal
+	}
+	return ""
+}
+
+func (x *TaskItem) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *TaskItem) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TaskItem) GetDispatchAt() int64 {
+	if x != nil {
+		return x.DispatchAt
+	}
+	return 0
+}
+
+func (x *TaskItem) GetLastAck() int64 {
+	if x != nil {
+		return x.LastAck
+	}
+	return 0
+}
+
+func (x *TaskItem) GetLastProgress() string {
+	if x != nil {
+		return x.LastProgress
+	}
+	return ""
+}
+
+func (x *TaskItem) GetResumeHint() string {
+	if x != nil {
+		return x.ResumeHint
+	}
+	return ""
+}
+
+func (x *TaskItem) GetReplyCount() int64 {
+	if x != nil {
+		return x.ReplyCount
+	}
+	return 0
+}
+
+func (x *TaskItem) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *TaskItem) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+func (x *TaskItem) GetDoneAt() int64 {
+	if x != nil {
+		return x.DoneAt
+	}
+	return 0
+}
+
+// AssignTaskResp POST /api/tasks 出参。
+type AssignTaskResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// task 任务行（幂等命中时=既有任务行）
+	Task *TaskItem `protobuf:"bytes,2,opt,name=task,proto3" json:"task,omitempty"`
+	// reused true=幂等命中既有任务（no-op，未新建）；false=新建
+	Reused        bool `protobuf:"varint,3,opt,name=reused,proto3" json:"reused,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssignTaskResp) Reset() {
+	*x = AssignTaskResp{}
+	mi := &file_api_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignTaskResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignTaskResp) ProtoMessage() {}
+
+func (x *AssignTaskResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignTaskResp.ProtoReflect.Descriptor instead.
+func (*AssignTaskResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *AssignTaskResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *AssignTaskResp) GetTask() *TaskItem {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *AssignTaskResp) GetReused() bool {
+	if x != nil {
+		return x.Reused
+	}
+	return false
+}
+
+// TaskUpdateReq PATCH /api/tasks/:taskId 入参（taskId 取路径）。
+// event 三值状态机：ack（dispatch_at/last_ack 落值，todo→in-progress；重复 ack 幂等
+// no-op）｜progress（last_progress 覆写）｜complete（判据校验框架：不满足 409
+// GATE_BLOCKED + blocked:true + missing，任务回 in-progress；满足 completed + done_at；
+// 未 ack 先 complete → 409 STALE_REPORT）。已终态任务再上报幂等 no-op。
+type TaskUpdateReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// task_id 任务业务 id（taskId 取路径）
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// event 上报事件：ack | progress | complete
+	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// progress 执行进度文本（event=progress 必填，覆写 last_progress）
+	Progress string `protobuf:"bytes,3,opt,name=progress,proto3" json:"progress,omitempty"`
+	// updated_at 读取基线，unix 毫秒（乐观锁）；0=以当前库值为基线（宽松模式）
+	UpdatedAt     int64 `protobuf:"varint,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskUpdateReq) Reset() {
+	*x = TaskUpdateReq{}
+	mi := &file_api_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskUpdateReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskUpdateReq) ProtoMessage() {}
+
+func (x *TaskUpdateReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskUpdateReq.ProtoReflect.Descriptor instead.
+func (*TaskUpdateReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *TaskUpdateReq) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskUpdateReq) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *TaskUpdateReq) GetProgress() string {
+	if x != nil {
+		return x.Progress
+	}
+	return ""
+}
+
+func (x *TaskUpdateReq) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+// TaskUpdateResp PATCH /api/tasks/:taskId 出参。
+type TaskUpdateResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true（complete 判据不满足走 ErrorResp 失败出参，不入本消息）
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// task_id 任务业务 id（回显）
+	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// status 更新后状态
+	Status string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	// noop true=幂等 no-op（重复 ack / 已终态再上报），库未变更
+	Noop bool `protobuf:"varint,4,opt,name=noop,proto3" json:"noop,omitempty"`
+	// task 更新后的任务行（新 updated_at 基线）
+	Task          *TaskItem `protobuf:"bytes,5,opt,name=task,proto3" json:"task,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskUpdateResp) Reset() {
+	*x = TaskUpdateResp{}
+	mi := &file_api_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskUpdateResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskUpdateResp) ProtoMessage() {}
+
+func (x *TaskUpdateResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskUpdateResp.ProtoReflect.Descriptor instead.
+func (*TaskUpdateResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *TaskUpdateResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *TaskUpdateResp) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskUpdateResp) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TaskUpdateResp) GetNoop() bool {
+	if x != nil {
+		return x.Noop
+	}
+	return false
+}
+
+func (x *TaskUpdateResp) GetTask() *TaskItem {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+// RelatedTaskItem 在途任务摘要（wb_my_task relatedTasks 条目：该需求该节点
+// 未终态任务最小集）。
+type RelatedTaskItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// task_id 任务业务 id
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// action_id 动作定位
+	ActionId string `protobuf:"bytes,2,opt,name=action_id,json=actionId,proto3" json:"action_id,omitempty"`
+	// status 任务状态
+	Status        string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelatedTaskItem) Reset() {
+	*x = RelatedTaskItem{}
+	mi := &file_api_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelatedTaskItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelatedTaskItem) ProtoMessage() {}
+
+func (x *RelatedTaskItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelatedTaskItem.ProtoReflect.Descriptor instead.
+func (*RelatedTaskItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *RelatedTaskItem) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *RelatedTaskItem) GetActionId() string {
+	if x != nil {
+		return x.ActionId
+	}
+	return ""
+}
+
+func (x *RelatedTaskItem) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
 var File_api_proto protoreflect.FileDescriptor
 
 const file_api_proto_rawDesc = "" +
@@ -3752,7 +4345,7 @@ const file_api_proto_rawDesc = "" +
 	"\vdef_node_id\x18\x02 \x01(\tR\tdefNodeId\x12\x1b\n" +
 	"\tnode_type\x18\x03 \x01(\tR\bnodeType\x12\x14\n" +
 	"\x05state\x18\x04 \x01(\tR\x05state\x12\x1c\n" +
-	"\treviewers\x18\x05 \x01(\tR\treviewers\"\xce\x03\n" +
+	"\treviewers\x18\x05 \x01(\tR\treviewers\"\x93\x04\n" +
 	"\n" +
 	"MyTaskResp\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12%\n" +
@@ -3763,7 +4356,9 @@ const file_api_proto_rawDesc = "" +
 	"\x0eactive_actions\x18\x06 \x03(\v2\x1f.wbflow.api.v1.MyTaskActionItemR\ractiveActions\x12C\n" +
 	"\x0ereview_summary\x18\a \x01(\v2\x1c.wbflow.api.v1.ReviewSummaryR\rreviewSummary\x12C\n" +
 	"\rrelated_nodes\x18\b \x03(\v2\x1e.wbflow.api.v1.RelatedNodeItemR\frelatedNodes\x12O\n" +
-	"\x11related_artifacts\x18\t \x03(\v2\".wbflow.api.v1.RelatedArtifactItemR\x10relatedArtifacts\"\xdd\x01\n" +
+	"\x11related_artifacts\x18\t \x03(\v2\".wbflow.api.v1.RelatedArtifactItemR\x10relatedArtifacts\x12C\n" +
+	"\rrelated_tasks\x18\n" +
+	" \x03(\v2\x1e.wbflow.api.v1.RelatedTaskItemR\frelatedTasks\"\xdd\x01\n" +
 	"\x12DependencyNodeItem\x12%\n" +
 	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
@@ -3809,7 +4404,59 @@ const file_api_proto_rawDesc = "" +
 	"artifactId\x12!\n" +
 	"\fproduct_type\x18\x02 \x01(\tR\vproductType\x12\x14\n" +
 	"\x05label\x18\x03 \x01(\tR\x05label\x12\x12\n" +
-	"\x04kind\x18\x04 \x01(\tR\x04kindB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
+	"\x04kind\x18\x04 \x01(\tR\x04kind\"\xb6\x01\n" +
+	"\rAssignTaskReq\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12\x1b\n" +
+	"\taction_id\x18\x03 \x01(\tR\bactionId\x12\x1a\n" +
+	"\bassignee\x18\x04 \x01(\tR\bassignee\x12\x12\n" +
+	"\x04goal\x18\x05 \x01(\tR\x04goal\x12\x18\n" +
+	"\acontext\x18\x06 \x01(\tR\acontext\"\x8e\x04\n" +
+	"\bTaskItem\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12%\n" +
+	"\x0erequirement_id\x18\x02 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x03 \x01(\tR\x06nodeId\x12\x1b\n" +
+	"\taction_id\x18\x04 \x01(\tR\bactionId\x12\x16\n" +
+	"\x06branch\x18\x05 \x01(\tR\x06branch\x12\x17\n" +
+	"\arole_id\x18\x06 \x01(\tR\x06roleId\x12\x1b\n" +
+	"\ttask_type\x18\a \x01(\tR\btaskType\x12\x12\n" +
+	"\x04goal\x18\b \x01(\tR\x04goal\x12\x18\n" +
+	"\acontext\x18\t \x01(\tR\acontext\x12\x16\n" +
+	"\x06status\x18\n" +
+	" \x01(\tR\x06status\x12\x1f\n" +
+	"\vdispatch_at\x18\v \x01(\x03R\n" +
+	"dispatchAt\x12\x19\n" +
+	"\blast_ack\x18\f \x01(\x03R\alastAck\x12#\n" +
+	"\rlast_progress\x18\r \x01(\tR\flastProgress\x12\x1f\n" +
+	"\vresume_hint\x18\x0e \x01(\tR\n" +
+	"resumeHint\x12\x1f\n" +
+	"\vreply_count\x18\x0f \x01(\x03R\n" +
+	"replyCount\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x10 \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x11 \x01(\x03R\tupdatedAt\x12\x17\n" +
+	"\adone_at\x18\x12 \x01(\x03R\x06doneAt\"e\n" +
+	"\x0eAssignTaskResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12+\n" +
+	"\x04task\x18\x02 \x01(\v2\x17.wbflow.api.v1.TaskItemR\x04task\x12\x16\n" +
+	"\x06reused\x18\x03 \x01(\bR\x06reused\"y\n" +
+	"\rTaskUpdateReq\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
+	"\x05event\x18\x02 \x01(\tR\x05event\x12\x1a\n" +
+	"\bprogress\x18\x03 \x01(\tR\bprogress\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x04 \x01(\x03R\tupdatedAt\"\x92\x01\n" +
+	"\x0eTaskUpdateResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x12\n" +
+	"\x04noop\x18\x04 \x01(\bR\x04noop\x12+\n" +
+	"\x04task\x18\x05 \x01(\v2\x17.wbflow.api.v1.TaskItemR\x04task\"_\n" +
+	"\x0fRelatedTaskItem\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
+	"\taction_id\x18\x02 \x01(\tR\bactionId\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06statusB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
 
 var (
 	file_api_proto_rawDescOnce sync.Once
@@ -3823,7 +4470,7 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_api_proto_goTypes = []any{
 	(*ErrorResp)(nil),              // 0: wbflow.api.v1.ErrorResp
 	(*ListRequirementsReq)(nil),    // 1: wbflow.api.v1.ListRequirementsReq
@@ -3868,6 +4515,12 @@ var file_api_proto_goTypes = []any{
 	(*GetArtifactContentReq)(nil),  // 40: wbflow.api.v1.GetArtifactContentReq
 	(*GetArtifactContentResp)(nil), // 41: wbflow.api.v1.GetArtifactContentResp
 	(*RelatedArtifactItem)(nil),    // 42: wbflow.api.v1.RelatedArtifactItem
+	(*AssignTaskReq)(nil),          // 43: wbflow.api.v1.AssignTaskReq
+	(*TaskItem)(nil),               // 44: wbflow.api.v1.TaskItem
+	(*AssignTaskResp)(nil),         // 45: wbflow.api.v1.AssignTaskResp
+	(*TaskUpdateReq)(nil),          // 46: wbflow.api.v1.TaskUpdateReq
+	(*TaskUpdateResp)(nil),         // 47: wbflow.api.v1.TaskUpdateResp
+	(*RelatedTaskItem)(nil),        // 48: wbflow.api.v1.RelatedTaskItem
 }
 var file_api_proto_depIdxs = []int32{
 	2,  // 0: wbflow.api.v1.ListRequirementsResp.items:type_name -> wbflow.api.v1.RequirementItem
@@ -3891,14 +4544,17 @@ var file_api_proto_depIdxs = []int32{
 	31, // 18: wbflow.api.v1.MyTaskResp.review_summary:type_name -> wbflow.api.v1.ReviewSummary
 	32, // 19: wbflow.api.v1.MyTaskResp.related_nodes:type_name -> wbflow.api.v1.RelatedNodeItem
 	42, // 20: wbflow.api.v1.MyTaskResp.related_artifacts:type_name -> wbflow.api.v1.RelatedArtifactItem
-	35, // 21: wbflow.api.v1.DependencyNodeItem.children:type_name -> wbflow.api.v1.DependencyNodeItem
-	35, // 22: wbflow.api.v1.DependencyTreeResp.root:type_name -> wbflow.api.v1.DependencyNodeItem
-	7,  // 23: wbflow.api.v1.AddArtifactResp.artifact:type_name -> wbflow.api.v1.ArtifactItem
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	48, // 21: wbflow.api.v1.MyTaskResp.related_tasks:type_name -> wbflow.api.v1.RelatedTaskItem
+	35, // 22: wbflow.api.v1.DependencyNodeItem.children:type_name -> wbflow.api.v1.DependencyNodeItem
+	35, // 23: wbflow.api.v1.DependencyTreeResp.root:type_name -> wbflow.api.v1.DependencyNodeItem
+	7,  // 24: wbflow.api.v1.AddArtifactResp.artifact:type_name -> wbflow.api.v1.ArtifactItem
+	44, // 25: wbflow.api.v1.AssignTaskResp.task:type_name -> wbflow.api.v1.TaskItem
+	44, // 26: wbflow.api.v1.TaskUpdateResp.task:type_name -> wbflow.api.v1.TaskItem
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -3912,7 +4568,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   43,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

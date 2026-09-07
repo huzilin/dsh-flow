@@ -112,10 +112,65 @@ func Is(err error, target error) bool {
 			return true
 		}
 		causer, ok := cur.(interface{ Cause() error })
+		if ok {
+			cur = causer.Cause()
+			continue
+		}
+		unwrapper, ok := cur.(interface{ Unwrap() error })
 		if !ok {
 			return false
 		}
-		cur = causer.Cause()
+		cur = unwrapper.Unwrap()
 	}
 	return false
+}
+
+// missingCarrier 判据缺项清单载体接口（WithMissing 产物，handler 出参消费）。
+type missingCarrier interface {
+	Missing() []string
+}
+
+// withMissing 判据拦截错误载体：cause 为哨兵错误（如 ErrGateBlocked），
+// 附判据缺项清单——统一失败出参 missing 字段的数据源（spec §1.1：
+// 失败 {ok:false, error, code, blocked?, missing?}）。
+type withMissing struct {
+	cause   error
+	missing []string
+}
+
+// Error 实现 error（文案取 cause）。
+func (m *withMissing) Error() string { return m.cause.Error() }
+
+// Cause pingcap 风格 cause 链（errs.Is 与 MapToHTTP 沿链命中哨兵）。
+func (m *withMissing) Cause() error { return m.cause }
+
+// Unwrap std 风格解包链。
+func (m *withMissing) Unwrap() error { return m.cause }
+
+// Missing 判据缺项清单。
+func (m *withMissing) Missing() []string { return m.missing }
+
+// WithMissing 给错误挂判据缺项清单（判据校验类拦截专用——complete 判据
+// 不满足等场景；非判据错误误用无害，MissingOf 恒可提取）。
+func WithMissing(err error, missing []string) error {
+	return &withMissing{cause: err, missing: missing}
+}
+
+// MissingOf 沿错误双链（Unwrap/Cause）提取判据缺项清单；未命中返回 nil。
+func MissingOf(err error) []string {
+	for cur := err; cur != nil; {
+		if carrier, ok := cur.(missingCarrier); ok {
+			return carrier.Missing()
+		}
+		if unwrapper, ok := cur.(interface{ Unwrap() error }); ok {
+			cur = unwrapper.Unwrap()
+			continue
+		}
+		causer, ok := cur.(interface{ Cause() error })
+		if !ok {
+			return nil
+		}
+		cur = causer.Cause()
+	}
+	return nil
 }
