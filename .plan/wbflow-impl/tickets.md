@@ -67,10 +67,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4
 
-- [ ] product_type 枚举外值被拦（blocked + reason）
-- [ ] 阅读器按 artifact 取正文：文档存在 / 缺失 / link 三分支
-- [ ] 登记人（added_by）与审计字段正确落库
-- [ ] httptest 全分支覆盖
+- [x] product_type 枚举外值被拦（blocked + reason）
+- [x] 阅读器按 artifact 取正文：文档存在 / 缺失 / link 三分支
+- [x] 登记人（added_by）与审计字段正确落库
+- [x] httptest 全分支覆盖（IT 已编码，真实库集中验证由编排者执行）
 
 ## 7. 评论 / issue 状态机 v2 全链路
 
