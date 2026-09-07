@@ -102,10 +102,10 @@ func TestUnit_Recovery_NeverPanic(t *testing.T) {
 
 	assert.Equal(t, resp.Code, http.StatusInternalServerError)
 
-	var body ErrorResp
+	var body map[string]any
 	assert.NilError(t, json.Unmarshal(resp.Body.Bytes(), &body))
-	assert.Equal(t, body.Ok, false)
-	assert.Equal(t, body.Code, "INTERNAL")
+	assert.Equal(t, body["ok"], false)
+	assert.Equal(t, body["code"], "INTERNAL")
 	assert.Assert(t, len(logs.FilterMessage("http handler panic").All()) == 1)
 }
 
@@ -122,9 +122,9 @@ func TestUnit_AbortWithErr_SentinelMapping(t *testing.T) {
 
 	assert.Equal(t, resp.Code, http.StatusConflict)
 
-	var body ErrorResp
+	var body map[string]any
 	assert.NilError(t, json.Unmarshal(resp.Body.Bytes(), &body))
-	assert.Equal(t, body.Ok, false)
-	assert.Equal(t, body.Code, "GATE_BLOCKED")
-	assert.Equal(t, body.Blocked, true)
+	assert.Equal(t, body["ok"], false)
+	assert.Equal(t, body["code"], "GATE_BLOCKED")
+	assert.Equal(t, body["blocked"], true)
 }

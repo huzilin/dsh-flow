@@ -23,11 +23,19 @@ type Config struct {
 	HTTP  HTTPConfig  `yaml:"http"`
 	MySQL MySQLConfig `yaml:"mysql"`
 	Log   LogConfig   `yaml:"log"`
+	Auth  AuthConfig  `yaml:"auth"`
 }
 
 // HTTPConfig HTTP 服务配置。
 type HTTPConfig struct {
 	Port int64 `yaml:"port"`
+}
+
+// AuthConfig 认证配置（spec §1.1：本期本地部署简单 token；DSH 嵌入期替换适配器，路由不变）。
+type AuthConfig struct {
+	// Token Bearer 令牌；经 ${WBFLOW_AUTH_TOKEN} 注入，禁止落地仓库文件。
+	// 空=未配置：API 路由全部 401（fail closed），/healthz 豁免。
+	Token string `yaml:"token"`
 }
 
 // MySQLConfig MySQL 接入配置。

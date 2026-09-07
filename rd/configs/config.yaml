@@ -20,3 +20,7 @@ log:
   level: info
   mode: dev
   path: logs/rd.log
+# 简单 token 认证（本地部署口径）：Authorization: Bearer <token>；
+# 未设置（空串）时 API 路由全部 401（fail closed），/healthz 豁免。
+auth:
+  token: ${WBFLOW_AUTH_TOKEN}

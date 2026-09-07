@@ -12,15 +12,6 @@ import (
 	"github.com/huzilin/wbflow/rd/pkg/errs"
 )
 
-// ErrorResp 统一失败响应体（spec §1.1：{ok:false, error, code, blocked?, missing?}）。
-type ErrorResp struct {
-	Ok      bool     `json:"ok"`
-	Error   string   `json:"error"`
-	Code    string   `json:"code"`
-	Blocked bool     `json:"blocked,omitempty"`
-	Missing []string `json:"missing,omitempty"`
-}
-
 // AccessLog 入口/出口日志埋点：请求进入打一条，响应完成（defer）打一条。
 func AccessLog(lg *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -51,21 +42,6 @@ func Recovery(lg *zap.Logger) gin.HandlerFunc {
 			zap.Any("panic", recovered),
 			zap.String("path", c.Request.URL.Path),
 		)
-		c.AbortWithStatusJSON(http.StatusInternalServerError, ErrorResp{
-			Ok:    false,
-			Error: "internal server error",
-			Code:  string(errs.CodeInternal),
-		})
-	})
-}
-
-// AbortWithErr 错误集中映射出参：业务 handler 捕获 service 错误后统一走此写出。
-func AbortWithErr(c *gin.Context, err error) {
-	mapping := errs.MapToHTTP(err)
-	c.AbortWithStatusJSON(mapping.HTTPStatus, ErrorResp{
-		Ok:      false,
-		Error:   err.Error(),
-		Code:    string(mapping.Code),
-		Blocked: mapping.Blocked,
+		writeErrJSON(c, http.StatusInternalServerError, errs.CodeInternal, "internal server error", false)
 	})
 }

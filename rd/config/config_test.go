@@ -62,6 +62,20 @@ func TestUnit_Load_MissingLocalIsOK(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, cfg.HTTP.Port, int64(9090))
 	assert.Equal(t, cfg.MySQL.DBName, "wbflow")
+	// auth 段缺省=空 token（fail closed 口径由 handler 层执行）
+	assert.Equal(t, cfg.Auth.Token, "")
+}
+
+func TestUnit_Load_AuthTokenEnvExpand(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "config.yaml")
+	mainYAML := "auth:\n  token: ${WBFLOW_TEST_AUTH_TOKEN}\n"
+	assert.NilError(t, os.WriteFile(mainPath, []byte(mainYAML), 0o600))
+
+	t.Setenv("WBFLOW_TEST_AUTH_TOKEN", "tok-abc")
+	cfg, err := Load(mainPath, "")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Auth.Token, "tok-abc")
 }
 
 func TestUnit_Load_MainMissingIsErr(t *testing.T) {
