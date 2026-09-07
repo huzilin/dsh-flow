@@ -75,6 +75,7 @@ func openScratch(t *testing.T) (*gin.Engine, *database.DB) {
 		Token:  itToken,
 		Reqs:   service.NewRequirementService(r),
 		Vers:   service.NewVersionService(r),
+		Flows:  service.NewFlowService(r),
 	})
 	return router, handles
 }
@@ -273,16 +274,30 @@ func TestIntegration_RequirementsEndpoints_RealMySQL(t *testing.T) {
 	resp = reqJSON(t, router, http.MethodGet, "/api/requirements?backlog=true", nil)
 	assert.Equal(t, resp.number(t, "total"), int64(4))
 
-	// 6. 聚合快照基础版：实例集合为空集、reviewResults=[]、version 未填充为 null
+	// 6. 聚合快照：T4 起创建即实例化——business 默认 scope=full，13 实例节点
 	resp = reqJSON(t, router, http.MethodGet, "/api/requirements/req-001", nil)
 	assert.Equal(t, resp.code, http.StatusOK)
 	assert.Equal(t, item(t, resp, "requirement").str("requirementId"), "req-001")
 	assert.Assert(t, resp.body["version"] == nil, "待分配池需求 version 应为 null")
-	assert.Equal(t, len(arr(t, resp, "flows")), 0, "T4 前 flows 空集")
-	assert.Equal(t, len(arr(t, resp, "flowNodes")), 0, "T4 前 flow_nodes 空集")
-	assert.Equal(t, len(arr(t, resp, "artifacts")), 0, "T6 前 artifacts 空集")
-	assert.Equal(t, len(arr(t, resp, "issues")), 0, "T7 前 issues 空集")
-	assert.Equal(t, resp.str("reviewResults"), "[]")
+	flows := arr(t, resp, "flows")
+	assert.Equal(t, len(flows), 1, "T4 创建即实例化 flows 1 行")
+	assert.Equal(t, flows[0].str("flowDefsId"), "business")
+	assert.Equal(t, flows[0].str("scope"), "full", "business 缺省 scope=full")
+	assert.Equal(t, flows[0].str("currentNodeId"), "", "未进入编排 currentNodeId 空")
+	assert.Equal(t, flows[0].str("dependencies"), "[]")
+	flowNodes := arr(t, resp, "flowNodes")
+	assert.Equal(t, len(flowNodes), 13, "business full 13 实例节点")
+	assert.Equal(t, flowNodes[0].str("defNodeId"), "bus-00")
+	assert.Equal(t, flowNodes[0].str("state"), "", "未进入编排 state 空")
+	assert.Equal(t, flowNodes[0].number(t, "nodeOrder"), int64(1))
+	assert.Equal(t, flowNodes[0].str("nodeType"), "gate", "定义属性经 def_node_id 关联填充")
+	assert.Equal(t, flowNodes[1].str("nodeType"), "align")
+	assert.Equal(t, flowNodes[3].str("nodeId"), "n-04", "node_id n-NN 与渲染序一致")
+	assert.Equal(t, flowNodes[12].str("defNodeId"), "bus-12")
+	assert.Equal(t, flowNodes[2].str("reviewResults"), "[]")
+	assert.Assert(t, len(arr(t, resp, "artifacts")) == 0, "T6 前 artifacts 空集")
+	assert.Assert(t, len(arr(t, resp, "issues")) == 0, "T7 前 issues 空集")
+	assert.Assert(t, strings.Contains(resp.str("reviewResults"), "["), "reviewResults 汇总为 JSON 数组文本")
 
 	// 7. 快照 404
 	resp = reqJSON(t, router, http.MethodGet, "/api/requirements/req-999", nil)

@@ -490,7 +490,7 @@ func (x *GetRequirementReq) GetRequirementId() string {
 	return ""
 }
 
-// FlowItem 流程实例行（聚合快照基础版；T4 实例化前为空集）。
+// FlowItem 流程实例行（聚合快照；T4 起需求创建即实例化，恒 1 行）。
 type FlowItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// flow_defs_id 流程类型
@@ -502,7 +502,9 @@ type FlowItem struct {
 	// created_at 创建时间，unix 毫秒
 	CreatedAt int64 `protobuf:"varint,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// updated_at 更新时间，unix 毫秒
-	UpdatedAt     int64 `protobuf:"varint,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt int64 `protobuf:"varint,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// scope 需求所选渲染 scope：full/rd/fe；空=无 scope（plan 流程）
+	Scope         string `protobuf:"bytes,6,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -572,7 +574,14 @@ func (x *FlowItem) GetUpdatedAt() int64 {
 	return 0
 }
 
-// FlowNodeItem 流程实例节点行（T4 实例化前为空集）。
+func (x *FlowItem) GetScope() string {
+	if x != nil {
+		return x.Scope
+	}
+	return ""
+}
+
+// FlowNodeItem 流程实例节点行（T4 起实例化填充；流程树渲染所需字段齐备）。
 type FlowNodeItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// node_id 实例节点 id，如 n-05
@@ -594,7 +603,17 @@ type FlowNodeItem struct {
 	// feature_branch 评审敲定后的分支名；空=未敲定
 	FeatureBranch string `protobuf:"bytes,9,opt,name=feature_branch,json=featureBranch,proto3" json:"feature_branch,omitempty"`
 	// entered_at 进入执行时间，unix 毫秒；0=未进入
-	EnteredAt     int64 `protobuf:"varint,10,opt,name=entered_at,json=enteredAt,proto3" json:"entered_at,omitempty"`
+	EnteredAt int64 `protobuf:"varint,10,opt,name=entered_at,json=enteredAt,proto3" json:"entered_at,omitempty"`
+	// node_type 节点类型（来自定义节点）：produce/review/align/gate
+	NodeType string `protobuf:"bytes,11,opt,name=node_type,json=nodeType,proto3" json:"node_type,omitempty"`
+	// gate 是否门禁：1=有准出判定
+	Gate int64 `protobuf:"varint,12,opt,name=gate,proto3" json:"gate,omitempty"`
+	// user_gate User 终审拍板位：1=agreed 后唤醒 User
+	UserGate int64 `protobuf:"varint,13,opt,name=user_gate,json=userGate,proto3" json:"user_gate,omitempty"`
+	// reviewers 实例评审位声明 JSON 文本（实例化按 scope 过滤后的静态声明）
+	Reviewers string `protobuf:"bytes,14,opt,name=reviewers,proto3" json:"reviewers,omitempty"`
+	// last_decision 门禁裁决结果 JSON 文本（{verdict,reason,at,branch?}）；空=未判定（DB 侧 NULL）
+	LastDecision  string `protobuf:"bytes,15,opt,name=last_decision,json=lastDecision,proto3" json:"last_decision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -697,6 +716,41 @@ func (x *FlowNodeItem) GetEnteredAt() int64 {
 		return x.EnteredAt
 	}
 	return 0
+}
+
+func (x *FlowNodeItem) GetNodeType() string {
+	if x != nil {
+		return x.NodeType
+	}
+	return ""
+}
+
+func (x *FlowNodeItem) GetGate() int64 {
+	if x != nil {
+		return x.Gate
+	}
+	return 0
+}
+
+func (x *FlowNodeItem) GetUserGate() int64 {
+	if x != nil {
+		return x.UserGate
+	}
+	return 0
+}
+
+func (x *FlowNodeItem) GetReviewers() string {
+	if x != nil {
+		return x.Reviewers
+	}
+	return ""
+}
+
+func (x *FlowNodeItem) GetLastDecision() string {
+	if x != nil {
+		return x.LastDecision
+	}
+	return ""
 }
 
 // ArtifactItem 产物行（T6 前为空集）。
@@ -1081,7 +1135,11 @@ type CreateRequirementReq struct {
 	// owner 负责人角色；空=未指派
 	Owner string `protobuf:"bytes,7,opt,name=owner,proto3" json:"owner,omitempty"`
 	// created_by 创建人（必填）
-	CreatedBy     string `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	CreatedBy string `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	// scope 需求所选渲染 scope：business/tech ∈ {full, rd, fe}；task ∈ {rd, fe}；
+	// plan 恒空串。空=取 flow_defs.scope_options 首值（business/tech 默认 full、task 默认 rd）。
+	// 越出 scope_options → 400。实例化按 flow_def_nodes.scope_expr ∩ scope 过滤投影（T4）。
+	Scope         string `protobuf:"bytes,9,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1168,6 +1226,13 @@ func (x *CreateRequirementReq) GetOwner() string {
 func (x *CreateRequirementReq) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *CreateRequirementReq) GetScope() string {
+	if x != nil {
+		return x.Scope
 	}
 	return ""
 }
@@ -2218,6 +2283,805 @@ func (x *DeprecateVersionResp) GetVersion() *VersionItem {
 	return nil
 }
 
+// MyTaskReq POST /api/requirements/:reqId/my-task 入参。
+// 身份 three-way（role × node × 相位）：不属于该节点/该相位的角色返回空动作集，
+// 不报错（data-tools-final §2.2 wb_my_task 升级契约）。
+type MyTaskReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 需求业务 id（reqId 取路径）
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// role 请求角色（必填）；未知角色=空动作集
+	Role string `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	// node_id 目标节点；空=当前节点（flows.current_node_id；NULL=未进入编排）
+	NodeId        string `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MyTaskReq) Reset() {
+	*x = MyTaskReq{}
+	mi := &file_api_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MyTaskReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MyTaskReq) ProtoMessage() {}
+
+func (x *MyTaskReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MyTaskReq.ProtoReflect.Descriptor instead.
+func (*MyTaskReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *MyTaskReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *MyTaskReq) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *MyTaskReq) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+// MyTaskActionItem 激活动作（wb_my_task activeActions 条目；
+// kind=capability 来自能力动作词表，kind=node 为节点公共动作）。
+type MyTaskActionItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// action_id 动作标识（kind=capability 为能力内动作 id；kind=node 为 node action id）
+	ActionId string `protobuf:"bytes,1,opt,name=action_id,json=actionId,proto3" json:"action_id,omitempty"`
+	// name 动作显示名（kind=node 无独立名，取 action_id）
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// kind capability | node
+	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	// capability_id 所属能力（kind=capability 有效；kind=node 为空）
+	CapabilityId string `protobuf:"bytes,4,opt,name=capability_id,json=capabilityId,proto3" json:"capability_id,omitempty"`
+	// on 挂载相位（=current_phase，过滤后恒一致，冗余便于消费）
+	On string `protobuf:"bytes,5,opt,name=on,proto3" json:"on,omitempty"`
+	// executor 执行者：program | subagent（kind=node 有效）
+	Executor string `protobuf:"bytes,6,opt,name=executor,proto3" json:"executor,omitempty"`
+	// executor_role 响应者角色（kind=node 有效）
+	ExecutorRole string `protobuf:"bytes,7,opt,name=executor_role,json=executorRole,proto3" json:"executor_role,omitempty"`
+	// skill 挂载 skill；空=无
+	Skill string `protobuf:"bytes,8,opt,name=skill,proto3" json:"skill,omitempty"`
+	// inline 一句话内联定义；空=无
+	Inline        string `protobuf:"bytes,9,opt,name=inline,proto3" json:"inline,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MyTaskActionItem) Reset() {
+	*x = MyTaskActionItem{}
+	mi := &file_api_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MyTaskActionItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MyTaskActionItem) ProtoMessage() {}
+
+func (x *MyTaskActionItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MyTaskActionItem.ProtoReflect.Descriptor instead.
+func (*MyTaskActionItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *MyTaskActionItem) GetActionId() string {
+	if x != nil {
+		return x.ActionId
+	}
+	return ""
+}
+
+func (x *MyTaskActionItem) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *MyTaskActionItem) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *MyTaskActionItem) GetCapabilityId() string {
+	if x != nil {
+		return x.CapabilityId
+	}
+	return ""
+}
+
+func (x *MyTaskActionItem) GetOn() string {
+	if x != nil {
+		return x.On
+	}
+	return ""
+}
+
+func (x *MyTaskActionItem) GetExecutor() string {
+	if x != nil {
+		return x.Executor
+	}
+	return ""
+}
+
+func (x *MyTaskActionItem) GetExecutorRole() string {
+	if x != nil {
+		return x.ExecutorRole
+	}
+	return ""
+}
+
+func (x *MyTaskActionItem) GetSkill() string {
+	if x != nil {
+		return x.Skill
+	}
+	return ""
+}
+
+func (x *MyTaskActionItem) GetInline() string {
+	if x != nil {
+		return x.Inline
+	}
+	return ""
+}
+
+// ReviewResultItem 评审表态明细（flow_nodes.review_results 条目同构）。
+type ReviewResultItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// role 表态角色
+	Role string `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
+	// capability_id 评审能力
+	CapabilityId string `protobuf:"bytes,2,opt,name=capability_id,json=capabilityId,proto3" json:"capability_id,omitempty"`
+	// state reviewing | agree | unagree
+	State string `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`
+	// round 评审轮（与 rolled_back_count 对齐）
+	Round int64 `protobuf:"varint,4,opt,name=round,proto3" json:"round,omitempty"`
+	// at 表态时间，unix 毫秒
+	At            int64 `protobuf:"varint,5,opt,name=at,proto3" json:"at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReviewResultItem) Reset() {
+	*x = ReviewResultItem{}
+	mi := &file_api_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReviewResultItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReviewResultItem) ProtoMessage() {}
+
+func (x *ReviewResultItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReviewResultItem.ProtoReflect.Descriptor instead.
+func (*ReviewResultItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *ReviewResultItem) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *ReviewResultItem) GetCapabilityId() string {
+	if x != nil {
+		return x.CapabilityId
+	}
+	return ""
+}
+
+func (x *ReviewResultItem) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *ReviewResultItem) GetRound() int64 {
+	if x != nil {
+		return x.Round
+	}
+	return 0
+}
+
+func (x *ReviewResultItem) GetAt() int64 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+// ReviewSummary 评审表态摘要（per-agent 聚合计数 + 明细）。
+type ReviewSummary struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// agree 已同意计数
+	Agree int64 `protobuf:"varint,1,opt,name=agree,proto3" json:"agree,omitempty"`
+	// unagree 已反对计数
+	Unagree int64 `protobuf:"varint,2,opt,name=unagree,proto3" json:"unagree,omitempty"`
+	// reviewing 待表态计数
+	Reviewing int64 `protobuf:"varint,3,opt,name=reviewing,proto3" json:"reviewing,omitempty"`
+	// details 表态明细（role+capabilityId 维度）
+	Details       []*ReviewResultItem `protobuf:"bytes,4,rep,name=details,proto3" json:"details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReviewSummary) Reset() {
+	*x = ReviewSummary{}
+	mi := &file_api_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReviewSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReviewSummary) ProtoMessage() {}
+
+func (x *ReviewSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReviewSummary.ProtoReflect.Descriptor instead.
+func (*ReviewSummary) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ReviewSummary) GetAgree() int64 {
+	if x != nil {
+		return x.Agree
+	}
+	return 0
+}
+
+func (x *ReviewSummary) GetUnagree() int64 {
+	if x != nil {
+		return x.Unagree
+	}
+	return 0
+}
+
+func (x *ReviewSummary) GetReviewing() int64 {
+	if x != nil {
+		return x.Reviewing
+	}
+	return 0
+}
+
+func (x *ReviewSummary) GetDetails() []*ReviewResultItem {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+// RelatedNodeItem 角色相关节点（wb_my_task relatedNodes 最小返回集：
+// 该角色在实例评审位或激活清单能力归属中出现的节点）。
+type RelatedNodeItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// node_id 实例节点 id
+	NodeId string `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// node_key 节点名
+	NodeKey string `protobuf:"bytes,2,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
+	// node_order 渲染序号
+	NodeOrder int64 `protobuf:"varint,3,opt,name=node_order,json=nodeOrder,proto3" json:"node_order,omitempty"`
+	// state 可配相位
+	State         string `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelatedNodeItem) Reset() {
+	*x = RelatedNodeItem{}
+	mi := &file_api_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelatedNodeItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelatedNodeItem) ProtoMessage() {}
+
+func (x *RelatedNodeItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelatedNodeItem.ProtoReflect.Descriptor instead.
+func (*RelatedNodeItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *RelatedNodeItem) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *RelatedNodeItem) GetNodeKey() string {
+	if x != nil {
+		return x.NodeKey
+	}
+	return ""
+}
+
+func (x *RelatedNodeItem) GetNodeOrder() int64 {
+	if x != nil {
+		return x.NodeOrder
+	}
+	return 0
+}
+
+func (x *RelatedNodeItem) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+// MyTaskNode wb_my_task 目标节点摘要（未进入编排且未指定 nodeId 时未填充）。
+type MyTaskNode struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// node_id 实例节点 id
+	NodeId string `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// def_node_id 定义节点引用
+	DefNodeId string `protobuf:"bytes,2,opt,name=def_node_id,json=defNodeId,proto3" json:"def_node_id,omitempty"`
+	// node_type 节点类型：produce/review/align/gate
+	NodeType string `protobuf:"bytes,3,opt,name=node_type,json=nodeType,proto3" json:"node_type,omitempty"`
+	// state 可配相位（=current_phase）
+	State string `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+	// reviewers 实例评审位声明 JSON 文本（scope 过滤后静态声明）
+	Reviewers     string `protobuf:"bytes,5,opt,name=reviewers,proto3" json:"reviewers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MyTaskNode) Reset() {
+	*x = MyTaskNode{}
+	mi := &file_api_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MyTaskNode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MyTaskNode) ProtoMessage() {}
+
+func (x *MyTaskNode) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MyTaskNode.ProtoReflect.Descriptor instead.
+func (*MyTaskNode) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *MyTaskNode) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *MyTaskNode) GetDefNodeId() string {
+	if x != nil {
+		return x.DefNodeId
+	}
+	return ""
+}
+
+func (x *MyTaskNode) GetNodeType() string {
+	if x != nil {
+		return x.NodeType
+	}
+	return ""
+}
+
+func (x *MyTaskNode) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *MyTaskNode) GetReviewers() string {
+	if x != nil {
+		return x.Reviewers
+	}
+	return ""
+}
+
+// MyTaskResp POST /api/requirements/:reqId/my-task 出参。
+type MyTaskResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// requirement_id 需求业务 id
+	RequirementId string `protobuf:"bytes,2,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// role 请求角色（回显）
+	Role string `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	// node 目标节点摘要；未进入编排（未指定 nodeId 且无当前节点）时未填充（protojson 出 null）
+	Node *MyTaskNode `protobuf:"bytes,4,opt,name=node,proto3" json:"node,omitempty"`
+	// current_phase 当前相位（=node.state；""=未进入编排）
+	CurrentPhase string `protobuf:"bytes,5,opt,name=current_phase,json=currentPhase,proto3" json:"current_phase,omitempty"`
+	// active_actions 激活动作清单：node_actions 激活清单 × 相位（on）× 角色（能力归属/node executor_role）过滤
+	ActiveActions []*MyTaskActionItem `protobuf:"bytes,6,rep,name=active_actions,json=activeActions,proto3" json:"active_actions,omitempty"`
+	// review_summary 目标节点评审表态摘要（per-agent 聚合计数与明细）
+	ReviewSummary *ReviewSummary `protobuf:"bytes,7,opt,name=review_summary,json=reviewSummary,proto3" json:"review_summary,omitempty"`
+	// related_nodes 该角色相关节点集（最小返回集）
+	RelatedNodes  []*RelatedNodeItem `protobuf:"bytes,8,rep,name=related_nodes,json=relatedNodes,proto3" json:"related_nodes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MyTaskResp) Reset() {
+	*x = MyTaskResp{}
+	mi := &file_api_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MyTaskResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MyTaskResp) ProtoMessage() {}
+
+func (x *MyTaskResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MyTaskResp.ProtoReflect.Descriptor instead.
+func (*MyTaskResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *MyTaskResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *MyTaskResp) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *MyTaskResp) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *MyTaskResp) GetNode() *MyTaskNode {
+	if x != nil {
+		return x.Node
+	}
+	return nil
+}
+
+func (x *MyTaskResp) GetCurrentPhase() string {
+	if x != nil {
+		return x.CurrentPhase
+	}
+	return ""
+}
+
+func (x *MyTaskResp) GetActiveActions() []*MyTaskActionItem {
+	if x != nil {
+		return x.ActiveActions
+	}
+	return nil
+}
+
+func (x *MyTaskResp) GetReviewSummary() *ReviewSummary {
+	if x != nil {
+		return x.ReviewSummary
+	}
+	return nil
+}
+
+func (x *MyTaskResp) GetRelatedNodes() []*RelatedNodeItem {
+	if x != nil {
+		return x.RelatedNodes
+	}
+	return nil
+}
+
+// DependencyNodeItem 依赖树节点（GET /api/requirements/:reqId/dependencies/tree；
+// 动态加载分析师视图：按需拉取，不对用户显示内部分层——ui-interaction-final §2）。
+type DependencyNodeItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 需求业务 id
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// title 需求标题；found=false 时为空
+	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	// status 需求状态；found=false 时为空
+	Status string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	// version_id 归属版本；待分配池为空串
+	VersionId string `protobuf:"bytes,4,opt,name=version_id,json=versionId,proto3" json:"version_id,omitempty"`
+	// found 依赖 id 是否命中需求行（false=悬挂边：无对应需求，不再展开）
+	Found bool `protobuf:"varint,5,opt,name=found,proto3" json:"found,omitempty"`
+	// children 直接前置依赖子树（flows.dependencies 递归展开）
+	Children      []*DependencyNodeItem `protobuf:"bytes,6,rep,name=children,proto3" json:"children,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DependencyNodeItem) Reset() {
+	*x = DependencyNodeItem{}
+	mi := &file_api_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DependencyNodeItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DependencyNodeItem) ProtoMessage() {}
+
+func (x *DependencyNodeItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DependencyNodeItem.ProtoReflect.Descriptor instead.
+func (*DependencyNodeItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *DependencyNodeItem) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *DependencyNodeItem) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *DependencyNodeItem) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *DependencyNodeItem) GetVersionId() string {
+	if x != nil {
+		return x.VersionId
+	}
+	return ""
+}
+
+func (x *DependencyNodeItem) GetFound() bool {
+	if x != nil {
+		return x.Found
+	}
+	return false
+}
+
+func (x *DependencyNodeItem) GetChildren() []*DependencyNodeItem {
+	if x != nil {
+		return x.Children
+	}
+	return nil
+}
+
+// DependencyTreeReq GET /api/requirements/:reqId/dependencies/tree 入参。
+type DependencyTreeReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 根需求业务 id（reqId 取路径）
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DependencyTreeReq) Reset() {
+	*x = DependencyTreeReq{}
+	mi := &file_api_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DependencyTreeReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DependencyTreeReq) ProtoMessage() {}
+
+func (x *DependencyTreeReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DependencyTreeReq.ProtoReflect.Descriptor instead.
+func (*DependencyTreeReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *DependencyTreeReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+// DependencyTreeResp GET /api/requirements/:reqId/dependencies/tree 出参。
+// 依赖图成环时拒绝（DEPENDENCY_CYCLE，409）——树不可构建。
+type DependencyTreeResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// root 根节点（当前需求）子树
+	Root          *DependencyNodeItem `protobuf:"bytes,2,opt,name=root,proto3" json:"root,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DependencyTreeResp) Reset() {
+	*x = DependencyTreeResp{}
+	mi := &file_api_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DependencyTreeResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DependencyTreeResp) ProtoMessage() {}
+
+func (x *DependencyTreeResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DependencyTreeResp.ProtoReflect.Descriptor instead.
+func (*DependencyTreeResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *DependencyTreeResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *DependencyTreeResp) GetRoot() *DependencyNodeItem {
+	if x != nil {
+		return x.Root
+	}
+	return nil
+}
+
 var File_api_proto protoreflect.FileDescriptor
 
 const file_api_proto_rawDesc = "" +
@@ -2263,7 +3127,7 @@ const file_api_proto_rawDesc = "" +
 	"\tpage_size\x18\x04 \x01(\x03R\bpageSize\x124\n" +
 	"\x05items\x18\x05 \x03(\v2\x1e.wbflow.api.v1.RequirementItemR\x05items\":\n" +
 	"\x11GetRequirementReq\x12%\n" +
-	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\"\xb6\x01\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\"\xcc\x01\n" +
 	"\bFlowItem\x12 \n" +
 	"\fflow_defs_id\x18\x01 \x01(\tR\n" +
 	"flowDefsId\x12\"\n" +
@@ -2272,7 +3136,8 @@ const file_api_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x04 \x01(\x03R\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\x03R\tupdatedAt\"\xd5\x02\n" +
+	"updated_at\x18\x05 \x01(\x03R\tupdatedAt\x12\x14\n" +
+	"\x05scope\x18\x06 \x01(\tR\x05scope\"\xe6\x03\n" +
 	"\fFlowNodeItem\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1e\n" +
 	"\vdef_node_id\x18\x02 \x01(\tR\tdefNodeId\x12\x1d\n" +
@@ -2286,7 +3151,12 @@ const file_api_proto_rawDesc = "" +
 	"\x0efeature_branch\x18\t \x01(\tR\rfeatureBranch\x12\x1d\n" +
 	"\n" +
 	"entered_at\x18\n" +
-	" \x01(\x03R\tenteredAt\"\xf7\x01\n" +
+	" \x01(\x03R\tenteredAt\x12\x1b\n" +
+	"\tnode_type\x18\v \x01(\tR\bnodeType\x12\x12\n" +
+	"\x04gate\x18\f \x01(\x03R\x04gate\x12\x1b\n" +
+	"\tuser_gate\x18\r \x01(\x03R\buserGate\x12\x1c\n" +
+	"\treviewers\x18\x0e \x01(\tR\treviewers\x12#\n" +
+	"\rlast_decision\x18\x0f \x01(\tR\flastDecision\"\xf7\x01\n" +
 	"\fArtifactItem\x12\x1f\n" +
 	"\vartifact_id\x18\x01 \x01(\tR\n" +
 	"artifactId\x12\x17\n" +
@@ -2325,7 +3195,7 @@ const file_api_proto_rawDesc = "" +
 	"flow_nodes\x18\x05 \x03(\v2\x1b.wbflow.api.v1.FlowNodeItemR\tflowNodes\x129\n" +
 	"\tartifacts\x18\x06 \x03(\v2\x1b.wbflow.api.v1.ArtifactItemR\tartifacts\x120\n" +
 	"\x06issues\x18\a \x03(\v2\x18.wbflow.api.v1.IssueItemR\x06issues\x12%\n" +
-	"\x0ereview_results\x18\b \x01(\tR\rreviewResults\"\xfc\x01\n" +
+	"\x0ereview_results\x18\b \x01(\tR\rreviewResults\"\x92\x02\n" +
 	"\x14CreateRequirementReq\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1a\n" +
@@ -2337,7 +3207,8 @@ const file_api_proto_rawDesc = "" +
 	"\bpriority\x18\x06 \x01(\tR\bpriority\x12\x14\n" +
 	"\x05owner\x18\a \x01(\tR\x05owner\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\b \x01(\tR\tcreatedBy\"i\n" +
+	"created_by\x18\b \x01(\tR\tcreatedBy\x12\x14\n" +
+	"\x05scope\x18\t \x01(\tR\x05scope\"i\n" +
 	"\x15CreateRequirementResp\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12@\n" +
 	"\vrequirement\x18\x02 \x01(\v2\x1e.wbflow.api.v1.RequirementItemR\vrequirement\"\x99\x02\n" +
@@ -2415,7 +3286,68 @@ const file_api_proto_rawDesc = "" +
 	"updated_at\x18\x02 \x01(\x03R\tupdatedAt\"\\\n" +
 	"\x14DeprecateVersionResp\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x124\n" +
-	"\aversion\x18\x02 \x01(\v2\x1a.wbflow.api.v1.VersionItemR\aversionB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
+	"\aversion\x18\x02 \x01(\v2\x1a.wbflow.api.v1.VersionItemR\aversion\"_\n" +
+	"\tMyTaskReq\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x12\x17\n" +
+	"\anode_id\x18\x03 \x01(\tR\x06nodeId\"\xfb\x01\n" +
+	"\x10MyTaskActionItem\x12\x1b\n" +
+	"\taction_id\x18\x01 \x01(\tR\bactionId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04kind\x18\x03 \x01(\tR\x04kind\x12#\n" +
+	"\rcapability_id\x18\x04 \x01(\tR\fcapabilityId\x12\x0e\n" +
+	"\x02on\x18\x05 \x01(\tR\x02on\x12\x1a\n" +
+	"\bexecutor\x18\x06 \x01(\tR\bexecutor\x12#\n" +
+	"\rexecutor_role\x18\a \x01(\tR\fexecutorRole\x12\x14\n" +
+	"\x05skill\x18\b \x01(\tR\x05skill\x12\x16\n" +
+	"\x06inline\x18\t \x01(\tR\x06inline\"\x87\x01\n" +
+	"\x10ReviewResultItem\x12\x12\n" +
+	"\x04role\x18\x01 \x01(\tR\x04role\x12#\n" +
+	"\rcapability_id\x18\x02 \x01(\tR\fcapabilityId\x12\x14\n" +
+	"\x05state\x18\x03 \x01(\tR\x05state\x12\x14\n" +
+	"\x05round\x18\x04 \x01(\x03R\x05round\x12\x0e\n" +
+	"\x02at\x18\x05 \x01(\x03R\x02at\"\x98\x01\n" +
+	"\rReviewSummary\x12\x14\n" +
+	"\x05agree\x18\x01 \x01(\x03R\x05agree\x12\x18\n" +
+	"\aunagree\x18\x02 \x01(\x03R\aunagree\x12\x1c\n" +
+	"\treviewing\x18\x03 \x01(\x03R\treviewing\x129\n" +
+	"\adetails\x18\x04 \x03(\v2\x1f.wbflow.api.v1.ReviewResultItemR\adetails\"z\n" +
+	"\x0fRelatedNodeItem\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x19\n" +
+	"\bnode_key\x18\x02 \x01(\tR\anodeKey\x12\x1d\n" +
+	"\n" +
+	"node_order\x18\x03 \x01(\x03R\tnodeOrder\x12\x14\n" +
+	"\x05state\x18\x04 \x01(\tR\x05state\"\x96\x01\n" +
+	"\n" +
+	"MyTaskNode\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1e\n" +
+	"\vdef_node_id\x18\x02 \x01(\tR\tdefNodeId\x12\x1b\n" +
+	"\tnode_type\x18\x03 \x01(\tR\bnodeType\x12\x14\n" +
+	"\x05state\x18\x04 \x01(\tR\x05state\x12\x1c\n" +
+	"\treviewers\x18\x05 \x01(\tR\treviewers\"\xfd\x02\n" +
+	"\n" +
+	"MyTaskResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12%\n" +
+	"\x0erequirement_id\x18\x02 \x01(\tR\rrequirementId\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\x12-\n" +
+	"\x04node\x18\x04 \x01(\v2\x19.wbflow.api.v1.MyTaskNodeR\x04node\x12#\n" +
+	"\rcurrent_phase\x18\x05 \x01(\tR\fcurrentPhase\x12F\n" +
+	"\x0eactive_actions\x18\x06 \x03(\v2\x1f.wbflow.api.v1.MyTaskActionItemR\ractiveActions\x12C\n" +
+	"\x0ereview_summary\x18\a \x01(\v2\x1c.wbflow.api.v1.ReviewSummaryR\rreviewSummary\x12C\n" +
+	"\rrelated_nodes\x18\b \x03(\v2\x1e.wbflow.api.v1.RelatedNodeItemR\frelatedNodes\"\xdd\x01\n" +
+	"\x12DependencyNodeItem\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x1d\n" +
+	"\n" +
+	"version_id\x18\x04 \x01(\tR\tversionId\x12\x14\n" +
+	"\x05found\x18\x05 \x01(\bR\x05found\x12=\n" +
+	"\bchildren\x18\x06 \x03(\v2!.wbflow.api.v1.DependencyNodeItemR\bchildren\":\n" +
+	"\x11DependencyTreeReq\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\"[\n" +
+	"\x12DependencyTreeResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x125\n" +
+	"\x04root\x18\x02 \x01(\v2!.wbflow.api.v1.DependencyNodeItemR\x04rootB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
 
 var (
 	file_api_proto_rawDescOnce sync.Once
@@ -2429,7 +3361,7 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_api_proto_goTypes = []any{
 	(*ErrorResp)(nil),             // 0: wbflow.api.v1.ErrorResp
 	(*ListRequirementsReq)(nil),   // 1: wbflow.api.v1.ListRequirementsReq
@@ -2459,6 +3391,16 @@ var file_api_proto_goTypes = []any{
 	(*AdvanceVersionResp)(nil),    // 25: wbflow.api.v1.AdvanceVersionResp
 	(*DeprecateVersionReq)(nil),   // 26: wbflow.api.v1.DeprecateVersionReq
 	(*DeprecateVersionResp)(nil),  // 27: wbflow.api.v1.DeprecateVersionResp
+	(*MyTaskReq)(nil),             // 28: wbflow.api.v1.MyTaskReq
+	(*MyTaskActionItem)(nil),      // 29: wbflow.api.v1.MyTaskActionItem
+	(*ReviewResultItem)(nil),      // 30: wbflow.api.v1.ReviewResultItem
+	(*ReviewSummary)(nil),         // 31: wbflow.api.v1.ReviewSummary
+	(*RelatedNodeItem)(nil),       // 32: wbflow.api.v1.RelatedNodeItem
+	(*MyTaskNode)(nil),            // 33: wbflow.api.v1.MyTaskNode
+	(*MyTaskResp)(nil),            // 34: wbflow.api.v1.MyTaskResp
+	(*DependencyNodeItem)(nil),    // 35: wbflow.api.v1.DependencyNodeItem
+	(*DependencyTreeReq)(nil),     // 36: wbflow.api.v1.DependencyTreeReq
+	(*DependencyTreeResp)(nil),    // 37: wbflow.api.v1.DependencyTreeResp
 }
 var file_api_proto_depIdxs = []int32{
 	2,  // 0: wbflow.api.v1.ListRequirementsResp.items:type_name -> wbflow.api.v1.RequirementItem
@@ -2476,11 +3418,18 @@ var file_api_proto_depIdxs = []int32{
 	17, // 12: wbflow.api.v1.AdvanceVersionResp.version:type_name -> wbflow.api.v1.VersionItem
 	24, // 13: wbflow.api.v1.AdvanceVersionResp.unfinished:type_name -> wbflow.api.v1.RequirementRef
 	17, // 14: wbflow.api.v1.DeprecateVersionResp.version:type_name -> wbflow.api.v1.VersionItem
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	30, // 15: wbflow.api.v1.ReviewSummary.details:type_name -> wbflow.api.v1.ReviewResultItem
+	33, // 16: wbflow.api.v1.MyTaskResp.node:type_name -> wbflow.api.v1.MyTaskNode
+	29, // 17: wbflow.api.v1.MyTaskResp.active_actions:type_name -> wbflow.api.v1.MyTaskActionItem
+	31, // 18: wbflow.api.v1.MyTaskResp.review_summary:type_name -> wbflow.api.v1.ReviewSummary
+	32, // 19: wbflow.api.v1.MyTaskResp.related_nodes:type_name -> wbflow.api.v1.RelatedNodeItem
+	35, // 20: wbflow.api.v1.DependencyNodeItem.children:type_name -> wbflow.api.v1.DependencyNodeItem
+	35, // 21: wbflow.api.v1.DependencyTreeResp.root:type_name -> wbflow.api.v1.DependencyNodeItem
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -2494,7 +3443,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   28,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -28,6 +28,8 @@ var (
 	ErrInvalidArgument = perr.New("wbflow: 入参非法")
 	// ErrNotFound 目标资源不存在：业务 id 未命中。
 	ErrNotFound = perr.New("wbflow: 资源不存在")
+	// ErrDependencyCycle 依赖环：flows.dependencies 依赖图成环，树不可构建（T4）。
+	ErrDependencyCycle = perr.New("wbflow: 依赖环")
 )
 
 // Trace 统一错误包裹入口：内部错误链路层层包裹，保留堆栈。
@@ -50,6 +52,7 @@ const (
 	CodeStaleReport        Code = "STALE_REPORT"
 	CodeInvalidArgument    Code = "INVALID_ARGUMENT"
 	CodeNotFound           Code = "NOT_FOUND"
+	CodeDependencyCycle    Code = "DEPENDENCY_CYCLE"
 	CodeUnauthorized       Code = "UNAUTHORIZED"
 	CodeInternal           Code = "INTERNAL"
 )
@@ -82,6 +85,8 @@ func MapToHTTP(err error) HTTPMapping {
 		return HTTPMapping{HTTPStatus: http.StatusBadRequest, Code: CodeInvalidArgument}
 	case Is(err, ErrNotFound):
 		return HTTPMapping{HTTPStatus: http.StatusNotFound, Code: CodeNotFound}
+	case Is(err, ErrDependencyCycle):
+		return HTTPMapping{HTTPStatus: http.StatusConflict, Code: CodeDependencyCycle}
 	default:
 		return HTTPMapping{HTTPStatus: http.StatusInternalServerError, Code: CodeInternal}
 	}

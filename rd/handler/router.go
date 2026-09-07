@@ -20,6 +20,8 @@ type Deps struct {
 	Reqs RequirementAPI
 	// Vers versions 五端点 service；nil=不注册对应路由
 	Vers VersionAPI
+	// Flows 流程实例端点（wb_my_task / 依赖树）service；nil=不注册对应路由
+	Flows FlowAPI
 }
 
 // NewRouter 注册全部路由（含全局中间件）。
@@ -37,6 +39,9 @@ func NewRouter(deps *Deps) *gin.Engine {
 	}
 	if deps.Vers != nil {
 		RegisterVersionRoutes(api.Group("/versions"), deps.Vers)
+	}
+	if deps.Flows != nil {
+		RegisterFlowRoutes(api.Group("/requirements"), deps.Flows)
 	}
 	return r
 }

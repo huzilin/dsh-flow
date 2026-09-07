@@ -60,10 +60,12 @@ func main() {
 	// 4. Gin 路由注册（DB 未就绪时服务降级：仅 /healthz，API 路由不注册）
 	var reqSvc *service.RequirementService
 	var verSvc *service.VersionService
+	var flowSvc *service.FlowService
 	if db.Gorm != nil {
 		r := repo.NewRepo(db.Gorm)
 		reqSvc = service.NewRequirementService(r)
 		verSvc = service.NewVersionService(r)
+		flowSvc = service.NewFlowService(r)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
@@ -73,6 +75,7 @@ func main() {
 		Token:  cfg.Auth.Token,
 		Reqs:   reqSvc,
 		Vers:   verSvc,
+		Flows:  flowSvc,
 	})
 	srv := &http.Server{
 		Addr:    ":" + strconv.FormatInt(cfg.HTTP.Port, 10),

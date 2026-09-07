@@ -31,12 +31,18 @@ var schemaSQL string
 //go:embed sql/0002_seed.sql
 var seedSQL string
 
+//go:embed sql/0003_flow_scope_last_decision.sql
+var flowScopeDecisionSQL string
+
 // 版本号常量（迁移账本 meta.schema_version 取值）。
 const (
 	// SchemaVersion 14 表全量 DDL（spec §0 + §0.3）
 	SchemaVersion int64 = 1
 	// SeedVersion seed 基线：roles 全集 + 21 能力 + 4 flow_defs + 40 定义节点（docs-tmp 定稿口径）
 	SeedVersion int64 = 2
+	// FlowScopeDecisionVersion T4 流程实例化补列：flow_nodes.last_decision（spec §0 漏项，
+	// arch_design v0.29 同源）+ flows.scope（需求所选渲染 scope 落库）
+	FlowScopeDecisionVersion int64 = 3
 	// MetaKeySchemaVersion meta 表中迁移账本键名
 	MetaKeySchemaVersion = "schema_version"
 )
@@ -52,6 +58,12 @@ type step struct {
 var steps = []step{
 	{version: SchemaVersion, name: "create_schema", sql: schemaSQL},
 	{version: SeedVersion, name: "seed_baseline", sql: seedSQL},
+	{version: FlowScopeDecisionVersion, name: "flow_scope_last_decision", sql: flowScopeDecisionSQL},
+}
+
+// LatestVersion 迁移账本最新版本（部署校验与测试断言口径，随 steps 尾元素推进）。
+func LatestVersion() int64 {
+	return steps[len(steps)-1].version
 }
 
 // Report 迁移执行结果。

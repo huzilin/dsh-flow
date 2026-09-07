@@ -62,24 +62,24 @@ func TestIntegration_Migration_RealMySQL(t *testing.T) {
 	ctx := context.Background()
 	g := handles.Gorm
 
-	// AC：迁移可重复执行——空库首跑应用 v1+v2；二跑幂等 no-op
+	// AC：迁移可重复执行——空库首跑应用 v1+v2+v3；二跑幂等 no-op
 	// （WBFLOW_MYSQL_DB 指定库可能已迁移过，首跑 applied 允许为空）
 	report1, err := migration.Run(ctx, g)
 	assert.NilError(t, err)
-	assert.Equal(t, report1.ToVersion, migration.SeedVersion)
+	assert.Equal(t, report1.ToVersion, migration.LatestVersion())
 	if os.Getenv("WBFLOW_MYSQL_DB") == "" {
-		assert.DeepEqual(t, report1.Applied, []int64{migration.SchemaVersion, migration.SeedVersion})
+		assert.DeepEqual(t, report1.Applied, []int64{migration.SchemaVersion, migration.SeedVersion, migration.FlowScopeDecisionVersion})
 	}
 
 	report2, err := migration.Run(ctx, g)
 	assert.NilError(t, err)
 	assert.Equal(t, len(report2.Applied), 0, "重复执行应 no-op")
-	assert.Equal(t, report2.ToVersion, migration.SeedVersion)
+	assert.Equal(t, report2.ToVersion, migration.LatestVersion())
 
 	// meta.schema_version 账本
 	var version string
 	assert.NilError(t, g.Raw("SELECT meta_value FROM meta WHERE meta_key = ?", migration.MetaKeySchemaVersion).Scan(&version).Error)
-	assert.Equal(t, version, strconv.FormatInt(migration.SeedVersion, 10))
+	assert.Equal(t, version, strconv.FormatInt(migration.LatestVersion(), 10))
 
 	// 14 表齐备（information_schema 口径）
 	for _, table := range allTables {
@@ -116,6 +116,33 @@ func TestIntegration_Migration_RealMySQL(t *testing.T) {
 	}
 	assert.Equal(t, countRows(t, g, "SELECT COUNT(*) FROM flow_defs WHERE scope_options = ? AND flow_defs_id = 'plan'", "[]"),
 		int64(1), "plan 无 scope")
+
+	// v3 补列：flow_nodes.last_decision（TEXT NULL）+ flows.scope（NOT NULL DEFAULT ''）
+	columns := map[string]struct {
+		table      string
+		isNullable string
+		columnType string
+	}{
+		"last_decision": {"flow_nodes", "YES", "text"},
+		"scope":         {"flows", "NO", "varchar"},
+	}
+	for column, meta := range columns {
+		var nullable, colType string
+		assert.NilError(t, g.Raw(
+			"SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+			meta.table, column).Scan(&nullable).Error)
+		assert.Equal(t, nullable, meta.isNullable, "列可空性: %s.%s", meta.table, column)
+		assert.NilError(t, g.Raw(
+			"SELECT DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+			meta.table, column).Scan(&colType).Error)
+		assert.Equal(t, colType, meta.columnType, "列类型: %s.%s", meta.table, column)
+	}
+	// flows.scope 默认值 ''
+	var scopeDefault string
+	assert.NilError(t, g.Raw(
+		"SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'flows' AND COLUMN_NAME = 'scope'").
+		Scan(&scopeDefault).Error)
+	assert.Equal(t, scopeDefault, "")
 }
 
 // TestIntegration_SeedGolden_RealMySQL seed 与 docs-tmp 定稿逐项核对：
