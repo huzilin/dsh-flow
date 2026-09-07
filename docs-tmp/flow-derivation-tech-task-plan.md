@@ -58,14 +58,15 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: be | reviewers: []
 
 ```yaml
 node_type: review | gate: 1 | user_gate: 1 | scope: be
-reviewers: [ {arch(be): arch.rd-design-review}, {fe: fe.rd-design-review}, {qa: qa.rd-design-review} ]
+reviewers: [ {arch(be): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review} ]
+# fe 位按需：需求含 fe（full）时才实例化——be-only 需求无接口消费方（2026-09-07 用户裁决，位级 scope）
 # 无 rd 位（产出者不自审）、无 pm 位（技术需求无产品视角评审）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（**审批类节点 review=产出动作位，exec 不配置**） | —— | —— | —— |
-| review | arch.rd-design-review.review / fe.rd-design-review.review / qa.rd-design-review.review（评上一节点 rd_design） | 各自对象化评审 skill（rd-design-review-{arch,fe,qa}-skill） | arch / fe / qa | barrier → 有 open → clarifying；无 → agreed |
+| review | arch.rd-design-review.review / fe.rd-design-review.review（scope=fe 按需）/ qa.rd-design-review.review（评上一节点 rd_design） | 各自对象化评审 skill（rd-design-review-{arch,fe,qa}-skill） | arch / fe / qa | barrier → 有 open → clarifying；无 → agreed |
 | respond | backend-design.clarify（单动作；修复=B2 exec 重入 revise） | inline | rd | 全 resolve → confirming；reopen → rejected → B2 exec 重入 |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [reopen 循环] → agreed → 裁决。
@@ -195,29 +196,29 @@ node_type: align | gate: 0 | user_gate: 1 | reviewers: []
 
 ```yaml
 node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
-# 编写文档节点没有 review 相位（同 B2）
+# 编写文档节点没有 review 相位（同 B2）；能力按 scope=backend-design | frontend-design（plan-cap 废除）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
-| exec 首次 | plan-cap.produce | to-plan（基础=C1 对齐简单描述——✅D2：无 prd/brd，my_task 注入） | 执行者（rd|fe by scope） | 完成上报+判据 → 提评迁移 C3 |
-| exec 重入 | plan-cap.revise | revise（响应 C3 rejected——基于评审结论逐条修订） | 执行者 | 完成上报+校验（按 C3 rejected 返工）→ 重新提评 |
+| exec 首次 | backend-design.produce（scope=rd）/ frontend-design.produce（scope=fe）——**按场景选负责人 techdesign 能力**（2026-09-07 用户裁决，plan-cap 废除） | to-rd-techdesign / to-fe-techdesign（基础=C1 对齐简单描述，my_task 注入） | 执行者（rd|fe by scope） | 完成上报+判据 → 提评迁移 C3 |
+| exec 重入 | backend-design.revise / frontend-design.revise | revise（响应 C3 rejected——基于评审结论逐条修订） | 执行者 | 完成上报+校验（按 C3 rejected 返工）→ 重新提评 |
 | review / respond | ——跳过（评审在 C3，跨节点） | —— | —— | —— |
 
-**reviewState**: 恒 '-'。**产物**：plan。
+**reviewState**: 恒 '-'。**产物**：rd_design / fe_design（by scope，路径 docs/{{req-version}}/{{req-name}}/{rd|fe}/design.md）。
 
 ### C3 技术评审
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {arch: arch.plan-review} ]   # 单评审位
+node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {arch: arch.rd-design-review（scope=rd）/ arch.fe-design-review（scope=fe）} ]   # 单评审位 by scope
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
-| review | arch.plan-review.review（评上一节点 plan） | plan-review-arch-skill | arch | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | plan-cap.clarify（单动作；修复=C2 exec 重入 revise） | inline | 执行者 | 全 resolve → confirming；reopen → rejected → C2 exec 重入 |
+| review | arch.rd-design-review.review / arch.fe-design-review.review（by scope，评上一节点 rd/fe_design） | rd-design-review-arch-skill / fe-design-review-arch-skill | arch | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
+| respond | backend-design.clarify / frontend-design.clarify（by scope，单动作；修复=C2 exec 重入 revise） | inline | 执行者 | 全 resolve → confirming；reopen → rejected → C2 exec 重入 |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
 **裁决**：无 reject → User 终审 → approved（迁移 C4）；含 reject → rejected → 回退 C2 exec 重入；本节点维持 agreed。
@@ -308,20 +309,19 @@ node_type: align | gate: 0 | user_gate: 1 | reviewers: []
 **reviewState**: 恒 '-'。
 **裁决**：exec 校验通过 → approved → D2。**产物**：alignment（版本级 `docs/{{req-version}}/align.md`）。✅D3：交互对齐+固化（用户可调多 skills：wayfinder/改进项/遗留 TODO/使用发现，to-alignment 汇总）。
 
-### D2 立项评审
+### D2 立项评审（2026-09-07 用户裁决：暂不评审，用户结论=最终结论——改门禁型；后期恢复评审再重建）
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {pm: pm.alignment-review} ]
+node_type: gate | gate: 1 | user_gate: 1 | reviewers: []
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
-| entry / exec | ——跳过（**审批类节点 review=产出动作位，exec 不配置**） | —— | —— | —— |
-| review | pm.alignment-review.review（评上一节点 alignment） | alignment-review-pm-skill | pm | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
-| respond | alignment-cap.clarify（单动作；修复=D1 exec 重入 to-alignment 重写） | inline | arch | 全 resolve → confirming；reopen → rejected → D1 exec 重入 |
+| entry | 会话通道迎宾呈现（alignment 材料） | 开场白模板 | 响应者=arch | User 拍板 |
+| exec / review / respond | ——跳过（门禁型，暂无评审轮） | —— | —— | —— |
 
-**reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
-**裁决**：无 reject → User 终审 → approved（迁移 D3）；含 reject → rejected → 回退 D1 exec 重入；本节点维持 agreed。
+**reviewState**: 恒 '-'。
+**裁决**：User 通过 → approved（迁移 D3）；不通过 → rejected → 回退 D1 exec 重入（to-alignment 重写）。
 
 ### D3 调研
 
@@ -411,15 +411,16 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 | frontend-design | 节点 6 | B4 | — | — |
 | research-cap | — | — | — | D3 |
 | arch-cap | — | — | — | D5 |
-| plan-cap | — | — | C2 | — |
-| alignment-cap | — | — | — | D2（评审响应） |
+| ~~plan-cap~~ | ——**退役**（C2 按场景用 backend/frontend-design，2026-09-07） | | | |
+| ~~alignment-cap~~ | ——**退役**（D2 暂不评审，无响应挂载） | | | |
 | backend-dev | 节点 8 | B8a | C4(scope=rd) | — |
 | frontend-dev | 节点 9 | B8b | C4(scope=fe) | — |
 | prd-review-{arch,rd,fe} | 节点 3 | — | — | — |
 | rd-design-review-{arch,fe,qa,pm} | 节点 5 | B3（无 pm 位） | — | — |
 | fe-design-review-qa | 节点 7 | B5 | — | — |
-| plan-review-arch | — | — | C3 | — |
-| alignment-review-pm | — | — | — | D2 |
+| ~~plan-review-arch~~ | ——**退役**（C3 改 arch.rd/fe-design-review by scope） | | | |
+| ~~alignment-review-pm~~ | ——**退役**（D2 暂不评审） | | | |
+| arch.fe-design-review | — | B4 侧场景（C3 by scope）+ C3 | — | — |
 | research-review-arch | — | — | — | D4 |
 | architecture-review-pm | — | — | — | D6 |
 | code-review | 节点 8/9 | B8a/B8b | C4 | — |
@@ -452,4 +453,5 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 5. **state 单列完整性**：每节点 4 相位逐一列出（含跳过标注）；reviewState 轮转逐节点标注（恒 '-' 或完整链）。
 6. **已知取舍落盘**：tech brd 无评审；task C1 无产物（C2 基础=简单描述）；D7 leader 直执行完成判据=数据落库。
 
+**位级 scope 按需（2026-09-07 用户裁决）**：按需评审节点内的特定评审位按 scope 实例化——B3 fe 位=需求含 fe（full）时才参与（be-only 无接口消费方）；business 节点 5 fe 位同规则；qa/arch/pm 位恒在。
 **评审能力对象化（2026-09-05 用户裁决：最小上下文准则）**：跨节点评审能力（pm/arch/rd/fe/qa-tech-review）废除——评审能力按「对象×角色」切分（{role}.{object}-review，如 arch.prd-review），inputs 仅含评审对象，skill 仅含该对象维度。**ATAM 权衡点标注**：能力碎片化（5→12） vs 每节点最小 ctx——裁最小上下文（用户准则）。rd-tech-review 退役问题随之消解（对象化后自然不存在）。能力池 17→**24**（12 基础 + 12 对象化评审）。

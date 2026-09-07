@@ -46,8 +46,8 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | frontend-design | fe | product_doc, rd_design, architecture(false) | produce(exec→to-fe-techdesign) / **revise(exec 重入)** / clarify(respond) / submit | fe_design |
 | research-cap | inv | alignment | produce(exec→research) / **revise(exec 重入)** / clarify(respond) / submit | research |
 | arch-cap | arch | research, alignment(false) | produce(exec→to-arch) / **revise(exec 重入)** / clarify(respond) / submit | architecture |
-| plan-cap | leader | ——**基础=task C1 对齐简单描述**（✅D2：无 prd/brd，mytask 上下文注入） | produce(exec→to-plan) / **revise(exec 重入)** / clarify(respond) / submit | plan |
-| alignment-cap | arch | alignment（D2 评审对象，true） | **评审响应能力（✅D3 连带收缩）**：clarify(respond)——produce 由 node action to-alignment（公共 skill）承接 | alignment |
+| ~~plan-cap~~ | ——**退役**（2026-09-07：task C2 按场景用 backend/frontend-design——to-rd/fe-techdesign；产物=对应侧 design） | —— | —— | — |
+| ~~alignment-cap~~ | ——**退役**（2026-09-07：D2 暂不评审，用户结论=最终结论；D1 产出由 node action to-alignment 承接） | —— | —— | — |
 | backend-dev | rd | rd_design, architecture(false), product_doc(false), test_result | dev(exec→implement-techdesign) / submit(inline) / **fix_on_review(respond，只响应 CR——不做澄清)** / **diagnosing-bugs(exec 重入，响应打回)** / **clarify(仅 QA 验收节点激活：缺陷确认/归属争议)** | dev_notes, code_mr |
 | frontend-dev | fe | fe_design, rd_design(false), architecture(false), product_doc(false), test_result | 同上（fe 侧） | dev_notes, code_mr |
 | arch.prd-review | arch | product_doc | review(prd-review-arch-skill) / confirm | — |
@@ -57,6 +57,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | fe.rd-design-review | fe | rd_design, product_doc(false) | review / confirm | — |
 | qa.rd-design-review | qa | rd_design, product_doc | review / confirm | — |
 | pm.rd-design-review | pm | rd_design, product_doc, brd(false) | review / confirm | — |
+| arch.fe-design-review | arch | fe_design, rd_design(false) | review / confirm——task C3（scope=fe）/ tech 场景 | — |
 | qa.fe-design-review | qa | fe_design, rd_design(false), product_doc | review / confirm | — |
 | arch.plan-review | arch | plan | review / confirm | — |
 | pm.alignment-review | pm | alignment | review / confirm | — |
@@ -71,7 +72,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 > **v3 词汇注记**：评审动作挂 review 相位（collecting 收集表态）；复核动作挂 respond 响应期的确认环节（confirming）；跨节点按 assignee+reporterRole 路由。**issue 即产物**：评审类动作产出=issue（plugin 内一等数据），outputProductTypes 为空是正确语义。
 > **跨流程复用（✅D5）**：inputs[]=可见性上限，实际按流程可用产物注入 my_task（backend-design 在 business 拿 product_doc、tech 拿 brd）——**每个 skill 必须写明上下文依赖来源，skill 实现阶段逐个校验，防止遗漏**。三流程实例化见 flow-derivation-tech-task-plan.md。
 
-## 3. 待建 skill 清单（21 个：产出 8 + 开发编排 1 + 对象化评审 12）
+## 3. 待建 skill 清单（22 个：产出 8 + 开发编排 1 + 对象化评审 13）
 
 | # | skill | 参照/内容 |
 |---|---|---|
@@ -81,7 +82,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | 4 | to-arch / to-plan | 同形态（to-plan 基础=task C1 简单描述） |
 | 5 | to-alignment（公共 skill） | plan D1 node action 挂载；汇总对齐结论+对话中发现的改进项/遗留 TODO/使用发现 |
 | 6 | implement-techdesign | mp-implement-spec 改造（内部编排 to-techdesign 校验 + tdd/implement 工人） |
-| 7 | 对象化评审 skill ×12 | **{role}.{object}-review 各自独立**（维度自含，最小 ctx）：prd-review-{arch,rd,fe}（需求覆盖/可实现性/交互完整性）、rd-design-review-{arch,fe,qa,pm}（技术路线/契约可对接/可测性安全性/需求覆盖）、fe-design-review-qa、plan-review-arch、alignment-review-pm、research-review-arch、architecture-review-pm |
+| 7 | 对象化评审 skill ×13 | **{role}.{object}-review 各自独立**（维度自含，最小 ctx）：prd-review-{arch,rd,fe}（需求覆盖/可实现性/交互完整性）、rd-design-review-{arch,fe,qa,pm}（技术路线/契约可对接/可测性安全性/需求覆盖）、fe-design-review-qa、plan-review-arch、alignment-review-pm、research-review-arch、architecture-review-pm |
 | 8 | qa-acceptance | qa-acceptance-template + triage + diagnosing-bugs 判定步 |
 
 已有复用：research / tdd / implement / diagnosing-bugs / to-tickets / triage。wb 工具用法不再独立成 skill（短动作内联 + plugin 接口文档）。

@@ -108,7 +108,8 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: be | reviewers: []
 
 ```yaml
 node_type: review | gate: 1 | user_gate: 1 | scope: be
-reviewers: [ {arch(be): arch.rd-design-review}, {fe: fe.rd-design-review}, {qa: qa.rd-design-review}, {pm: pm.rd-design-review} ]
+reviewers: [ {arch(be): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review}, {pm: pm.rd-design-review} ]
+# fe 位按需：需求含 fe（full）时才参与（be-only 无接口消费方）——位级 scope（2026-09-07 用户裁决）
 # rd 不设评审位——产出者不自审（2026-09-05 举一反三，旧模型「自评+评审」废除）
 ```
 
