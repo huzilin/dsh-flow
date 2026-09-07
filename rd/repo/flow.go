@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/huzilin/wbflow/rd/pkg/errs"
 )
@@ -34,6 +35,24 @@ func (r *Repo) GetFlowByRequirementID(ctx context.Context, requirementID string)
 func (r *Repo) GetFlowNodeByRequirementAndNodeID(ctx context.Context, requirementID string, nodeID string) (*FlowNode, error) {
 	row := &FlowNode{}
 	err := r.g.WithContext(ctx).
+		Where("requirement_id = ? AND node_id = ?", requirementID, nodeID).
+		First(row).Error
+	if err != nil {
+		if isRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, errs.Trace(err)
+	}
+	return row, nil
+}
+
+// GetFlowNodeByRequirementAndNodeIDLockTx 事务内行锁读取实例节点（SELECT … FOR UPDATE：
+// collect 聚合判定读改写原子基线——wb_review 同事务写表态，并发双 collect 被行锁
+// 串行化，spec §1.3/§2）；未命中返回 (nil, nil)。
+func GetFlowNodeByRequirementAndNodeIDLockTx(ctx context.Context, tx *gorm.DB, requirementID string, nodeID string) (*FlowNode, error) {
+	row := &FlowNode{}
+	err := tx.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("requirement_id = ? AND node_id = ?", requirementID, nodeID).
 		First(row).Error
 	if err != nil {
@@ -107,6 +126,55 @@ func (r *Repo) GetCapabilityByID(ctx context.Context, capabilityID string) (*Cap
 	row := &Capability{}
 	err := r.g.WithContext(ctx).
 		Where("capability_id = ?", capabilityID).
+		First(row).Error
+	if err != nil {
+		if isRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, errs.Trace(err)
+	}
+	return row, nil
+}
+
+// GetFlowByRequirementIDTx 事务内读流程实例（collect 推进同事务更新
+// current_node_id 前的基线读取；未命中返回 (nil, nil)）。
+func GetFlowByRequirementIDTx(ctx context.Context, tx *gorm.DB, requirementID string) (*Flow, error) {
+	row := &Flow{}
+	err := tx.WithContext(ctx).
+		Where("requirement_id = ?", requirementID).
+		First(row).Error
+	if err != nil {
+		if isRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, errs.Trace(err)
+	}
+	return row, nil
+}
+
+// GetNextFlowNodeTx 事务内读渲染序的下一实例节点（门禁 approved 后 current_node_id
+// 前移目标；尾节点返回 (nil, nil)——流程编排终点）。
+func GetNextFlowNodeTx(ctx context.Context, tx *gorm.DB, requirementID string, nodeOrder int64) (*FlowNode, error) {
+	row := &FlowNode{}
+	err := tx.WithContext(ctx).
+		Where("requirement_id = ? AND node_order > ?", requirementID, nodeOrder).
+		Order("node_order").
+		First(row).Error
+	if err != nil {
+		if isRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, errs.Trace(err)
+	}
+	return row, nil
+}
+
+// GetFlowDefNodeByTemplateIDTx 事务内读定义节点（激活相位/门禁位判定的静态 seed 读取）；
+// 未命中返回 (nil, nil)（seed 异常由 service 层转错误）。
+func GetFlowDefNodeByTemplateIDTx(ctx context.Context, tx *gorm.DB, templateNodeID string) (*FlowDefNode, error) {
+	row := &FlowDefNode{}
+	err := tx.WithContext(ctx).
+		Where("template_node_id = ?", templateNodeID).
 		First(row).Error
 	if err != nil {
 		if isRecordNotFound(err) {

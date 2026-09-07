@@ -328,6 +328,13 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 			updates["done_at"] = now
 			audits = append(audits, taskUpdateAudit(row, "status", row.Status, repo.TaskStatusCompleted))
 			audits = append(audits, taskUpdateAudit(row, "doneAt", "", formatMillis(now)))
+			if row.TaskType == repo.TaskTypeRespond {
+				// T8 澄清循环接缝：owner respond 完成判据通过（open issue 清零）即
+				// review 重入新轮——同事务（flow_nodes 行锁）内推进，读写原子
+				if err := NewReviewService(s.repo).ReenterReviewRoundTx(ctx, tx, row.RequirementID, row.NodeID); err != nil {
+					return err
+				}
+			}
 		}
 
 		return s.applyTaskUpdates(ctx, tx, row, baseline, updates, audits)

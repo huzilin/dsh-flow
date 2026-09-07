@@ -29,6 +29,8 @@ type Deps struct {
 	Tasks TaskAPI
 	// Comments 评论/issue 五端点 service；nil=不注册对应路由
 	Comments CommentAPI
+	// Reviews 评审门禁端点（wb_review / wb_decision）service；nil=不注册对应路由
+	Reviews ReviewAPI
 }
 
 // NewRouter 注册全部路由（含全局中间件）。
@@ -58,6 +60,9 @@ func NewRouter(deps *Deps) *gin.Engine {
 	}
 	if deps.Comments != nil {
 		RegisterIssueRoutes(api.Group("/requirements"), api.Group("/comments"), deps.Comments)
+	}
+	if deps.Reviews != nil {
+		RegisterReviewRoutes(api.Group("/requirements"), deps.Reviews)
 	}
 	return r
 }
