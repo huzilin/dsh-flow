@@ -211,7 +211,7 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 | 产出类设计节点无内审（v3.1：技术设计 review/respond 跳过） | 用户补裁：技术设计文档也要过 CR——节点 4/6/B2/B4/C2 内嵌 CR 轮（评 rd/fe_design、plan） | §3 双轨（适用范围扩大） |
 | R1「跨节点评审 respond=clarify+fix_on_review 双动作」 | 「一个 state 只能挂一个动作」普适约束（用户严正声明）取代——跨节点 respond=clarify 单挂，修复=rejected → 产出节点 exec 重入 revise | §1.1 respond 行 |
 | 技术设计节点内嵌 CR 轮（77f9d96 补裁：节点 4/6/B2/B4/C2 review=code-review） | 用户澄清「编写文档节点没有 review」是共识——已回退（gate 回 0、reviewers 清空） | §2 产出类（无内审） |
-| plan-cap 跨流程实例化（task C2）/ plan-review-arch / alignment-cap（D2 评审响应）/ alignment-review-pm | 2026-09-07 用户裁决：C2 按场景用 backend/frontend-design（产物=对应侧 design）；D2 暂不评审（用户结论=最终结论，改门禁型）——四者退役；新增 arch.fe-design-review（C3 scope=fe 场景）；能力池 24→23 | capability-actions-final |
+| plan-cap 跨流程实例化（task C2）/ plan-review-arch / alignment-cap（D2 评审响应）/ alignment-review-pm | 2026-09-07 用户裁决：C2 按场景用 backend/frontend-design（产物=对应侧 design）；D2 暂不评审（用户结论=最终结论，改门禁型）——四者退役；新增 arch.fe-design-review（C3 scope=fe 场景）；能力池 24→**21 活跃**（后续 plan-cap/alignment-cap 再退役，见上行与下行合并口径） | capability-actions-final |
 
 ---
 

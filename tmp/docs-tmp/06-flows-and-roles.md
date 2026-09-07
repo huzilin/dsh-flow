@@ -1,5 +1,8 @@
 # 制度层：流程模板 · 角色 · 能力 · 评审分工
 
+
+> ⚠️ **历史归档（2026-09-08 标注）**：本文件为 arch_design 拆分前旧版快照——现行权威见 `docs/v1.0/`（PRD/RD/FE 分册）与 `docs/v1.0/arch_design.md`；交互层 v3 增补见 `docs-tmp/ui-interaction-final.md`。仅作历史参考，勿据以实现。
+
 > 本文档 = **制度层（DSH team preset）**：4 类流程模板 + 9+1 角色 + 19 能力 + 评审分工 + 协作铁律——Agent 行为的组织真源。
 > 职责边界：流程 / 角色 / 能力 / 评审 / 铁律；**工具清单与编排协议在 `07-tools-and-orchestration.md`**，实体与状态机以 `05-domain-model.md` 为准（本文只引用不重写）。
 > 取代旧稿：`m6-team-preset.md`、`m6-flow-templates.md`、`m8-flow-simplify.md` §2.4/§10。

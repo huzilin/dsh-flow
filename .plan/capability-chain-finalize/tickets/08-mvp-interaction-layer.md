@@ -31,8 +31,18 @@ claimed_at: 2026-09-07
 3. **模块 III/IV**：收件箱条目 v3（七类映射基线六类：待拍板/澄清任务/重表态请求/悬置催办 5min/需你介入 10min/冲突上升/会话消息）；TODO=投影不变。
 4. **§4 UI↔数据对应表**：每组件消费字段与工具。
 5. **暂缓项**：P2/P3 视图、对峙增强、依赖调度器。
-6. **既有设计吸收对照**
+6. **四区域完整吸收记录（2026-09-08）**
+   - **源码**：client.js 829 行（详情五块纵排/阅读器/版本管理弹窗/变更历史/流程图 SVG——全部吸收）；host.js 534 行（22 RPC 全名单+描述——v5 契约 delta 已记：my_task 旧版待升级/review pass·block→agree·unagree/decide·override 移出/reopen roundCount>5 通知为扫描器雏形）
+   - **tmp/**：arch_design 拆分前 9 章旧文档归档（已加历史归档横幅）+ **架构可视化图**（2048 dark/1440 light·dark PNG + screenshots 内嵌分享页）——五层链路/UI 与工具同一领域逻辑/信任边界与 v3.1 一致；过时点=「wb_*×22/11 表」（已演进 v0.29/22 工具），图待重渲染（实现期）
+   - **docs-tmp/**：10 份历史文档（横幅+追加废弃指针已全量覆盖）；diagrams/business-flow.json（流程图数据，节点结构与 v3.1 一致性随 seed 重写同步）
+   - **docs/**：三模块 PRD/RD/FE（基线全部通读，吸收对照见 Answer 6）；diagrams（runtime html/json 同 tmp 归档性质）
+7. **既有设计吸收对照**
 7. **完整阅读记录（2026-09-08 补齐，用户质询版本管理/tag 遗漏后）**：①host.js 22 RPC 全名单核对——my_task 为 pkg-41 旧版（sessionsByNode/how 语义），v5 契约升级已在 data-tools；②版本管理交互全吸收（状态机单向/废弃联动需求已取消/发布软约束 bugfix 场景/删除引用禁止/四色进度条）→ §2 零改动沿用；③**tag 更正（用户澄清）**：tag=类别标签（【需求任务】等）——PRD 新建字段/client 类别徽标/host category 取值（需求任务/规划审批任务/版本规划任务）**基线已有，零改动沿用**；v3 增补=类别↔流程类型绑定（需求任务→business/tech/task，规划/版本规划→plan，scope_options 随类别派生）→ ui-interaction §2；④client.js 详情区现状=meta/产物/药丸/门禁/变更历史五块纵排（变更历史保留与五区分栏并存）；⑤owner 提示规则（架构→Architect/纯后端→RD/纯前端→FE）与 scope 三值呼应。
-6. **既有设计吸收对照**（docs/v1.0/02 rd+fe design ↔ 本文）：ArtifactReader/AnchorPicker（阅读器+四级锚点+防漂移）→ §1.7 零改动沿用；FlowTree 左列 → §1.1 升级为上下分栏 SVG 泳道+动态渲染重排；NodeDetail 四区 → §1.2 五区分栏；ReviewerPillRow → §1.2② per-agent verdict 药丸；RoleThread → §1.2④ 意见区（+escalate）；fe/design 左右布局描述滞后（以 client.js pkg-28 与本文为准）。**交付物归拢**：增补稿=ui-interaction-final.md · 原型=diagrams/ui-prototype-v3.html（P7 阅读器示意已吸收）· 基线=docs/v1.0/01~03 PRD 不动。
+6. **四区域完整吸收记录（2026-09-08）**
+   - **源码**：client.js 829 行（详情五块纵排/阅读器/版本管理弹窗/变更历史/流程图 SVG——全部吸收）；host.js 534 行（22 RPC 全名单+描述——v5 契约 delta 已记：my_task 旧版待升级/review pass·block→agree·unagree/decide·override 移出/reopen roundCount>5 通知为扫描器雏形）
+   - **tmp/**：arch_design 拆分前 9 章旧文档归档（已加历史归档横幅）+ **架构可视化图**（2048 dark/1440 light·dark PNG + screenshots 内嵌分享页）——五层链路/UI 与工具同一领域逻辑/信任边界与 v3.1 一致；过时点=「wb_*×22/11 表」（已演进 v0.29/22 工具），图待重渲染（实现期）
+   - **docs-tmp/**：10 份历史文档（横幅+追加废弃指针已全量覆盖）；diagrams/business-flow.json（流程图数据，节点结构与 v3.1 一致性随 seed 重写同步）
+   - **docs/**：三模块 PRD/RD/FE（基线全部通读，吸收对照见 Answer 6）；diagrams（runtime html/json 同 tmp 归档性质）
+7. **既有设计吸收对照**（docs/v1.0/02 rd+fe design ↔ 本文）：ArtifactReader/AnchorPicker（阅读器+四级锚点+防漂移）→ §1.7 零改动沿用；FlowTree 左列 → §1.1 升级为上下分栏 SVG 泳道+动态渲染重排；NodeDetail 四区 → §1.2 五区分栏；ReviewerPillRow → §1.2② per-agent verdict 药丸；RoleThread → §1.2④ 意见区（+escalate）；fe/design 左右布局描述滞后（以 client.js pkg-28 与本文为准）。**交付物归拢**：增补稿=ui-interaction-final.md · 原型=diagrams/ui-prototype-v3.html（P7 阅读器示意已吸收）· 基线=docs/v1.0/01~03 PRD 不动。
 
 **遗留**：无（P2/P3 暂缓为优先级裁决非遗留）。**review 通过后工单 08 关闭**，前沿=工单 09（范围确认+定稿收尾）。

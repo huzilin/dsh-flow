@@ -1,5 +1,8 @@
 # 模块 III/IV：门禁通知收件箱 与 TODO 列表
 
+
+> ⚠️ **历史归档（2026-09-08 标注）**：本文件为 arch_design 拆分前旧版快照——现行权威见 `docs/v1.0/`（PRD/RD/FE 分册）与 `docs/v1.0/arch_design.md`；交互层 v3 增补见 `docs-tmp/ui-interaction-final.md`。仅作历史参考，勿据以实现。
+
 > **地位**：本文档是模块 III（门禁通知收件箱）＋模块 IV（TODO 列表）的需求＋设计合并稿。
 > 收编原 `team-workbench.md` §2.3/§2.4/§3.4 与 `m8-flow-simplify.md` §3.3 的收件箱/任务总线内容，只保留定稿结论。
 > 两模块同源：**TODO 是收件箱的可操作投影**。

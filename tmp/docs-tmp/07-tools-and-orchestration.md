@@ -1,5 +1,8 @@
 # 执行层：wb_* 工具 + Agent 编排协议 + 程序路由
 
+
+> ⚠️ **历史归档（2026-09-08 标注）**：本文件为 arch_design 拆分前旧版快照——现行权威见 `docs/v1.0/`（PRD/RD/FE 分册）与 `docs/v1.0/arch_design.md`；交互层 v3 增补见 `docs-tmp/ui-interaction-final.md`。仅作历史参考，勿据以实现。
+
 > 本文档覆盖**执行层**：22 个 `wb_*` 领域模型工具 + Agent 编排协议 + 程序路由。
 > 取代旧稿：`m6-agent-tools.md` / `m6-gap-closure.md` / `m7-agent-protocol.md` / `m8-flow-simplify.md` §2/§4/§11。
 > 职责边界：工具清单、确定性任务（`wb_my_task`）、默认路由与问题归属、交互模式、编排协议。

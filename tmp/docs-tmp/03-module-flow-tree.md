@@ -1,5 +1,8 @@
 # 团队项目工作台 · 模块 II：需求 OA 流程树（需求详情页）
 
+
+> ⚠️ **历史归档（2026-09-08 标注）**：本文件为 arch_design 拆分前旧版快照——现行权威见 `docs/v1.0/`（PRD/RD/FE 分册）与 `docs/v1.0/arch_design.md`；交互层 v3 增补见 `docs-tmp/ui-interaction-final.md`。仅作历史参考，勿据以实现。
+
 > 地位：本文档覆盖模块 II（需求详情页 = OA 流程树视图），是工作台的价值核心模块；取代 `m2-flow-tree*.md` 与 `m7-comment-design.md` 旧文档。
 > 职责边界：流程树、评审（状态行 + 角色对话区）、产物阅读器、锚点评论、门禁（通过/打回/新范围界定）。
 > 不含：版本看板与需求池（模块 I，`02-module-board.md`）、收件箱/TODO（模块 III/IV，`04-module-inbox-todo.md`）、diff 级锚点（后置）。
