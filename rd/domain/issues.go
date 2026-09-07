@@ -52,16 +52,6 @@ import (
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
-// issue 状态机 v2 状态（issues.state，spec §0 表 #9 列注释）。
-const (
-	IssueStateOpen           = "open"
-	IssueStatePendingConfirm = "pending-confirm"
-	IssueStateToFix          = "to-fix"
-	IssueStateFixed          = "fixed"
-	IssueStateResolved       = "resolved"
-	IssueStateOverridden     = "overridden"
-)
-
 // issue 五端点动作（wb_reply / wb_resolve / wb_confirm_review / wb_reopen；
 // wb_comment 是建行不是迁移）。
 const (
@@ -129,62 +119,62 @@ type IssueEffect struct {
 var issueTransitions = map[IssueTransitionKey]IssueEffect{
 	// wb_reply：澄清回复完成 → 待复核；修复完成回复 → 已修复待复核；
 	// 待复核态追加回复不回退状态（多轮澄清/修复说明）。
-	{Action: IssueActionReply, From: IssueStateOpen}: {
-		NextState: IssueStatePendingConfirm, RoundCountDelta: 1,
+	{Action: IssueActionReply, From: repo.IssueStateOpen}: {
+		NextState: repo.IssueStatePendingConfirm, RoundCountDelta: 1,
 		AppendReply: true, TouchLastReplyAt: true,
 	},
-	{Action: IssueActionReply, From: IssueStateToFix}: {
-		NextState: IssueStateFixed, RoundCountDelta: 1,
+	{Action: IssueActionReply, From: repo.IssueStateToFix}: {
+		NextState: repo.IssueStateFixed, RoundCountDelta: 1,
 		AppendReply: true, TouchLastReplyAt: true,
 	},
-	{Action: IssueActionReply, From: IssueStatePendingConfirm}: {
-		NextState: IssueStatePendingConfirm, RoundCountDelta: 1,
+	{Action: IssueActionReply, From: repo.IssueStatePendingConfirm}: {
+		NextState: repo.IssueStatePendingConfirm, RoundCountDelta: 1,
 		AppendReply: true, TouchLastReplyAt: true,
 	},
-	{Action: IssueActionReply, From: IssueStateFixed}: {
-		NextState: IssueStateFixed, RoundCountDelta: 1,
+	{Action: IssueActionReply, From: repo.IssueStateFixed}: {
+		NextState: repo.IssueStateFixed, RoundCountDelta: 1,
 		AppendReply: true, TouchLastReplyAt: true,
 	},
 	// wb_resolve path=fix：定性需修复进入修复期 / 修复关闭申报（待复核态重申报幂等）。
-	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: IssueStateOpen}: {
-		NextState: IssueStateToFix, SetResolveFamily: true,
+	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: repo.IssueStateOpen}: {
+		NextState: repo.IssueStateToFix, SetResolveFamily: true,
 	},
-	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: IssueStatePendingConfirm}: {
-		NextState: IssueStateToFix, SetResolveFamily: true,
+	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: repo.IssueStatePendingConfirm}: {
+		NextState: repo.IssueStateToFix, SetResolveFamily: true,
 	},
-	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: IssueStateToFix}: {
-		NextState: IssueStateFixed, SetResolveFamily: true,
+	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: repo.IssueStateToFix}: {
+		NextState: repo.IssueStateFixed, SetResolveFamily: true,
 	},
-	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: IssueStateFixed}: {
-		NextState: IssueStateFixed, SetResolveFamily: true,
+	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: repo.IssueStateFixed}: {
+		NextState: repo.IssueStateFixed, SetResolveFamily: true,
 	},
 	// wb_resolve path=agree：协商一致关闭（确认内嵌于协商一致）。
-	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: IssueStateOpen}: {
-		NextState: IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
+	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: repo.IssueStateOpen}: {
+		NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
 	},
-	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: IssueStatePendingConfirm}: {
-		NextState: IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
+	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: repo.IssueStatePendingConfirm}: {
+		NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
 	},
-	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: IssueStateToFix}: {
-		NextState: IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
+	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: repo.IssueStateToFix}: {
+		NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
 	},
-	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: IssueStateFixed}: {
-		NextState: IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
+	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: repo.IssueStateFixed}: {
+		NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
 	},
 	// wb_confirm_review：提评者复核确认（澄清侧 / 修复侧「复核」）。
-	{Action: IssueActionConfirm, From: IssueStatePendingConfirm}: {
-		NextState: IssueStateResolved, ConfirmClose: true,
+	{Action: IssueActionConfirm, From: repo.IssueStatePendingConfirm}: {
+		NextState: repo.IssueStateResolved, ConfirmClose: true,
 	},
-	{Action: IssueActionConfirm, From: IssueStateFixed}: {
-		NextState: IssueStateResolved, ConfirmClose: true,
+	{Action: IssueActionConfirm, From: repo.IssueStateFixed}: {
+		NextState: repo.IssueStateResolved, ConfirmClose: true,
 	},
 	// wb_reopen：澄清 reopen（loop_count++）/ 修复 revise（loop_count++）——双读法共用列。
-	{Action: IssueActionReopen, From: IssueStatePendingConfirm}: {
-		NextState: IssueStateOpen, LoopCountDelta: 1,
+	{Action: IssueActionReopen, From: repo.IssueStatePendingConfirm}: {
+		NextState: repo.IssueStateOpen, LoopCountDelta: 1,
 		AppendReply: true,
 	},
-	{Action: IssueActionReopen, From: IssueStateFixed}: {
-		NextState: IssueStateToFix, LoopCountDelta: 1,
+	{Action: IssueActionReopen, From: repo.IssueStateFixed}: {
+		NextState: repo.IssueStateToFix, LoopCountDelta: 1,
 		AppendReply: true,
 	},
 }
@@ -325,7 +315,7 @@ func ValidIssueType(issueType string) bool {
 // ValidIssueState issue 状态枚举校验（含空=建行默认 open 前的零值）。
 func ValidIssueState(state string) bool {
 	switch state {
-	case IssueStateOpen, IssueStatePendingConfirm, IssueStateToFix, IssueStateFixed, IssueStateResolved, IssueStateOverridden:
+	case repo.IssueStateOpen, repo.IssueStatePendingConfirm, repo.IssueStateToFix, repo.IssueStateFixed, repo.IssueStateResolved, repo.IssueStateOverridden:
 		return true
 	}
 	return false
@@ -377,11 +367,11 @@ func DeriveAssignee(explicit string, anchorArtifactAddedBy string, nodeExecRole 
 }
 
 // NodeExecRole 节点产出角色推导：node_actions（条目级 scope 裁剪后）kind=capability
-// 条目激活的动作含 exec 相位 → 能力归属角色（首个命中）。无 exec 能力（review/gate
-// 等纯评审节点）返回空串。
+// 条目激活的动作中存在 exec 相位（能力动作词表 on=exec，如 produce/revise/submit）→
+// 能力归属角色（首个命中）。无 exec 能力（review/gate 等纯评审节点）返回空串。
 //
 // 错误集：node_actions JSON 非法（实例数据损坏）。
-func NodeExecRole(nodeActionsJSON string, capabilityRoles map[string]string) (string, error) {
+func NodeExecRole(nodeActionsJSON string, capabilities map[string]CapabilityInfo) (string, error) {
 	var entries []repo.NodeActionDef
 	if err := utils.UnmarshalJSONText(nodeActionsJSON, &entries); err != nil {
 		return "", perr.Trace(err)
@@ -390,13 +380,17 @@ func NodeExecRole(nodeActionsJSON string, capabilityRoles map[string]string) (st
 		if entry.Kind != repo.NodeActionKindCapability {
 			continue
 		}
-		role, ok := capabilityRoles[entry.CapabilityID]
-		if !ok || role == "" {
+		info, ok := capabilities[entry.CapabilityID]
+		if !ok || info.RoleID == "" {
 			continue
 		}
+		activated := make(map[string]bool, len(entry.Actions))
 		for _, actionID := range entry.Actions {
-			if actionID == "exec" {
-				return role, nil
+			activated[actionID] = true
+		}
+		for _, action := range info.Actions {
+			if activated[action.ActionID] && action.On == repo.PhaseExec {
+				return info.RoleID, nil
 			}
 		}
 	}

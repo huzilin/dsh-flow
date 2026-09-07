@@ -10,16 +10,17 @@ import (
 	"gotest.tools/v3/assert"
 
 	"github.com/huzilin/wbflow/rd/pkg/errs"
+	"github.com/huzilin/wbflow/rd/repo"
 )
 
 // issueStates 全状态集（枚举遍历用）。
 var issueStates = []string{
-	IssueStateOpen,
-	IssueStatePendingConfirm,
-	IssueStateToFix,
-	IssueStateFixed,
-	IssueStateResolved,
-	IssueStateOverridden,
+	repo.IssueStateOpen,
+	repo.IssueStatePendingConfirm,
+	repo.IssueStateToFix,
+	repo.IssueStateFixed,
+	repo.IssueStateResolved,
+	repo.IssueStateOverridden,
 }
 
 // TestUnit_IssueTransition_Legal 合法迁移逐条：表内每条键断言目标态与副作用
@@ -33,26 +34,26 @@ func TestUnit_IssueTransition_Legal(t *testing.T) {
 		want   IssueEffect
 	}{
 		// reply：澄清回复完成→待复核；修复完成→已修复待复核；待复核态追加不回退。
-		{"reply open→pending-confirm", IssueActionReply, "", IssueStateOpen, IssueEffect{NextState: IssueStatePendingConfirm, RoundCountDelta: 1, AppendReply: true, TouchLastReplyAt: true}},
-		{"reply to-fix→fixed", IssueActionReply, "", IssueStateToFix, IssueEffect{NextState: IssueStateFixed, RoundCountDelta: 1, AppendReply: true, TouchLastReplyAt: true}},
-		{"reply pending-confirm 停留", IssueActionReply, "", IssueStatePendingConfirm, IssueEffect{NextState: IssueStatePendingConfirm, RoundCountDelta: 1, AppendReply: true, TouchLastReplyAt: true}},
-		{"reply fixed 停留", IssueActionReply, "", IssueStateFixed, IssueEffect{NextState: IssueStateFixed, RoundCountDelta: 1, AppendReply: true, TouchLastReplyAt: true}},
+		{"reply open→pending-confirm", IssueActionReply, "", repo.IssueStateOpen, IssueEffect{NextState: repo.IssueStatePendingConfirm, RoundCountDelta: 1, AppendReply: true, TouchLastReplyAt: true}},
+		{"reply to-fix→fixed", IssueActionReply, "", repo.IssueStateToFix, IssueEffect{NextState: repo.IssueStateFixed, RoundCountDelta: 1, AppendReply: true, TouchLastReplyAt: true}},
+		{"reply pending-confirm 停留", IssueActionReply, "", repo.IssueStatePendingConfirm, IssueEffect{NextState: repo.IssueStatePendingConfirm, RoundCountDelta: 1, AppendReply: true, TouchLastReplyAt: true}},
+		{"reply fixed 停留", IssueActionReply, "", repo.IssueStateFixed, IssueEffect{NextState: repo.IssueStateFixed, RoundCountDelta: 1, AppendReply: true, TouchLastReplyAt: true}},
 		// resolve path=fix：定性需修复 / 修复关闭申报。
-		{"resolve fix open→to-fix", IssueActionResolve, IssueResolvePathFix, IssueStateOpen, IssueEffect{NextState: IssueStateToFix, SetResolveFamily: true}},
-		{"resolve fix pending-confirm→to-fix", IssueActionResolve, IssueResolvePathFix, IssueStatePendingConfirm, IssueEffect{NextState: IssueStateToFix, SetResolveFamily: true}},
-		{"resolve fix to-fix→fixed", IssueActionResolve, IssueResolvePathFix, IssueStateToFix, IssueEffect{NextState: IssueStateFixed, SetResolveFamily: true}},
-		{"resolve fix fixed→fixed", IssueActionResolve, IssueResolvePathFix, IssueStateFixed, IssueEffect{NextState: IssueStateFixed, SetResolveFamily: true}},
+		{"resolve fix open→to-fix", IssueActionResolve, IssueResolvePathFix, repo.IssueStateOpen, IssueEffect{NextState: repo.IssueStateToFix, SetResolveFamily: true}},
+		{"resolve fix pending-confirm→to-fix", IssueActionResolve, IssueResolvePathFix, repo.IssueStatePendingConfirm, IssueEffect{NextState: repo.IssueStateToFix, SetResolveFamily: true}},
+		{"resolve fix to-fix→fixed", IssueActionResolve, IssueResolvePathFix, repo.IssueStateToFix, IssueEffect{NextState: repo.IssueStateFixed, SetResolveFamily: true}},
+		{"resolve fix fixed→fixed", IssueActionResolve, IssueResolvePathFix, repo.IssueStateFixed, IssueEffect{NextState: repo.IssueStateFixed, SetResolveFamily: true}},
 		// resolve path=agree：协商一致关闭（确认内嵌）。
-		{"resolve agree open→resolved", IssueActionResolve, IssueResolvePathAgree, IssueStateOpen, IssueEffect{NextState: IssueStateResolved, SetResolveFamily: true, ConfirmClose: true}},
-		{"resolve agree pending-confirm→resolved", IssueActionResolve, IssueResolvePathAgree, IssueStatePendingConfirm, IssueEffect{NextState: IssueStateResolved, SetResolveFamily: true, ConfirmClose: true}},
-		{"resolve agree to-fix→resolved", IssueActionResolve, IssueResolvePathAgree, IssueStateToFix, IssueEffect{NextState: IssueStateResolved, SetResolveFamily: true, ConfirmClose: true}},
-		{"resolve agree fixed→resolved", IssueActionResolve, IssueResolvePathAgree, IssueStateFixed, IssueEffect{NextState: IssueStateResolved, SetResolveFamily: true, ConfirmClose: true}},
+		{"resolve agree open→resolved", IssueActionResolve, IssueResolvePathAgree, repo.IssueStateOpen, IssueEffect{NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true}},
+		{"resolve agree pending-confirm→resolved", IssueActionResolve, IssueResolvePathAgree, repo.IssueStatePendingConfirm, IssueEffect{NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true}},
+		{"resolve agree to-fix→resolved", IssueActionResolve, IssueResolvePathAgree, repo.IssueStateToFix, IssueEffect{NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true}},
+		{"resolve agree fixed→resolved", IssueActionResolve, IssueResolvePathAgree, repo.IssueStateFixed, IssueEffect{NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true}},
 		// confirm：提评者复核确认（澄清侧/修复侧）。
-		{"confirm pending-confirm→resolved", IssueActionConfirm, "", IssueStatePendingConfirm, IssueEffect{NextState: IssueStateResolved, ConfirmClose: true}},
-		{"confirm fixed→resolved", IssueActionConfirm, "", IssueStateFixed, IssueEffect{NextState: IssueStateResolved, ConfirmClose: true}},
+		{"confirm pending-confirm→resolved", IssueActionConfirm, "", repo.IssueStatePendingConfirm, IssueEffect{NextState: repo.IssueStateResolved, ConfirmClose: true}},
+		{"confirm fixed→resolved", IssueActionConfirm, "", repo.IssueStateFixed, IssueEffect{NextState: repo.IssueStateResolved, ConfirmClose: true}},
 		// reopen：澄清 reopen / 修复 revise——loop_count 双读法共用列。
-		{"reopen pending-confirm→open（澄清）", IssueActionReopen, "", IssueStatePendingConfirm, IssueEffect{NextState: IssueStateOpen, LoopCountDelta: 1, AppendReply: true}},
-		{"reopen fixed→to-fix（revise）", IssueActionReopen, "", IssueStateFixed, IssueEffect{NextState: IssueStateToFix, LoopCountDelta: 1, AppendReply: true}},
+		{"reopen pending-confirm→open（澄清）", IssueActionReopen, "", repo.IssueStatePendingConfirm, IssueEffect{NextState: repo.IssueStateOpen, LoopCountDelta: 1, AppendReply: true}},
+		{"reopen fixed→to-fix（revise）", IssueActionReopen, "", repo.IssueStateFixed, IssueEffect{NextState: repo.IssueStateToFix, LoopCountDelta: 1, AppendReply: true}},
 	}
 	for _, tc := range legal {
 		effect, err := IssueTransition(tc.action, tc.path, tc.from)
@@ -86,7 +87,7 @@ func TestUnit_IssueTransition_Illegal(t *testing.T) {
 		}
 	}
 	// resolve 缺 path：入参语义错误（单独断言，错误信息要求 fix|agree）。
-	_, err := IssueTransition(IssueActionResolve, "", IssueStateOpen)
+	_, err := IssueTransition(IssueActionResolve, "", repo.IssueStateOpen)
 	assert.Assert(t, err != nil && strings.Contains(err.Error(), "fix|agree"))
 }
 
@@ -96,19 +97,19 @@ func TestUnit_IssueTransition_Illegal(t *testing.T) {
 func TestUnit_IssueLoopCount_DualReading(t *testing.T) {
 	loop := int64(0)
 	// 澄清期：open→(reply)→pending-confirm→(reopen)→open 计 reopen 次数
-	effect, err := IssueTransition(IssueActionReply, "", IssueStateOpen)
+	effect, err := IssueTransition(IssueActionReply, "", repo.IssueStateOpen)
 	assert.NilError(t, err)
 	loop += effect.LoopCountDelta
 	assert.Equal(t, loop, int64(0))
-	effect, err = IssueTransition(IssueActionReopen, "", IssueStatePendingConfirm)
+	effect, err = IssueTransition(IssueActionReopen, "", repo.IssueStatePendingConfirm)
 	assert.NilError(t, err)
 	loop += effect.LoopCountDelta
 	assert.Equal(t, loop, int64(1), "澄清 reopen 计数 +1")
 	// 修复期：to-fix→(reply)→fixed→(reopen)→to-fix 计 revise 次数
-	effect, err = IssueTransition(IssueActionReply, "", IssueStateToFix)
+	effect, err = IssueTransition(IssueActionReply, "", repo.IssueStateToFix)
 	assert.NilError(t, err)
 	loop += effect.LoopCountDelta
-	effect, err = IssueTransition(IssueActionReopen, "", IssueStateFixed)
+	effect, err = IssueTransition(IssueActionReopen, "", repo.IssueStateFixed)
 	assert.NilError(t, err)
 	loop += effect.LoopCountDelta
 	assert.Equal(t, loop, int64(2), "修复 revise 计数 +1（同列双读法）")
@@ -118,10 +119,10 @@ func TestUnit_IssueLoopCount_DualReading(t *testing.T) {
 		path   string
 		from   string
 	}{
-		{IssueActionReply, "", IssueStateOpen},
-		{IssueActionResolve, IssueResolvePathFix, IssueStatePendingConfirm},
-		{IssueActionResolve, IssueResolvePathAgree, IssueStateToFix},
-		{IssueActionConfirm, "", IssueStateFixed},
+		{IssueActionReply, "", repo.IssueStateOpen},
+		{IssueActionResolve, IssueResolvePathFix, repo.IssueStatePendingConfirm},
+		{IssueActionResolve, IssueResolvePathAgree, repo.IssueStateToFix},
+		{IssueActionConfirm, "", repo.IssueStateFixed},
 	} {
 		effect, err := IssueTransition(tc.action, tc.path, tc.from)
 		assert.NilError(t, err)
@@ -132,19 +133,19 @@ func TestUnit_IssueLoopCount_DualReading(t *testing.T) {
 // TestUnit_ValidateIssueActor 操作者角色约束全分支：resolve=assignee（未指派拒绝、
 // 他人拒绝）；confirm/reopen=提评者（reviewer_role 优先，缺省 author）；reply 不设限。
 func TestUnit_ValidateIssueActor(t *testing.T) {
-	view := IssueView{State: IssueStateOpen, Author: "arch", ReviewerRole: "arch", Assignee: "rd"}
+	view := IssueView{State: repo.IssueStateOpen, Author: "arch", ReviewerRole: "arch", Assignee: "rd"}
 	// resolve：assignee 本人允许
 	assert.NilError(t, ValidateIssueActor(IssueActionResolve, "rd", view))
 	// resolve：非 assignee / 未指派 → ErrInvalidTransition
 	err := ValidateIssueActor(IssueActionResolve, "fe", view)
 	assert.Assert(t, errs.Is(err, errs.ErrInvalidTransition), "非 assignee 应拒绝，实测 %v", err)
-	err = ValidateIssueActor(IssueActionResolve, "rd", IssueView{State: IssueStateOpen, Author: "arch"})
+	err = ValidateIssueActor(IssueActionResolve, "rd", IssueView{State: repo.IssueStateOpen, Author: "arch"})
 	assert.Assert(t, errs.Is(err, errs.ErrInvalidTransition), "未指派 assignee 应拒绝，实测 %v", err)
 	// confirm/reopen：reviewer_role 优先命中
 	assert.NilError(t, ValidateIssueActor(IssueActionConfirm, "arch", view))
 	assert.NilError(t, ValidateIssueActor(IssueActionReopen, "arch", view))
 	// confirm/reopen：reviewer_role 缺省回退 author
-	noReviewer := IssueView{State: IssueStatePendingConfirm, Author: "qa", Assignee: "rd"}
+	noReviewer := IssueView{State: repo.IssueStatePendingConfirm, Author: "qa", Assignee: "rd"}
 	assert.NilError(t, ValidateIssueActor(IssueActionConfirm, "qa", noReviewer))
 	assert.NilError(t, ValidateIssueActor(IssueActionReopen, "qa", noReviewer))
 	// confirm/reopen：他人拒绝
@@ -238,18 +239,21 @@ func TestUnit_DeriveAssignee(t *testing.T) {
 // TestUnit_NodeExecRole 节点产出角色推导：exec 能力归属命中/无 exec/JSON 损坏。
 func TestUnit_NodeExecRole(t *testing.T) {
 	actions := `[
-		{"kind":"capability","capabilityId":"backend-dev","actions":["revise","exec"],"scopeExpr":""},
+		{"kind":"capability","capabilityId":"backend-design","actions":["revise","produce"],"scopeExpr":""},
 		{"kind":"node","actionId":"align.opening","on":"entry","executor":"subagent"}
 	]`
-	roles := map[string]string{"backend-dev": "rd", "fe-dev": "fe"}
-	got, err := NodeExecRole(actions, roles)
+	vocab := map[string]CapabilityInfo{
+		"backend-design":  {RoleID: "rd", Actions: []repo.ActionDef{{ActionID: "produce", On: "exec"}, {ActionID: "revise", On: "exec"}, {ActionID: "clarify", On: "respond"}}},
+		"acceptance-test": {RoleID: "qa", Actions: []repo.ActionDef{{ActionID: "accept", On: "exec"}}},
+	}
+	got, err := NodeExecRole(actions, vocab)
 	assert.NilError(t, err)
 	assert.Equal(t, got, "rd")
 	noExec := `[{"kind":"capability","capabilityId":"backend-dev","actions":["review"]}]`
-	got, err = NodeExecRole(noExec, roles)
+	got, err = NodeExecRole(noExec, vocab)
 	assert.NilError(t, err)
 	assert.Equal(t, got, "", "无 exec 能力=空")
-	_, err = NodeExecRole("[broken", roles)
+	_, err = NodeExecRole("[broken", vocab)
 	assert.Assert(t, err != nil)
 }
 
