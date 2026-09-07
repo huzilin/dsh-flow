@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -64,14 +65,15 @@ func main() {
 	var artSvc *service.ArtifactService
 	var taskSvc *service.TaskService
 	var issueSvc *service.IssueService
+	var repoHandle *repo.Repo
 	if db.Gorm != nil {
-		r := repo.NewRepo(db.Gorm)
-		reqSvc = service.NewRequirementService(r)
-		verSvc = service.NewVersionService(r)
-		flowSvc = service.NewFlowService(r)
-		artSvc = service.NewArtifactService(r, cfg.Artifacts.DocsRoot)
-		taskSvc = service.NewTaskService(r)
-		issueSvc = service.NewIssueService(r)
+		repoHandle = repo.NewRepo(db.Gorm)
+		reqSvc = service.NewRequirementService(repoHandle)
+		verSvc = service.NewVersionService(repoHandle)
+		flowSvc = service.NewFlowService(repoHandle)
+		artSvc = service.NewArtifactService(repoHandle, cfg.Artifacts.DocsRoot)
+		taskSvc = service.NewTaskService(repoHandle)
+		issueSvc = service.NewIssueService(repoHandle)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
@@ -99,11 +101,36 @@ func main() {
 		}
 	}()
 
+	// 6. 扫描器 goroutine（T10）：阈值/间隔参数化（config scanner 段）；优雅退出联动
+	scannerStop := make(chan struct{})
+	var scannerDone sync.WaitGroup
+	if cfg.Scanner.Enabled && repoHandle != nil {
+		scanner := service.NewScanner(repoHandle, db, service.ScannerOptions{
+			Interval:       time.Duration(cfg.Scanner.IntervalSec) * time.Second,
+			FollowupAfter:  time.Duration(cfg.Scanner.FollowupAfterSec) * time.Second,
+			InterveneAfter: time.Duration(cfg.Scanner.InterveneAfterSec) * time.Second,
+			RetryBackoff:   time.Duration(cfg.Scanner.RetryBackoffSec) * time.Second,
+		}).WithLogger(lg)
+		scannerDone.Add(1)
+		go func() {
+			defer scannerDone.Done()
+			scanner.Run(context.Background(), scannerStop)
+		}()
+		lg.Info("扫描器已启动",
+			zap.Int64("interval_sec", cfg.Scanner.IntervalSec),
+			zap.Int64("followup_after_sec", cfg.Scanner.FollowupAfterSec),
+			zap.Int64("intervene_after_sec", cfg.Scanner.InterveneAfterSec),
+			zap.Int64("retry_backoff_sec", cfg.Scanner.RetryBackoffSec),
+		)
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	sig := <-quit
 	lg.Info("收到退出信号，开始优雅退出", zap.String("signal", sig.String()))
 
+	close(scannerStop)
+	scannerDone.Wait()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {

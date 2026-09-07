@@ -28,3 +28,12 @@ auth:
 # 读取路径 resolve（含 symlink 展开）后越出该目录一律拒绝（路径穿越防护）。
 artifacts:
   docs_root: docs
+# 扫描器（T10）：催办/介入阈值参数化（spec §2「agent 无响应」行——已结束 5min
+# 未表态催办 / 10min 通知 user 介入）。改小阈值即可加速演练（§4.1 P2 AC）。
+# intervene_after_sec 须 ≥ followup_after_sec，否则催办恒被介入取代。
+scanner:
+  enabled: true
+  interval_sec: 30
+  followup_after_sec: 300
+  intervene_after_sec: 600
+  retry_backoff_sec: 5
