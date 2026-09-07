@@ -1,6 +1,6 @@
 # MVP 节点编排模型 v3（两层属性状态机 · 定稿）
 
-> **状态**：2026-09-05 用户逐轮推演定稿。本文件=节点编排模型权威层。配套：capability-actions-final.md（动作→skill 挂载表）、business-flow-derivation.md / flow-derivation-tech-task-plan.md（流程实例化，待按 v3 词汇同步）、data-tools-final.md（schema DDL 与工具契约，待产出）。
+> **状态**：2026-09-05 用户逐轮推演定稿。本文件=节点编排模型权威层。配套（均已产出并同步）：capability-actions-final.md（动作→skill 挂载表）、business-flow-derivation.md / flow-derivation-tech-task-plan.md（四流程 v3.1 节点配置）、data-tools-final.md（schema v0.29 DDL 与 23 工具契约）。
 > **v3 相对历版的收敛**（全部经用户场景验证）：trigger 词表退役 → 编排相位=唯一词汇；单列状态白名单废除 → **两层属性状态机**（node.state 可配动作相位 + node.reviewState 内置审批子状态）；re-entry/re-exec 并入 entry/exec（计数位选择）；评审双轨制（节点内 CR 异化 + 跨节点评审节点）；**hook 层全部退役**（预留通知/同步扩展位）；how 四要素退出框架（skill 挂载制）。
 
 ---
@@ -18,46 +18,39 @@
 | **review** | 评审相位：评审位按审批 skills map 各自评审表态；**无内嵌审批的节点跳过**；**审批类节点以 review 为产出动作位（exec 不配置）** | review→skill（各评审位） |
 | **respond** | owner 响应期：澄清（clarify）与修复（fix_on_review）；**开发节点特化=只挂 fix_on_review（不做澄清，CR 异化裁决）** | clarify / fix_on_review（按节点激活清单） |
 
-### 1.2 node.reviewState —— 内置审批子状态（7 值，plugin 轮转，不可配）
+### 1.2 评审状态（reviewState）—— per-agent 表态轮转（2026-09-08 v5 重构）
 
-| reviewState | 语义 | 迁移 |
+**reviewState 是每一个评审位（agent）各自的轮转状态，不是节点整体状态**——10 个 agent 即各自独立的一份（1/10）；节点级聚合由 collect 内置逻辑完成（不暴露、无专门 state）。
+
+**per-agent 三态**：
+| 态 | 语义 | 出口 |
 |---|---|---|
-| **'-'** | 无评审轮（exec 期/无评审节点） | exec 完成上报+判据校验 → reviewing |
-| **reviewing** | 评审+表态进行中（位级实时派生：verdict 空=reviewing 中、非空=agree/unagree） | 全表态（实时查询）→ **collect 判定**：无 open 工单 → **agreed**；有 open 工单 → **unagreed** |
-| **unagreed** | 未达成一致（collect 判定结果，有 open 工单/真问题） | → clarifying（owner 澄清） |
-| **clarifying** | owner 澄清中（respond 相位激活） | 全部工单 pending-confirm（或 resolved）→ confirming |
-| **confirming** | 复核+重新表态（**reviewing 的复用**——exec/re-exec 同构关系） | 全表态 → collect 判定 → agreed / unagreed（循环，reopen/revise 计数随循环递增） |
-| **agreed** | 达成一致（轮内收口） | 门禁判定（approved / rejected，见下） |
+| reviewing | 评审+表态进行中 | agent 自判上报表态值：**知道自己有 open 工单 → 报 unagree；没有 → 报 agree**（plugin 不判 open 工单） |
+| agree（已表态） | 达成一致 | 等 collect 聚合 |
+| unagree（已表态） | 未达成一致 | 等 collect 聚合 → 触发 owner 澄清 |
 
-**collect 判定**（2026-09-07 用户重构）：全表态后的瞬时判定——一致性看 open 工单（无 → agreed；有 → unagreed）；pass/reject 不作为表态值。**门禁状态**（2026-09-07 裁决）：approved / rejected 是门禁（gate）的裁决状态，不属于 reviewState——由 `last_decision` 承载（''=未判定）：user_gate=1 → User 拍板；=0 → 机械判定。gate=0 节点：agreed 即编排完成。
+**澄清后重新表态（内置机制，不设专门 state）**：owner 澄清后，plugin 将澄清 issue 发给对应 reviewer（followup 该 reviewer 会话 / 复用既有通道）→ 该 reviewer **回 reviewing 重新表态** → collect 重新收集。这个「等待重新表态」的阶段不挂载任何 action、不暴露——它是审批内置逻辑。
 
-**barrier 移除说明**（2026-09-07 用户裁决）：全表态是**瞬时判据**（实时查询），达成即推进 collect 判定，不作为存储态/事件——与「状态是派生的，不落存储」原则一致。
+### 1.2a collect · 聚合收集（plugin 内置，不暴露）
 
+完整动作三段：①**收票**——是否全表态完成（实时查询各 reviewer verdict）；②**判定**——**全 agree → approved（进入下一节点）；有 unagree → 触发 owner 澄清 → 回①重新收集循环**；③**再收票**——澄清后重新等待 reviewer 表态（重复流程）。确认真问题（to-fix）→ rejected 回上一节点（沿既有裁决打回）。
 
-**门禁状态**（2026-09-07 裁决）：**approved / rejected 是门禁（gate）的裁决状态，不属于 reviewState**——由 `last_decision` 承载（''=未判定）：
-- gate=1 且 user_gate=1：agreed → 唤醒 User 拍板 → approved / rejected
-- gate=1 且 user_gate=0：agreed → 机械判定（to-fix/reject 残留 → rejected；否则 approved）
-- gate=0 节点：无门禁状态，agreed 即编排完成
+**approved / rejected 是 collect 的输出结果**（汇总级，写入 last_decision）——review 状态（per-agent）不包含它们。
 
-**barrier 移除说明**（2026-09-07 用户裁决）：全表态是**瞬时判据**（实时查询），达成即推进下一相位，不作为存储态/事件——与「状态是派生的，不落存储」原则一致。
+**正交关系**：state 与 reviewState 两列独立——exec 期 reviewState 恒 '-'（无评审位节点亦然）；review 期间各评审位各自的 reviewState 轮转 reviewing→agree/unagree（per-agent，非节点整体）。UI 分开显示「当前执行动作」与「各评审位表态」（per-agent）。
 
-
-**正交关系**：state 与 reviewState 两列独立——exec 期 reviewState 恒 '-'；review 相位内 reviewState 循环 reviewing→(unagreed)→clarifying→confirming→判定→agreed/unagreed。UI 分开显示「当前执行动作」与「当前审批状态」（GitHub state+reviewDecision 同构）。
-
-### 1.3 裁决规则（agree 收口，plugin 判定）
+### 1.3 裁决规则（collect 输出，plugin 内置）
 
 ```
-agree（全部 open 项确定）→ plugin 收集多审批者结论（全表态（实时判据））：
-   ├─ 评审者含 reject → rejected（裁决事件，人感知的结论与表态）
-   │     实际反应不在本节点——plugin 回退到上一个节点（被重做节点）→ 其 exec 重入（diagnosing-bugs）
-   │     发起 reject 的评审节点：维持 agreed（本轮结论=reject，等重提）→ 重提后重新 review
-   └─ 无 reject →
-        ├─ 节点配置 user 拍板位 → 唤醒 User 终审（会话通道呈现）
-        │     User 通过 → approved；User 不通过 → 问题记 issue → clarifying 循环 → 循环至全 agree → 重新裁决
-        └─ 未配置 → 直接 approved
+collect 收集全部评审位上报（agree / unagree）：
+  ├─ 全 agree → approved → 门禁（user_gate=1 唤醒 User 终审：通过 → 迁移下一节点；不通过 → 问题记 issue 回澄清循环）
+  │                                  （user_gate=0 → 机械 approved）
+  └─ 有 unagree → owner 澄清（plugin 派发澄清任务）→ 澄清后 plugin 将 issue 发回对应 reviewer 重新表态（回 reviewing）→ 重新收集循环
+                     └─ 确认真问题（to-fix）→ 打回：rejected → 上一节点 exec 重入
 ```
 
-**节点内评审（CR 异化）永不输出 rejected**——不通过 → 回 respond 直接修复（不做澄清），复核循环至通过。
+- 节点内评审（CR 异化）永不产生 rejected——unagree 循环（澄清→重表态）至全 agree。
+- 上升（escalate）：循环不收敛 → 会话通道 User 仲裁 → 结论回填 issue → reviewer 重新表态。
 
 ### 1.4 回退与重入
 
@@ -67,9 +60,9 @@ agree（全部 open 项确定）→ plugin 收集多审批者结论（全表态�
 
 ---
 
-## 1.4 评审轮内部小状态机（2026-09-07 详细设计）
+## 1.5 评审轮内部小状态机（2026-09-07 详细设计）
 
-**① collect · 无状态机（纯 全表态（实时判据） 等待）**：表态三值 ⏳未表态 / ⛔unagree / ✅agree（verdict 值；pass/reject 不作为表态值——具体问题用 open 工单表达）。推进规则：全表态即 全表态达成（实时判据），无子机。
+**① collect · 无状态机（纯等待）**：表态三值 ⏳未表态 / ⛔unagree / ✅agree（agent 自判上报，plugin 不判 open 工单）。推进规则：全表态（实时查询 verdict 全非空）即进入判定，无子机。
 
 **② 澄清阶段 · issue 状态机**（owner respond 相位，逐 issue）：
 ```
@@ -93,9 +86,9 @@ to-fix（待修复）→ fixed（已修复）→ 复核 → resolved（修复成
 
 | 节点类型 | 可配相位（node.state） | reviewState | 例 |
 |---|---|---|---|
-| **产出类（有内审）** | exec（首/重入）→ review → respond → review… | '-'→reviewing→clarifying→confirming→agreed→approved/rejected | RD 开发（CR 内嵌） |
+| **产出类（有内审）** | exec（首/重入）→ review → respond → review… | '-'→reviewing→clarifying→confirming→agreed（门禁：approved，last_decision 承载） | RD 开发（CR 内嵌） |
 | **产出类（无内审）** | exec（首/重入） | 恒 '-'（评审在下游审批类节点） | 产品设计 |
-| **审批类** | **review（产出动作位，exec 不配置）** | reviewing→clarifying→respond→…→agreed→approved/rejected | 产品设计评审 / RD 技术评审 / FE 设计评审 |
+| **审批类** | **review（产出动作位，exec 不配置）** | reviewing→clarifying→confirming→agreed（门禁：approved / rejected） | 产品设计评审 / RD 技术评审 / FE 设计评审 |
 | **交互类** | entry → exec(to-brd) | 恒 '-' | 需求对齐 |
 | **门禁类** | entry（迎宾呈现+会话通道） | 恒 '-' | 用户验收 |
 
@@ -109,7 +102,7 @@ to-fix（待修复）→ fixed（已修复）→ 复核 → resolved（修复成
 |---|---|---|
 | 评审对象 | **本节点产物**（代码/MR） | **上一个节点的产物** |
 | 适用 | **仅开发节点**（编写文档节点没有 review——2026-09-05 用户澄清共识；此前技术设计节点内嵌 CR 补裁作废，见 §8） | 独立评审节点承载（产品设计评审等） |
-| 相位 | dev 节点 review 相位（reviewing→respond→confirming 循环） | 评审节点同一套相位 |
+| 相位 | dev 节点 review 相位（各 CR agent reviewing→上报 agree/unagree） | 评审节点同一套 per-agent 轮转 |
 | 不通过 | **回 respond 直接修复（不做澄清）——永不输出 rejected** | agree 判定输出 rejected → 回退上一节点 |
 | User 终审 | 无（机械收口） | 按节点 user 拍板配置位 |
 
@@ -121,19 +114,20 @@ to-fix（待修复）→ fixed（已修复）→ 复核 → resolved（修复成
 
 ```
 exec（dev 首次 → implement-techdesign）→ 完成上报+校验
-   → review（reviewState: reviewing → CR 表态 全表态（实时判据））
-      → 有 open → respond（fix_on_review 修复，不做澄清）→ review（confirming）→ reopen 循环
-      → agreed → approve（终态，join）→ QA 验收
-QA 打回 → plugin 回退 → exec 重入（diagnosing-bugs 响应缺陷）→ 重新提评 → review（reviewing 重开）→ … → approve → QA 复验
+   → review（各 CR agent：reviewing → 上报 agree/unagree）
+      → collect 判定：全 agree → 门禁 approved（join）→ QA 验收
+      → 有 unagree → respond（fix_on_review 修复，不做澄清）→ CR 重新表态（回 reviewing）→ 循环至全 agree
+QA 打回 → plugin 回退 → exec 重入（diagnosing-bugs 响应缺陷）→ 重新提评 → review 重开（reviewing）→ … → 门禁 approved → QA 复验
 ```
 
 ### 4.2 跨节点评审节点（如 RD 技术评审）
 
 ```
 [上游 exec 完成提评迁移激活]
-   → review（arch/rd/fe/qa/pm 审批 skills map；reviewing → 全表态（实时判据））
-      → 有 open → respond（owner clarify 单动作，跨节点路由；修复=rejected → 产出节点 exec 重入 revise）→ review（confirming）→ 循环
-      → agreed → User 终审（配置位）→ approve（上游节点完成，流转）| rejected → 上游 exec 重入 → 重提 → review 重开
+   → review（arch/fe/qa/pm 审批 skills map；各 agent reviewing → 上报 agree/unagree）
+      → collect 判定：全 agree → 门禁 approved（user_gate=1 唤醒 User 终审 → 上游节点完成，流转）
+      → 有 unagree → respond（owner clarify 单动作，跨节点路由）→ 重新表态（回 reviewing）→ 循环
+      → 确认真问题（to-fix）→ 门禁 rejected → 上游 exec 重入 revise → 重新提评 → review 重开
 ```
 
 ---
@@ -188,7 +182,7 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 
 ## 7. 数据层与边界
 
-- **轮转内置逻辑（plugin，不可配）**：collect 全表态收集、clarifying/confirming 派发、agree 裁决、approve/reject 输出——审批子状态全部 plugin 驱动；可配的只有动作相位上的 action。
+- **轮转内置逻辑（plugin，不可配）**：collect 全表态收集（review_results 更新/读取）、clarifying 派发、全表态判定、approved/rejected 输出——审批子状态全部 plugin 驱动；可配的只有动作相位上的 action。
 - **外部兜底扫描器**：宿主侧扫描（工单 07 实装）——发现中断/悬置 → 重推相位/唤醒/周期提醒（对齐节点确认悬置）。
 - **project 注册层**（Q6-Q8 已裁）：per-project workbench 隔离（每工作区一套 .workbench/ + sqlite，11 表零改动）；project registry=plugin 全局配置（~/.dsh/wbflow/projects.json）；MVP 无 agent 跨项目操作（wb_* 按当前工作区隐式定位）；新增 plugin 接口：project 注册/列出/切换/停用⚠️。
 - **需求/版本本体**：JSON 源承载（.workbench/requirements.json + versions.json），sqlite 投影——现状不动。
@@ -221,9 +215,9 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 
 ---
 
-## 9. 待同步（执行清单）
+## 9. 同步核对记录（2026-09-08 全量通读校验）
 
-- [ ] capability-actions-final.md：submit 行（并入 exec 闭环内联）、review 行（on=review 相位）、respond 行名对齐
-- [ ] business-flow-derivation.md / flow-derivation-tech-task-plan.md：按 v3 相位词汇与双轨制重排
-- [ ] data-tools-final.md（工单 07）：DDL（flow_defs/flow_def_nodes 更名、def_node_id、reopen_source、escalate、node_actions 激活清单、user 拍板位、product_type、sessions 新表、project registry）+ 24 工具契约（my_task 上下文/wb_assign_task/wb_task_update event:'complete'/resolve-reopen escalate 参数）+ seed 重写
-- [ ] semantica 溯源（v3 模型定稿）
+- [x] capability-actions-final.md：submit 内联 / review 行 on=review 相位 / respond 轨道规则 / 待建 skill 22 —— 已同步
+- [x] business-flow-derivation.md / flow-derivation-tech-task-plan.md：v3.1 逐 state 配置 + scope 渲染矩阵 + 对象化评审 + per-agent 评审轮 —— 已同步
+- [x] data-tools-final.md：schema v0.29 + review_results 单字段 + 23 工具契约 —— 已产出
+- [x] semantica 溯源（v3 模型定稿 36a226f6 / 工单 07 36a226f6 关联）

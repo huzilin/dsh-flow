@@ -50,7 +50,7 @@
 
 **flow_nodes（实例节点）**：
 - 新增：**`def_node_id`** TEXT NOT NULL（引用 flow_def_nodes.template_node_id——工单 02 裁决的「定义节点关联」，随更名定名）
-- 新增：**`review_state`** TEXT NOT NULL DEFAULT '-'（'-' / reviewing / **unagreed** / clarifying / confirming / agreed——评审轮状态 v4：reviewing=评审+表态中；collect 判定输出 agreed/unagreed；unagreed→clarifying→confirming（reviewing 复用）→判定循环；plugin 实时判据轮转）
+- 新增：**`review_results`** TEXT NOT NULL DEFAULT '[]'（**单一 JSON 字段记录全部 review agent 的结果**：[{role, capability_id, state: 'reviewing'|'agree'|'unagree', round, at}]）——collect 反复更新（agent 上报时写入）与读取（实时判推进：全非 reviewing 且全 agree → approved）；**取代节点级 review_state 列与 per-entry verdict 散存**（静态声明仍在 flow_def_nodes.reviewers）
 - 门禁状态（2026-09-07）：approved / rejected = **gate 裁决结果**，由既有 `last_decision` 承载（''=未判定）；reviewState 不含裁决
 - 新增：**`reopen_source`** TEXT NOT NULL DEFAULT ''（'' / upstream-reject / downstream-reject / rework-return——plugin 回退时写入，重入配置与上下文注入依据）
 - `state` 白名单收窄：''（未进入编排，无占位）/ entry / exec / review / respond（可配动作相位 4 值）
