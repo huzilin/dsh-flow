@@ -22,6 +22,8 @@ type Deps struct {
 	Vers VersionAPI
 	// Flows 流程实例端点（wb_my_task / 依赖树）service；nil=不注册对应路由
 	Flows FlowAPI
+	// Comments 评论/issue 五端点 service；nil=不注册对应路由
+	Comments CommentAPI
 }
 
 // NewRouter 注册全部路由（含全局中间件）。
@@ -42,6 +44,9 @@ func NewRouter(deps *Deps) *gin.Engine {
 	}
 	if deps.Flows != nil {
 		RegisterFlowRoutes(api.Group("/requirements"), deps.Flows)
+	}
+	if deps.Comments != nil {
+		RegisterIssueRoutes(api.Group("/requirements"), api.Group("/comments"), deps.Comments)
 	}
 	return r
 }

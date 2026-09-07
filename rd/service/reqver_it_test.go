@@ -70,12 +70,13 @@ func openScratch(t *testing.T) (*gin.Engine, *database.DB) {
 	r := repo.NewRepo(handles.Gorm)
 	gin.SetMode(gin.TestMode)
 	router := handler.NewRouter(&handler.Deps{
-		Logger: zap.NewNop(),
-		Health: service.NewHealth(handles),
-		Token:  itToken,
-		Reqs:   service.NewRequirementService(r),
-		Vers:   service.NewVersionService(r),
-		Flows:  service.NewFlowService(r),
+		Logger:   zap.NewNop(),
+		Health:   service.NewHealth(handles),
+		Token:    itToken,
+		Reqs:     service.NewRequirementService(r),
+		Vers:     service.NewVersionService(r),
+		Flows:    service.NewFlowService(r),
+		Comments: service.NewIssueService(r),
 	})
 	return router, handles
 }

@@ -31,7 +31,8 @@ func NewFlowService(r *repo.Repo) *FlowService {
 // 出参：node（目标节点摘要；未进入编排且未指定 nodeId 时未填充）、
 // current_phase（=node.state，""=未进入编排）、active_actions（节点激活清单 ×
 // 相位 on × 角色归属过滤）、review_summary（per-agent 聚合计数与明细）、
-// related_nodes（该角色相关节点最小集：评审位 / node action 响应者 / 能力归属）。
+// related_nodes（该角色相关节点最小集：评审位 / node action 响应者 / 能力归属）、
+// related_issues（目标节点未闭合 issue 摘要：issueId/state/issueType/assignee/anchor，T7）。
 //
 // 错误集：ErrInvalidArgument（requirement_id/role 缺失）；ErrNotFound（需求 /
 // 流程实例 / 节点未命中）。
@@ -182,7 +183,47 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 		Reviewing: summary.Reviewing,
 		Details:   details,
 	}
+
+	// relatedIssues（意见侧上下文注入，T7）：目标节点未闭合 issue 摘要
+	// （state 非 resolved/overridden），集中独立函数。
+	if err := s.injectRelatedIssues(ctx, resp, req.RequirementId, node.NodeID); err != nil {
+		return nil, errs.Trace(err)
+	}
 	return resp, nil
+}
+
+// injectRelatedIssues my_task 意见侧上下文注入：读目标节点未闭合评论
+// （state NOT IN (resolved, overridden)），投影 RelatedIssueItem 最小摘要
+// （issueId/state/issueType/assignee/anchor 锚点摘要）。查询失败仅阻断本次
+// my_task（与主链路同错误口径，不降级吞错）。
+//
+// 错误集：底层 IO 错误经 Trace 上抛。
+func (s *FlowService) injectRelatedIssues(ctx context.Context, resp *api.MyTaskResp, requirementID string, nodeID string) error {
+	rows, err := s.repo.ListOpenIssuesByNode(ctx, requirementID, nodeID)
+	if err != nil {
+		return errs.Trace(err)
+	}
+	items := make([]*api.RelatedIssueItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, &api.RelatedIssueItem{
+			IssueId:   row.IssueID,
+			State:     row.State,
+			IssueType: row.IssueType,
+			Assignee:  derefString(row.Assignee),
+			Anchor: domain.SummarizeIssueAnchor(
+				row.AnchorKind,
+				derefString(row.AnchorArtifactID),
+				derefInt64(row.AnchorLine),
+				derefInt64(row.AnchorStartLine),
+				derefInt64(row.AnchorEndLine),
+				derefInt64(row.AnchorBlockStart),
+				derefInt64(row.AnchorBlockEnd),
+				derefString(row.AnchorLang),
+			),
+		})
+	}
+	resp.RelatedIssues = items
+	return nil
 }
 
 // DependencyTree 依赖树只读端点：以当前需求为根，沿 flows.dependencies 递归展开
