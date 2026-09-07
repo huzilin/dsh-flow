@@ -2,7 +2,13 @@
 
 wbflow 前端。React 19 + Vite 8 + TypeScript（严格模式）+ react-router 7 + TanStack Query 5；契约类型由 `docs/api/v1/api.proto`（单一真相源）经 buf + ts-proto 生成，禁手写镜像类型。
 
-本期范围（工单 T14，模块 I）：需求池（筛选/分页/新建）、看板（状态四泳道）、版本管理（创建/改名/推进/废弃）、需求详情占位页（流程树/节点详情五区分栏由 T15 接管）。模块 III/IV 收件箱/TODO 属 T16，未实现。
+本期范围（工单 T14 模块 I + T15 模块 II）：
+
+- **T14 模块 I**：需求池（筛选/分页/新建）、看板（状态四泳道）、版本管理（创建/改名/推进/废弃）。
+- **T15 模块 II**：需求详情页=流程树（SVG 纵向全节点渲染：nodeKey/相位/gate/user_gate/评审轮计数/current 高亮，被裁节点不渲染不占位，scope 徽标呈现 `flows.scope` 实值）+ **节点详情五区分栏**（① 状态卡 ② 评审状态药丸 ③ 产物区 ④ 意见区 ⑤ 门禁/拍板卡只读态）+ **产物阅读器**（行号渲染 + 懒加载分段 200 行/段 + link 外链卡）+ **锚点评论**（document/line/range/block 四级装配，T15 起四级全部可用：block 按围栏扫描代码块「⬚ 选代码块」整块选取）+ 评论操作矩阵（回复恒可、resolve=assignee、confirm/reopen=提评者，Web 身份=`user`）+ 删除需求入口（confirm=true 显式弹窗）+ 会话通道占位按钮（disabled，DSH 嵌入期开放）。
+- 模块 III/IV 收件箱/TODO + 拍板卡三态切换/冲突卡属 T16，未实现（拍板卡留 `actions` 插槽接缝）。
+
+五区分栏口径对照（`docs-tmp/ui-interaction-final.md` §1.2）：① 状态卡=双行（执行行：相位徽标+my_task 激活动作；审批行：表态计数）② 评审状态行=per-agent 药丸（轮内完整时间线属暂缓项 P2）③ 产物区=文件行+💬N+外链 ④ 意见区=评论列表+escalate 标记+在途任务投影（冲突卡聚合属 T16）⑤ 拍板卡=进度只读态（评审轮进行中/agreed 待拍板提示/已裁决 verdict）。数据源全部走聚合快照 + my_task（role=user），不自拼接口。
 
 交互基线与增补明细：`docs-tmp/ui-interaction-final.md` · 原型：`docs-tmp/diagrams/ui-prototype-v3.html`
 
@@ -62,5 +68,54 @@ pnpm gen:proto      # 从 docs/api/v1/api.proto 重新生成 src/api/proto/api.t
 - **乐观锁 409（OPTIMISTIC_LOCK）**：版本改名/推进/废弃提交时必回传 GET 所得 `updated_at` 基线（后端宽松模式也恒回传）；409 时提示冲突并 invalidate 刷新基线，请重试。
 - **advance 软约束**：发布成功但版本内有 unfinished（status 非 已完成/已取消）需求时，响应 `unfinished` 清单以提示条呈现（仅提示不拦截）；重复发布幂等。
 - **deprecate 有引用 blocked**：存在未完成需求引用时后端返回 `{ok:false, blocked:true, code:GATE_BLOCKED}`，错误文本原样呈现在确认弹窗内。
-- **删除需求**：DELETE 需显式 `confirm=true`（User 明确指令口径）——client 已封装，UI 入口留待详情页（T15）。
+- **删除需求**：DELETE 需显式 `confirm=true`（User 明确指令口径）——详情页右上「删除需求」按钮（确认弹窗后携带 confirm 提交）。
+
+## 模块 II 联调指引（T15：流程树 / 五区分栏 / 阅读器 / 锚点评论）
+
+### 造数路径（curl，亦见 rd 各 IT 的 httptest 造数方式）
+
+rd 起服后（`WBFLOW_AUTH_TOKEN` 与 fe `.env.local` 同值；`docs` 为仓库根目录，document 产物 href 相对它解析）：
+
+```bash
+T=<token>; H="-H \"Authorization: Bearer $T\" -H Content-Type:application/json"
+
+# 1) 创建需求（创建即实例化流程；scope 空=取 scope_options 首值，business 默认 full）
+curl -s $H -X POST localhost:8080/api/requirements -d '{
+  "title":"模块II联调","category":"需求任务","createdBy":"user",
+  "description":"流程树/五区分栏/阅读器冒烟"}'
+# → requirement.requirementId，记为 REQ
+
+# 2) 聚合快照：读 flows.scope / flow_nodes（节点集与序号即流程树渲染集）/ current_node_id
+curl -s $H localhost:8080/api/requirements/$REQ | jq '{scope:.flows[0].scope, current:.flows[0].currentNodeId, nodes:[.flowNodes[]|{nodeId,nodeOrder,nodeKey,state}]}'
+
+# 3) 给节点登记产物（nodeId 取快照，如 n-05）；document 需仓库根下真实文件
+curl -s $H -X POST localhost:8080/api/requirements/$REQ/nodes/n-05/artifacts -d '{
+  "productType":"rd_design","label":"《RD 技术设计》","kind":"document",
+  "href":"docs/v1.0/arch_design.md","addedBy":"rd"}'
+curl -s $H -X POST localhost:8080/api/requirements/$REQ/nodes/n-05/artifacts -d '{
+  "productType":"code_mr","label":"《RD 代码 MR》","kind":"link",
+  "href":"https://git.example.com/mr/1","addedBy":"rd"}'
+# 亦可 rd 侧 go test ./service/ -run TestIntegration 的造数函数（如有 IT 门控）
+
+# 4) 评论五端点（document / line / range / block 四级锚点）
+curl -s $H -X POST localhost:8080/api/requirements/$REQ/comments -d '{
+  "nodeId":"n-05","author":"user","roleId":"user",
+  "anchor":{"kind":"line","artifactId":"<artId>","line":"42"},"text":"第 42 行口径?"}'
+curl -s $H -X POST localhost:8080/api/comments/<commentId>/replies -d '{
+  "by":"rd","roleId":"rd","text":"已修订"}'
+# resolve（须=assignee）/ confirm、reopen（须=提评者）同理，非法迁移 409 INVALID_TRANSITION
+
+# 5) my_task（详情页以 role=user 消费节点摘要/激活动作/在途任务）
+curl -s $H -X POST localhost:8080/api/requirements/$REQ/my-task -d '{"role":"user","nodeId":"n-05"}'
+```
+
+UI 侧冒烟路径：`需求池 → 点击需求进详情`：核对流程树节点集与快照一致（scope 徽标=快照 `flows.scope` 实值）→ 点节点出五区分栏 → 产物区点「阅读」开阅读器（行号/懒加载分段；外链产物出外链卡）→ 点行/Shift 点区间/「⬚ 选代码块」/不选行发表评论 → 评论按锚点就位渲染 → 意见区核对状态徽标与操作按钮可见性。**进度态推进**（相位/评审轮/拍板卡只读态变化）需任务总线与评审表态造数（`POST /api/tasks` + `PATCH /api/tasks/:taskId` + `POST .../nodes/:nodeId/review`），属 T17 演练脚本范围，UI 冒烟可暂以 step 4 的评论造数验阅读器闭环。
+
+### 口径备注（模块 II）
+
+- **Web 操作身份**：详情页/评论/删除均以 `user` 角色操作（`src/api/constants.ts` `WEB_USER_ROLE`）；resolve/confirm/reopen 按钮按 T7 操作者约束收敛可见性（后端裁决仍是真相源，409 兜底）。
+- **流程树形态**：SVG 纵向单主链——实例节点无并行组/泳道字段（`flow_nodes` 无该列），原型横向泳道不适用；渲染矩阵一致性由后端 T4 实例化断言兜底。
+- **阅读器渲染**：原文按行号直映（不做 Markdown 转换渲染——行号↔内容对应是锚点防漂移前提）；大文档按 200 行/段懒加载（滚动自动续载 + 兜底按钮）。
+- **block 锚点**：按围栏（```/~~~）扫描代码块，块首行「⬚ 选代码块」整块选取；无围栏文档无 block 入口（后端要求 lang 非空）。
+- **拍板卡只读态**：agreed 判定为「评审位齐且无反对无待表态」（`deriveGateView`）；三态切换按钮组属 T16（`DecisionCard` 已留 `actions` 插槽）。
 - **看板分页上限**：后端强制分页（page_size 上限 100），看板取单页 100；超出时提示条说明。
