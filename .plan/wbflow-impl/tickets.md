@@ -34,10 +34,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 2
 
-- [ ] DTO 全部由 protoc 生成，文档镜像零手写（改 proto 即改契约）
-- [ ] 枚举态字段 string 承载；结构化载荷 string 包 JSON 文本（与 TEXT 列同构）
-- [ ] httptest 覆盖 10 端点正常/拦截/幂等分支；需求详情聚合快照基础版可返回
-- [ ] handler 薄壳 + service GoDoc（做什么/出入参/错误集）+ gofmt 逐字段多行
+- [x] DTO 全部由 protoc 生成，文档镜像零手写（改 proto 即改契约）
+- [x] 枚举态字段 string 承载；结构化载荷 string 包 JSON 文本（与 TEXT 列同构）
+- [x] httptest 覆盖 10 端点正常/拦截/幂等分支；需求详情聚合快照基础版可返回
+- [x] handler 薄壳 + service GoDoc（做什么/出入参/错误集）+ gofmt 逐字段多行
 
 ## 4. 流程实例化 + scope 渲染 + my_task
 
