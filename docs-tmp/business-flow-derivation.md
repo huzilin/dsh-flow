@@ -87,11 +87,11 @@ reviewers: [ {arch: arch.prd-review}, {rd|full: rd.prd-review}, {full: fe.prd-re
 |---|---|---|---|---|
 | entry | ——跳过（非交互型） | —— | —— | —— |
 | exec | ——不配置（**审批类节点 review=产出动作位**） | —— | —— | —— |
-| review | arch.prd-review.review / rd.prd-review.review / fe.prd-review.review（评上一节点 product_doc） | 各自对象化评审 skill（prd-review-{arch,rd,fe}-skill：仅含 prd 评审维度——最小 ctx） | arch / rd / fe | barrier（表态全落库）→ 有 open → clarifying；无 → agreed |
+| review | arch.prd-review.review / rd.prd-review.review / fe.prd-review.review（评上一节点 product_doc） | 各自对象化评审 skill（prd-review-{arch,rd,fe}-skill：仅含 prd 评审维度——最小 ctx） | arch / rd / fe | 全表态（实时判据：verdict 全非空，不存储）→ 有 open → clarifying；无 → agreed |
 | respond | product-design.clarify（单动作——**一个 state 一个动作**；修复=节点 2 exec 重入 revise） | inline | pm | 全 resolve → confirming；reopen（需修改）→ rejected → 节点 2 exec 重入 |
 
-**reviewState 轮转**：collecting → clarifying → confirming → [reopen → clarifying 循环] → agreed → 裁决。
-**裁决**：无 reject → user_gate 唤醒 User 终审 → 通过 → approved（产品设计完成，迁移节点 4）；含 reject → rejected → plugin 回退节点 2 exec 重入；本节点维持 agreed（等重提）。冲突上升 → escalate → 会话通道 User 仲裁（送审含正反方意见）；brd 层面异议 → User → leader 同步 brd。
+**reviewState 轮转**：reviewing → clarifying → confirming → [reopen → clarifying 循环] → agreed → 裁决。
+**裁决**：无 reject → user_gate 唤醒 User 终审 → 通过 → approved（产品设计完成，迁移节点 4）；含 reject → 门禁 rejected → plugin 回退节点 2 exec 重入；本节点维持 agreed（等重提）。冲突上升 → escalate → 会话通道 User 仲裁（送审含正反方意见）；brd 层面异议 → User → leader 同步 brd。
 
 ---
 
@@ -126,11 +126,11 @@ reviewers: [ {arch(rd|full): arch.rd-design-review}, {full: fe.rd-design-review}
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
-| review | arch.rd-design-review.review / fe.rd-design-review.review / qa.rd-design-review.review / pm.rd-design-review.review（评上一节点 rd_design） | 各自对象化评审 skill（rd-design-review-{arch,fe,qa,pm}-skill） | arch / fe / qa / pm | barrier → 有 open → clarifying；无 → agreed |
+| review | arch.rd-design-review.review / fe.rd-design-review.review / qa.rd-design-review.review / pm.rd-design-review.review（评上一节点 rd_design） | 各自对象化评审 skill（rd-design-review-{arch,fe,qa,pm}-skill） | arch / fe / qa / pm | 全表态（实时判据） → 有 open → clarifying；无 → agreed |
 | respond | backend-design.clarify（单动作；修复=节点 4 exec 重入 revise） | inline | rd | 全 resolve → confirming；reopen（需修改）→ rejected → 节点 4 exec 重入 |
 
-**reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
-**裁决**：无 reject → User 终审 → approved（迁移节点 6）；含 reject → rejected → 回退节点 4 exec 重入；本节点维持 agreed。
+**reviewState 轮转**：reviewing → clarifying → confirming → [循环] → agreed → 裁决。
+**裁决**：无 reject → User 终审 → 门禁 approved（迁移节点 6）；含 reject → 门禁 rejected → 回退节点 4 exec 重入；本节点维持 agreed。
 
 ---
 
@@ -163,11 +163,10 @@ reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
-| review | qa.fe-design-review.review（评上一节点 fe_design，对照 rd 接口契约） | fe-design-review-qa-skill | qa | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
+| review | qa.fe-design-review.review（评上一节点 fe_design，对照 rd 接口契约） | fe-design-review-qa-skill | qa | 实时判据（单评审位立即成立）→ 有 open → clarifying；无 → agreed |
 | respond | frontend-design.clarify（单动作；修复=节点 6 exec 重入 revise） | inline | fe | 全 resolve → confirming；reopen（需修改）→ rejected → 节点 6 exec 重入 |
 
-**reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
-**裁决（机械）**：无 reject → approved（放行 8∥9 并行组）；含 reject → rejected → 回退节点 6 exec 重入；本节点维持 agreed。
+**reviewState 轮转**：reviewing → clarifying → confirming → [循环] → agreed → 门禁机械 approved；含 reject → 门禁 rejected（放行 8∥9 并行组）；含 reject → 门禁 rejected → 回退节点 6 exec 重入；本节点维持 agreed。
 
 ---
 
@@ -183,10 +182,10 @@ reviewers: [ {cr: code-review} ]
 | entry | ——跳过（非交互型） | —— | —— | —— |
 | exec 首次 | backend-dev.dev | implement-techdesign（内部编排 to-techdesign 校验 + tdd/implement 工人） | rd | 完成上报+判据（dev_notes/MR 落库+自测全绿+提评登记）→ plugin 轮转 → review |
 | exec 重入 | backend-dev.diagnosing-bugs | diagnosing-bugs | rd | 完成上报+校验（按节点 10 rejected 返工，重新提评登记）→ plugin 轮转 → review 重开 |
-| review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill（Standards→Spec 两子步，worktree 读代码） | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
+| review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill（Standards→Spec 两子步，worktree 读代码） | cr | 实时判据（单评审位立即成立）→ 有 open → clarifying；无 → agreed |
 | respond | backend-dev.fix_on_review（**只响应 CR，不做澄清**——CR 异化裁决） | inline | rd | 全 resolve → confirming |
 
-**reviewState 轮转**：collecting → clarifying（修复响应）→ confirming（复核）→ [reopen → clarifying 循环] → agreed → 裁决。
+**reviewState 轮转**：reviewing → clarifying（修复响应）→ confirming（复核）→ [reopen → clarifying 循环] → agreed → 裁决。
 **裁决（机械）**：**无 rejected 出口**（节点内评审异化）——agreed → approved（并行组 join）→ 迁移节点 10。
 **回退进入**：节点 10 rejected(targetBranch=rd) → plugin 回退本节点 → exec 重入（diagnosing-bugs 响应缺陷）。
 **产物**：dev_notes, code_mr。

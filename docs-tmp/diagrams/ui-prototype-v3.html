@@ -176,7 +176,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <h1>P2 · 相位时间线（评审轮 · issue 状态机 v2）</h1>
 <div class="desc">① collect 无状态机——纯 barrier 等待（表态三值：未表态/unagree/agree）；② 澄清与修复的 issue 状态机分开，回退用单计数器（澄清期=reopen 次数，修复期=revise 次数）。</div>
 <div class="card">
-  <h3>① collecting · 表态收集 <span class="tag" style="background:rgba(138,144,163,.12);color:var(--sub)">无状态机 · 纯 barrier 等待</span></h3>
+  <h3>① reviewing · 表态收集中 <span class="tag" style="background:rgba(138,144,163,.12);color:var(--sub)">无状态机 · 纯等待（全表态=实时判据，不存储）</span></h3>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
     <span class="tag" style="background:var(--panel);border:1px solid var(--line)">Arch</span>
     <span class="tag" style="background:var(--panel);border:1px solid var(--line)">FE</span>

@@ -69,7 +69,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | final-approve | ——**退役**（2026-09-05：User 终审职责由 flow_def_nodes.user_gate 配置位承载） | —— | —— | — |
 
 > **已移除**：case-design-cap（19→18）；retest；respond_to_qa；align.closing；spec 命名；**how 四要素**。
-> **v3 词汇注记**：评审动作挂 review 相位（collecting 收集表态）；复核动作挂 respond 响应期的确认环节（confirming）；跨节点按 assignee+reporterRole 路由。**issue 即产物**：评审类动作产出=issue（plugin 内一等数据），outputProductTypes 为空是正确语义。
+> **v3 词汇注记**：评审动作挂 review 相位（reviewing 收集表态）；复核动作挂 respond 响应期的确认环节（confirming）；跨节点按 assignee+reporterRole 路由。**issue 即产物**：评审类动作产出=issue（plugin 内一等数据），outputProductTypes 为空是正确语义。
 > **跨流程复用（✅D5）**：inputs[]=可见性上限，实际按流程可用产物注入 my_task（backend-design 在 business 拿 product_doc、tech 拿 brd）——**每个 skill 必须写明上下文依赖来源，skill 实现阶段逐个校验，防止遗漏**。三流程实例化见 flow-derivation-tech-task-plan.md。
 
 ## 3. 待建 skill 清单（22 个：产出 8 + 开发编排 1 + 对象化评审 13）

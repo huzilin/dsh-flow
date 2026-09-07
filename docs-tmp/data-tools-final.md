@@ -39,7 +39,7 @@
   `{kind:'capability', capability_id, actions:[action_id…]}` = 节点动作激活清单；
   `{kind:'node', action_id, on, executor:'program'|'subagent', executor_role?, skill?|inline?}` = node action（开场白/to-brd））
 - `scope` = **渲染集合表达式**（2026-09-07 用户裁定，取代单值枚举）：''=any（任何 scope 渲染）｜'rd|full'=rd 侧节点（full 与 rd 需求渲染）｜'fe|full'=fe 侧节点｜'full'=仅 full（QA 验收=联调职责）｜'rd|fe'=task 全渲染（task 无 full）。需求 scope 三值 {full, rd, fe}（术语统一 be→rd）；实例化时按表达式 ∩ requirement.scope 判定渲染。scope_options：business/tech={full, rd, fe}（QA 验收=联调职责，动态渲染）、task={rd, fe}（单执行者无联调，无 QA 节点）、plan=无 scope
-- `reviewers` 保留 [{role, capability_id, scope?}]（审批 skills map 派生源）；**运行时实例（flow_nodes.reviewers）条目扩展表态字段**：`verdict: {round, result: 'agree'|'unagree', at, note?}`（2026-09-07 表态三值：未表态/unagree/agree——pass/reject 不作为表态值，具体问题用 open 工单表达）——collect = 纯 barrier 等待（无状态机）：全表态即推进；历史轮表态由 audit_log 回放（wb_review 全落审计），不加新表；表态与意见分离（意见=issues 线程，表态=结构化 verdict）
+- `reviewers` 保留 [{role, capability_id, scope?}]（审批 skills map 派生源）；**运行时实例（flow_nodes.reviewers）条目扩展表态字段**：`verdict: {round, result: 'agree'|'unagree', at, note?}`（2026-09-07 表态三值：未表态/unagree/agree——pass/reject 不作为表态值，具体问题用 open 工单表达）——collect = 纯 全表态（实时判据） 等待（无状态机）：全表态即推进；历史轮表态由 audit_log 回放（wb_review 全落审计），不加新表；表态与意见分离（意见=issues 线程，表态=结构化 verdict）
 - 删除：用例设计/用例设计评审两行（qa 职责重定义）；修正旧残留（plan 拆分拓扑 gate 值、tech/task 需求对齐 gate 统一为 1——有 User 判定即 gate=1）
 - `expected_outputs` 保留
 
@@ -50,7 +50,8 @@
 
 **flow_nodes（实例节点）**：
 - 新增：**`def_node_id`** TEXT NOT NULL（引用 flow_def_nodes.template_node_id——工单 02 裁决的「定义节点关联」，随更名定名）
-- 新增：**`review_state`** TEXT NOT NULL DEFAULT '-'（'-' / collecting / clarifying / confirming / agreed / approved / rejected——审批子状态，plugin 轮转）
+- 新增：**`review_state`** TEXT NOT NULL DEFAULT '-'（'-' / **reviewing**（表态收集中，位级态实时派生：verdict 空=未表态 agree/unagree=已表态）/ clarifying / confirming / agreed——评审轮状态，plugin 实时判据轮转）
+- 门禁状态（2026-09-07）：approved / rejected = **gate 裁决结果**，由既有 `last_decision` 承载（''=未判定）；reviewState 不含裁决
 - 新增：**`reopen_source`** TEXT NOT NULL DEFAULT ''（'' / upstream-reject / downstream-reject / rework-return——plugin 回退时写入，重入配置与上下文注入依据）
 - `state` 白名单收窄：''（未进入编排，无占位）/ entry / exec / review / respond（可配动作相位 4 值）
 - `rolled_back_count` 保留（0=首次，≥1=重入——entry/exec 多配置选择）
@@ -160,11 +161,11 @@ CREATE TABLE sessions (
 - 语义：ack/progress=过程信号（断点续接）；**complete=相位收口信号**（长任务/交互等待动作专属，短动作数据写入即完成不上报）→ plugin 校验该相位判据 → 通过置 completed 并轮转；不通过 `{ok:false, blocked:true, missing:[…]}`。
 - 幂等：重复 complete 无害（判据幂等）。
 
-**wb_review（表态落库——collect barrier 数据源）**
+**wb_review（表态落库——collect 全表态（实时判据） 数据源）**
 - 入参：`{reqId, nodeId, verdict: 'pass'|'block'}`
 - 语义：写当前轮 `flow_nodes.reviewers[].verdict`（`{round, result, at, note?}`）。
 - 幂等：同轮同角色覆写取最后。
-- barrier 判据：全部评审位 `verdict.round == rolled_back_count` 且非空 → reviewState collecting 迁移（有 open 意见 → clarifying；无 → agreed）。
+- 全表态（实时判据） 判据：全部评审位 `verdict.round == rolled_back_count` 且非空 → reviewState reviewing 迁移（有 open 意见 → clarifying；无 → agreed）。
 - **表态与意见分离**：意见=issues 线程（wb_comment）；表态=reviewers[].verdict（结构化判定）；历史轮表态由 audit_log 回放（不加新表）。
 
 **wb_resolve / wb_reopen（参数扩展）**
