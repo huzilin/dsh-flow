@@ -143,3 +143,71 @@ type ReviewResult struct {
 	// At 表态时间，unix 毫秒
 	At int64 `json:"at"`
 }
+
+// 任务族（tasks.task_type 六值，spec §0 表 #7 列注释；
+// 完成判据按族表驱动，见 domain.CompleteCriteria）。
+const (
+	TaskTypeProduce    = "produce"
+	TaskTypeDev        = "dev"
+	TaskTypeReview     = "review"
+	TaskTypeRespond    = "respond"
+	TaskTypeAccept     = "accept"
+	TaskTypeCreateReqs = "create_reqs"
+)
+
+// TaskContext tasks.context TEXT 列结构（确定性上下文装配单一口径；
+// wb_assign_task 装配、执行方反序列化消费）。产物引用/意见清单等由 T6/T7
+// 在既有字段集上扩展或经 Supplement 注入，不破坏本结构键位。
+type TaskContext struct {
+	// Requirement 需求摘要（同源 wb_get_requirement 快照行）
+	Requirement TaskContextRequirement `json:"requirement"`
+	// Node 目标节点摘要（同源 wb_my_task node）
+	Node TaskContextNode `json:"node"`
+	// Action 动作定位摘要（capabilities.actions / node_actions 条目同源）
+	Action TaskContextAction `json:"action"`
+	// Scope 需求渲染 scope：full/rd/fe；空=无（plan）
+	Scope string `json:"scope"`
+	// Branch 泳道：rd/fe/空
+	Branch string `json:"branch"`
+	// Supplement 调用方补充上下文 JSON 文本（AssignTaskReq.context 原样透传；
+	// 空=无补充）。双字节原文存储，不做键级合并（装配键位不被覆盖）
+	Supplement string `json:"supplement,omitempty"`
+}
+
+// TaskContextRequirement 需求摘要。
+type TaskContextRequirement struct {
+	// RequirementID 需求业务 id
+	RequirementID string `json:"requirementId"`
+	// Title 标题
+	Title string `json:"title"`
+	// Status 需求状态
+	Status string `json:"status"`
+}
+
+// TaskContextNode 节点摘要。
+type TaskContextNode struct {
+	// NodeID 实例节点 id
+	NodeID string `json:"nodeId"`
+	// DefNodeID 定义节点引用
+	DefNodeID string `json:"defNodeId"`
+	// NodeKey 节点名
+	NodeKey string `json:"nodeKey"`
+	// State 可配相位
+	State string `json:"state"`
+}
+
+// TaskContextAction 动作摘要。
+type TaskContextAction struct {
+	// ActionID 动作定位（入参 action_id 回显）
+	ActionID string `json:"actionId"`
+	// CapabilityID 所属能力；kind=node 动作为空
+	CapabilityID string `json:"capabilityId,omitempty"`
+	// Name 动作显示名（node action 无独立名，取 action_id）
+	Name string `json:"name"`
+	// On 挂载相位；未知为空
+	On string `json:"on,omitempty"`
+	// Skill 挂载 skill；空=无
+	Skill string `json:"skill,omitempty"`
+	// Inline 一句话内联定义；空=无
+	Inline string `json:"inline,omitempty"`
+}

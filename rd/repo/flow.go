@@ -101,6 +101,22 @@ func (r *Repo) ListCapabilities(ctx context.Context) ([]*Capability, error) {
 	return items, nil
 }
 
+// GetCapabilityByID 按能力 id 读能力行（complete 判据期望产物解析用）；
+// 未命中返回 (nil, nil)。
+func (r *Repo) GetCapabilityByID(ctx context.Context, capabilityID string) (*Capability, error) {
+	row := &Capability{}
+	err := r.g.WithContext(ctx).
+		Where("capability_id = ?", capabilityID).
+		First(row).Error
+	if err != nil {
+		if isRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, errs.Trace(err)
+	}
+	return row, nil
+}
+
 // AllocNodeIDBaseTx 事务内取实例节点 id 序号基值：
 // SELECT MAX(数字后缀) FROM flow_nodes WHERE node_id LIKE 'n-%' FOR UPDATE。
 // node_id 全局唯一（uk_flow_nodes_nid），同事务内多节点由调用方本地递增派生
