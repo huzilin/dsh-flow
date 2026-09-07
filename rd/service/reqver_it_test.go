@@ -79,6 +79,7 @@ func openScratch(t *testing.T) (*gin.Engine, *database.DB) {
 		Tasks:    service.NewTaskService(r),
 		Comments: service.NewIssueService(r),
 		Reviews:  service.NewReviewService(r),
+		Inbox:    service.NewInboxService(r),
 	})
 	return router, handles
 }

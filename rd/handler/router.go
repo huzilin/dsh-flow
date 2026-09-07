@@ -31,6 +31,8 @@ type Deps struct {
 	Comments CommentAPI
 	// Reviews 评审门禁端点（wb_review / wb_decision）service；nil=不注册对应路由
 	Reviews ReviewAPI
+	// Inbox 收件箱端点（wb_list_inbox）service；nil=不注册对应路由
+	Inbox InboxAPI
 }
 
 // NewRouter 注册全部路由（含全局中间件）。
@@ -63,6 +65,9 @@ func NewRouter(deps *Deps) *gin.Engine {
 	}
 	if deps.Reviews != nil {
 		RegisterReviewRoutes(api.Group("/requirements"), deps.Reviews)
+	}
+	if deps.Inbox != nil {
+		RegisterInboxRoutes(api, deps.Inbox)
 	}
 	return r
 }
