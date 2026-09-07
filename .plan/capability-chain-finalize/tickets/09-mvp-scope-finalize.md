@@ -1,8 +1,8 @@
 ---
 type: grilling
 blocked_by: [03, 07, 08]
-claimed_by:
-claimed_at:
+claimed_by: agent session (2026-09-08, closed 2026-09-08)
+claimed_at: 2026-09-08
 ---
 
 # MVP 范围确认 + 定稿收尾
@@ -22,3 +22,24 @@ claimed_at:
 4. **推演完成定义确认**：全部 docs-tmp 定稿层文档一致性核对；宣布 MVP 设计定稿、进入实现阶段（插件编码/team preset 补齐/to-xxx 创建/wb_* 实装——实现阶段 Out of scope）。
 
 依据：本图全部已关闭工单（01-05 + 06 ruled out）的 Answer、roadmap.md、CONTEXT.md。
+
+## Answer（2026-09-08 关闭——MVP 设计定稿）
+
+**1. roadmap 对照剪裁**（逐项，结论已落 roadmap.md 本体）：
+
+| 项 | 剪裁结论 |
+|---|---|
+| P1 preset 接线 | 保留+修订：subagent 不需要预设（persona 由 wbflow 节点配置传入，直启实测）；preset 只读治理 |
+| P2 sqlite 迁移 | 保留+修订：schema 基线=v0.29（data-tools-final） |
+| P3 角色卡 | 保留+修订：persona 由节点配置传入；评审维度走对象化评审 skill |
+| P4 Skill 落地 | 修订：**19 个待建 skill**（capability-actions-final §3）取代 wb-agent-guide 单编排 skill |
+| P5 真实 agent 执行 | 保留（req-019 演练通过 + subagent 程序化直启实测） |
+| P6 对齐节点实践 | 修订：exec=to-brd 产出 brd（不再落 issues.dissussion） |
+| v1.1 E2/E3 | **部分前置**：project registry + per-project workbench 设计已定稿（Q6-Q8） |
+| v1.1 E8/E9/E10 | **新增**：冲突对峙增强 / 依赖调度器 / 评审轮完整视图 UI（均 MVP 暂缓项提升为 v1.1 显式条目） |
+
+**2. 文档同步核对**（增量已完成，本工单核对）：五件套（model v3.1/actions v3.1/business+三流程 v3.1/data-tools v0.29/ui-interaction）全部同步；10 份历史文档时效横幅+追加废弃指针；CONTEXT 4 词条修正；roadmap 本体本轮剪裁落盘。
+
+**3. 术语统一核查**：CONTEXT 修正 4 词条（触发器→相位 on 4 值 / how 降级 / 动作例与挂载 / qa 职责 retest 链）+ BRD/to-xxx 既有 ✓；残留过时词全项目核验零命中（collecting/barrier/be/'-态外旧词）。
+
+**4. MVP 设计定稿宣布**：**wbflow v1.0 MVP 设计定稿**——权威五件套：capability-model-final v3.1（两层属性状态机+评审轮小状态机）/ business + flow-derivation-tech-task-plan v3.1（四流程节点配置）/ capability-actions-final v3.1（21 活跃能力+19 待建 skill）/ data-tools-final（schema v0.29+22 工具）/ ui-interaction-final（交互增补）。进入实现阶段（工单地图关闭；实现期事项见地图 Out of scope 区与 roadmap v1.1）。
