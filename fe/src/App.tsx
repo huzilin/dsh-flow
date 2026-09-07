@@ -12,7 +12,7 @@ const queryClient = new QueryClient({
   },
 });
 
-/** 模块 I 骨架（T14）：需求池 / 看板 / 版本管理；流程树与收件箱为 T15/T16 范围，不注册。 */
+/** 模块 I/II 骨架（T14/T15）：需求池 / 看板 / 版本管理 / 需求详情（流程树+五区分栏+阅读器）；收件箱与拍板卡三态为 T16 范围，不注册。 */
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
