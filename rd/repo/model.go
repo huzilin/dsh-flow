@@ -116,6 +116,9 @@ type Flow struct {
 	FlowDefsID string `gorm:"column:flow_defs_id;size:32;notNull" json:"flowDefsId"`
 	// Dependencies 前置依赖 JSON 文本：["req-…"]（同版本内依赖边）
 	Dependencies string `gorm:"column:dependencies;type:TEXT;notNull" json:"dependencies"`
+	// Scope 需求所选渲染 scope：full/rd/fe；空=无 scope（plan 流程）。
+	// 实例节点集 = flow_def_nodes.scope_expr ∩ 本列（迁移 v3 落库，证据见 0003 头注）
+	Scope string `gorm:"column:scope;size:8;notNull;default:''" json:"scope"`
 	// CurrentNodeID 当前节点 id；NULL=未进入编排
 	CurrentNodeID *string `gorm:"column:current_node_id;size:32" json:"currentNodeId"`
 	// CreatedAt 创建时间，unix 毫秒
@@ -157,6 +160,9 @@ type FlowNode struct {
 	EnteredAt *int64 `gorm:"column:entered_at" json:"enteredAt"`
 	// PendingScope 打回待重定范围；NULL=无
 	PendingScope *string `gorm:"column:pending_scope;type:TEXT" json:"pendingScope"`
+	// LastDecision 门禁裁决结果 JSON 文本 {verdict,reason,at,branch?}；NULL=未判定
+	// （approved/rejected=collect 聚合输出；迁移 v3 补列，arch_design v0.29 同源）
+	LastDecision *string `gorm:"column:last_decision;type:TEXT" json:"lastDecision"`
 	// CreatedAt 创建时间，unix 毫秒
 	CreatedAt int64 `gorm:"column:created_at;notNull;autoCreateTime:milli" json:"createdAt"`
 	// UpdatedAt 更新时间，unix 毫秒（乐观锁）
