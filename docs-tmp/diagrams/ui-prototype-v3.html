@@ -143,7 +143,13 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <div class="hint">表态看药丸（reviewers[].verdict）、讨论点进去（评论操作矩阵不变）</div>
   </div>
   <div class="card">
-    <h3>③ 意见 thread（点 QA 药丸展开）</h3>
+    <h3>③ 产物（点击 → 既有阅读器，不变）</h3>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line)"><span style="color:var(--blue);cursor:pointer">📄《RD 技术设计》design.md</span><span style="margin-left:auto;color:var(--sub);font-size:12px">💬6</span></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0"><span style="color:var(--blue)">🔗 MR !12</span><span style="margin-left:auto;color:var(--sub);font-size:12px">外链</span></div>
+    <div class="hint">阅读器：块/行/范围/文档四级锚点评论（既有实现，不变）</div>
+  </div>
+  <div class="card">
+    <h3>④ 意见 thread（点 QA 药丸展开）</h3>
     <div class="thread">
       <div class="thd-head"><b>QA</b><span class="meta">锚点：接口设计 › 分页约定</span><span class="tag t-esc">escalate ⚠</span></div>
       <div>分页默认值与前端约定不一致，建议统一 cursor 方案；涉及接口契约变更。</div>
@@ -156,7 +162,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     </div>
   </div>
   <div class="card">
-    <h3>④ 门禁 / 拍板卡（agreed 前 = 只读进度）</h3>
+    <h3>⑤ 门禁 / 拍板卡（agreed 前 = 只读进度）</h3>
     <div class="sumrow"><span class="k">表态</span><span>pass 2 · block 1 · 未表态 0（barrier 达成）</span></div>
     <div class="sumrow"><span class="k">意见</span><span>open 3 · pending-confirm 0 · resolved 2</span></div>
     <div class="sumrow"><span class="k">拍板</span><button disabled>通过（待全 resolved + User 终审）</button></div>
@@ -259,15 +265,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
   <div class="msg ai">确认几点：① 默认当月？② 是否区分币种？③ 权限范围？</div>
   <div class="msg me">默认当月；区分币种；财务+对账运营可导。</div>
 </div>
-<div class="btns" style="margin:12px 0"><button class="pri">完成对齐（生成 BRD）</button></div>
-<div class="card">
-  <h3>第二步 · BRD 预览</h3>
-  <div class="brd">
-    <h4>brd · req-014/brd/brd.md</h4>
-    目标：对账明细按日范围 CSV 导出<br>范围：默认当月；按币种拆列；财务+对账运营可导<br>价值：月底结算人工整理 2h → 分钟级<br>非范围：导出异步化（v1.1）
-  </div>
-  <div class="btns"><button class="pri">确认（approve → 迁移产品设计）</button><button>继续对齐</button></div>
-</div>
+<div class="btns" style="margin:12px 0"><button class="pri">完成对齐（User 确认 → to-brd 生成落盘 → 迁移产品设计）</button>
+<div class="hint">按当前推演：用户确认=唯一信号 → exec(to-brd) 落盘 brd → approve 迁移（无预览审批步；brd 在节点 2 产物区可见）</div></div>
 </div>
 
 <div class="switch">
