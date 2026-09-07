@@ -42,6 +42,11 @@ export class ApiError extends Error {
   get isBlocked(): boolean {
     return this.blocked;
   }
+
+  /** 409 INVALID_TRANSITION：issue 状态机非法迁移（如 resolved 后再 reply/resolve）。 */
+  get isInvalidTransition(): boolean {
+    return this.code === "INVALID_TRANSITION";
+  }
 }
 
 export interface ApiClientOptions {
@@ -73,7 +78,10 @@ export class ApiClient {
   constructor(opts: ApiClientOptions = {}) {
     this.baseUrl = opts.baseUrl ?? "";
     this.getToken = opts.getToken ?? defaultGetToken;
-    this.fetchImpl = opts.fetchImpl ?? fetch.bind(globalThis);
+    // 默认惰性绑定 global fetch（每次请求时查 globalThis）：测试 vi.stubGlobal 可替换；
+    // 显式传入 fetchImpl 时行为不变
+    this.fetchImpl =
+      opts.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
   }
 
   async request<Resp>(args: ApiRequestArgs<Resp>): Promise<Resp> {

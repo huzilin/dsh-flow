@@ -70,6 +70,8 @@ export function CreateRequirementDialog({
       priority,
       owner,
       createdBy: createdBy.trim(),
+      // scope 空串=取 flow_defs.scope_options 首值（后端派生；T15 proto 重生成新增字段）
+      scope: "",
     });
     reset();
   };
