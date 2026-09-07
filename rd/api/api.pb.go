@@ -5192,6 +5192,389 @@ func (x *RelatedTaskItem) GetStatus() string {
 	return ""
 }
 
+// ReviewReq POST /api/requirements/:reqId/nodes/:nodeId/review 入参。
+// agent 自判上报表态（capability-model-final §1.2：知道自己有 open 工单报 unagree、
+// 没有报 agree，plugin 不判）；同轮同角色覆写取最后（spec §2 幂等行）。
+// round 由服务端按节点当前评审轮推导（澄清后重入新轮），入参不携带。
+type ReviewReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 需求业务 id（reqId 取路径）
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 实例节点 id（nodeId 取路径；须处于 review 相位）
+	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// role 表态角色（须在该节点实例评审位声明中）
+	Role string `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	// capability_id 评审能力（须与该角色评审位声明一致）
+	CapabilityId string `protobuf:"bytes,4,opt,name=capability_id,json=capabilityId,proto3" json:"capability_id,omitempty"`
+	// state 表态结果：agree | unagree（reviewing 为系统初始化态，不接受上报）
+	State         string `protobuf:"bytes,5,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReviewReq) Reset() {
+	*x = ReviewReq{}
+	mi := &file_api_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReviewReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReviewReq) ProtoMessage() {}
+
+func (x *ReviewReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReviewReq.ProtoReflect.Descriptor instead.
+func (*ReviewReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *ReviewReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *ReviewReq) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *ReviewReq) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *ReviewReq) GetCapabilityId() string {
+	if x != nil {
+		return x.CapabilityId
+	}
+	return ""
+}
+
+func (x *ReviewReq) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+// ReviewResp POST /api/requirements/:reqId/nodes/:nodeId/review 出参。
+// 写入 + 同事务 collect 聚合判定（flow_nodes 行锁，并发双 collect 仅一次生效）。
+type ReviewResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// node_id 实例节点 id（回显）
+	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// role 表态角色（回显）
+	Role string `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	// state 落库后的表态（agree | unagree）
+	State string `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+	// round 本次表态所在评审轮
+	Round int64 `protobuf:"varint,5,opt,name=round,proto3" json:"round,omitempty"`
+	// review_results 落库后该节点评审轮结果 JSON 文本（单字段全量）
+	ReviewResults string `protobuf:"bytes,6,opt,name=review_results,json=reviewResults,proto3" json:"review_results,omitempty"`
+	// collect_outcome collect 聚合判定结果：pending=未齐继续收票 /
+	// approved=全表态且全 agree / clarify=存在 unagree 转 owner 澄清
+	// （capability-model-final §1.2a 三段口径）
+	CollectOutcome string `protobuf:"bytes,7,opt,name=collect_outcome,json=collectOutcome,proto3" json:"collect_outcome,omitempty"`
+	// gate_state 门禁侧状态：agreed=评审全 agree 待 User 拍板（user_gate=1）/
+	// approved=机械通过已落 last_decision（user_gate=0）；其余空串
+	GateState string `protobuf:"bytes,8,opt,name=gate_state,json=gateState,proto3" json:"gate_state,omitempty"`
+	// next_node_id 门禁通过后前移到的节点 id（未推进为空串）
+	NextNodeId    string `protobuf:"bytes,9,opt,name=next_node_id,json=nextNodeId,proto3" json:"next_node_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReviewResp) Reset() {
+	*x = ReviewResp{}
+	mi := &file_api_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReviewResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReviewResp) ProtoMessage() {}
+
+func (x *ReviewResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReviewResp.ProtoReflect.Descriptor instead.
+func (*ReviewResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *ReviewResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *ReviewResp) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *ReviewResp) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *ReviewResp) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *ReviewResp) GetRound() int64 {
+	if x != nil {
+		return x.Round
+	}
+	return 0
+}
+
+func (x *ReviewResp) GetReviewResults() string {
+	if x != nil {
+		return x.ReviewResults
+	}
+	return ""
+}
+
+func (x *ReviewResp) GetCollectOutcome() string {
+	if x != nil {
+		return x.CollectOutcome
+	}
+	return ""
+}
+
+func (x *ReviewResp) GetGateState() string {
+	if x != nil {
+		return x.GateState
+	}
+	return ""
+}
+
+func (x *ReviewResp) GetNextNodeId() string {
+	if x != nil {
+		return x.NextNodeId
+	}
+	return ""
+}
+
+// DecisionReq POST /api/requirements/:reqId/nodes/:nodeId/decision 入参。
+// User 终审拍板专用路由（spec §1.2 移出清单：wb_decide 收编为 decision）；
+// 仅 user_gate=1 节点、当前评审轮全 agree 后可拍（否则 blocked）。
+type DecisionReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 需求业务 id（reqId 取路径）
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 实例节点 id（nodeId 取路径）
+	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// verdict 拍板结论：approved | rejected
+	Verdict string `protobuf:"bytes,3,opt,name=verdict,proto3" json:"verdict,omitempty"`
+	// reason 拍板理由（rejected 必填——打回走 reject 结论协议，T9 消费）
+	Reason string `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	// branch 评审敲定分支名；空=不落（feature_branch NULL 保持）
+	Branch        string `protobuf:"bytes,5,opt,name=branch,proto3" json:"branch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DecisionReq) Reset() {
+	*x = DecisionReq{}
+	mi := &file_api_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecisionReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecisionReq) ProtoMessage() {}
+
+func (x *DecisionReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecisionReq.ProtoReflect.Descriptor instead.
+func (*DecisionReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *DecisionReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *DecisionReq) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *DecisionReq) GetVerdict() string {
+	if x != nil {
+		return x.Verdict
+	}
+	return ""
+}
+
+func (x *DecisionReq) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *DecisionReq) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+// DecisionResp POST /api/requirements/:reqId/nodes/:nodeId/decision 出参。
+// 重复拍板同 verdict 幂等 no-op（noop=true）；改判（verdict 不一致）冲突拒绝。
+type DecisionResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// node_id 实例节点 id（回显）
+	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// verdict 落库结论（noop 时=既有结论回显）
+	Verdict string `protobuf:"bytes,3,opt,name=verdict,proto3" json:"verdict,omitempty"`
+	// noop true=重复拍板幂等 no-op（库未变更）
+	Noop bool `protobuf:"varint,4,opt,name=noop,proto3" json:"noop,omitempty"`
+	// last_decision 门禁裁决 JSON 文本：{"verdict","reason","at","branch"?}
+	LastDecision string `protobuf:"bytes,5,opt,name=last_decision,json=lastDecision,proto3" json:"last_decision,omitempty"`
+	// next_node_id approved 后前移到的节点 id（未推进/重复拍板为空串）
+	NextNodeId    string `protobuf:"bytes,6,opt,name=next_node_id,json=nextNodeId,proto3" json:"next_node_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DecisionResp) Reset() {
+	*x = DecisionResp{}
+	mi := &file_api_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecisionResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecisionResp) ProtoMessage() {}
+
+func (x *DecisionResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecisionResp.ProtoReflect.Descriptor instead.
+func (*DecisionResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *DecisionResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *DecisionResp) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *DecisionResp) GetVerdict() string {
+	if x != nil {
+		return x.Verdict
+	}
+	return ""
+}
+
+func (x *DecisionResp) GetNoop() bool {
+	if x != nil {
+		return x.Noop
+	}
+	return false
+}
+
+func (x *DecisionResp) GetLastDecision() string {
+	if x != nil {
+		return x.LastDecision
+	}
+	return ""
+}
+
+func (x *DecisionResp) GetNextNodeId() string {
+	if x != nil {
+		return x.NextNodeId
+	}
+	return ""
+}
+
 var File_api_proto protoreflect.FileDescriptor
 
 const file_api_proto_rawDesc = "" +
@@ -5649,7 +6032,40 @@ const file_api_proto_rawDesc = "" +
 	"\x0fRelatedTaskItem\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\taction_id\x18\x02 \x01(\tR\bactionId\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\tR\x06statusB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
+	"\x06status\x18\x03 \x01(\tR\x06status\"\x9a\x01\n" +
+	"\tReviewReq\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\x12#\n" +
+	"\rcapability_id\x18\x04 \x01(\tR\fcapabilityId\x12\x14\n" +
+	"\x05state\x18\x05 \x01(\tR\x05state\"\x86\x02\n" +
+	"\n" +
+	"ReviewResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\x12\x14\n" +
+	"\x05state\x18\x04 \x01(\tR\x05state\x12\x14\n" +
+	"\x05round\x18\x05 \x01(\x03R\x05round\x12%\n" +
+	"\x0ereview_results\x18\x06 \x01(\tR\rreviewResults\x12'\n" +
+	"\x0fcollect_outcome\x18\a \x01(\tR\x0ecollectOutcome\x12\x1d\n" +
+	"\n" +
+	"gate_state\x18\b \x01(\tR\tgateState\x12 \n" +
+	"\fnext_node_id\x18\t \x01(\tR\n" +
+	"nextNodeId\"\x97\x01\n" +
+	"\vDecisionReq\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12\x18\n" +
+	"\averdict\x18\x03 \x01(\tR\averdict\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x16\n" +
+	"\x06branch\x18\x05 \x01(\tR\x06branch\"\xac\x01\n" +
+	"\fDecisionResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12\x18\n" +
+	"\averdict\x18\x03 \x01(\tR\averdict\x12\x12\n" +
+	"\x04noop\x18\x04 \x01(\bR\x04noop\x12#\n" +
+	"\rlast_decision\x18\x05 \x01(\tR\flastDecision\x12 \n" +
+	"\fnext_node_id\x18\x06 \x01(\tR\n" +
+	"nextNodeIdB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
 
 var (
 	file_api_proto_rawDescOnce sync.Once
@@ -5663,7 +6079,7 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 65)
 var file_api_proto_goTypes = []any{
 	(*ErrorResp)(nil),              // 0: wbflow.api.v1.ErrorResp
 	(*ListRequirementsReq)(nil),    // 1: wbflow.api.v1.ListRequirementsReq
@@ -5726,6 +6142,10 @@ var file_api_proto_goTypes = []any{
 	(*TaskUpdateReq)(nil),          // 58: wbflow.api.v1.TaskUpdateReq
 	(*TaskUpdateResp)(nil),         // 59: wbflow.api.v1.TaskUpdateResp
 	(*RelatedTaskItem)(nil),        // 60: wbflow.api.v1.RelatedTaskItem
+	(*ReviewReq)(nil),              // 61: wbflow.api.v1.ReviewReq
+	(*ReviewResp)(nil),             // 62: wbflow.api.v1.ReviewResp
+	(*DecisionReq)(nil),            // 63: wbflow.api.v1.DecisionReq
+	(*DecisionResp)(nil),           // 64: wbflow.api.v1.DecisionResp
 }
 var file_api_proto_depIdxs = []int32{
 	2,  // 0: wbflow.api.v1.ListRequirementsResp.items:type_name -> wbflow.api.v1.RequirementItem
@@ -5780,7 +6200,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   61,
+			NumMessages:   65,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

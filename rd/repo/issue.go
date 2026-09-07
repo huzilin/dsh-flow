@@ -18,7 +18,10 @@ const issueIDPrefix = "cm-"
 
 // 未闭合状态集（my_task relatedIssues 口径：state 非 resolved/overridden）。
 // SQL NOT IN 直接内联常量切片。
-var issueOpenStates = []string{IssueStateOpen, IssueStatePendingConfirm, IssueStateToFix, IssueStateFixed}
+// 修复（T8）：原实现误传 open 族集合致 NOT IN 语义反转——查回的恰是已闭合行，
+// 与本注释口径及 issues_it_test「resolved 不注入」断言冲突（T7 遗留缺陷，
+// 阻碍 T8 澄清循环「owner 收 clarify 上下文」AC，最小修复对齐注释口径）。
+var issueOpenStates = []string{IssueStateResolved, IssueStateOverridden}
 
 // issue 状态常量镜像（domain 为纯逻辑包，repo 不反向依赖，取值与
 // domain.IssueState* 同源——spec §0 列注释为单一口径）。
