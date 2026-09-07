@@ -23,11 +23,15 @@ import (
 // IssueService 评论/issue 五端点 service。
 type IssueService struct {
 	repo *repo.Repo
+	// escalateLoopThreshold 澄清不收敛自动上升阈值（T12：config escalate.loop_threshold
+	// 注入，spec §2 reopen≥5 口径参数化；≤0=关闭自动上升，手动上升不受影响）。
+	escalateLoopThreshold int64
 }
 
-// NewIssueService 构造评论/issue service。
-func NewIssueService(r *repo.Repo) *IssueService {
-	return &IssueService{repo: r}
+// NewIssueService 构造评论/issue service。escalateLoopThreshold 取配置
+// escalate.loop_threshold（缺省 5=domain.DefaultEscalateLoopThreshold）。
+func NewIssueService(r *repo.Repo, escalateLoopThreshold int64) *IssueService {
+	return &IssueService{repo: r, escalateLoopThreshold: escalateLoopThreshold}
 }
 
 // Comment wb_comment：四级锚点评论建行（issues.state=open）。
@@ -309,9 +313,9 @@ func (s *IssueService) Confirm(ctx context.Context, req *api.ConfirmReviewReq) (
 
 // Reopen wb_reopen：澄清 reopen（pending-confirm→open）/ 修复 revise（fixed→to-fix），
 // 均 loop_count++（双读法：澄清期读 reopen 次数、修复期读 revise 次数）。
-// loop_count 达阈值（domain.DefaultEscalateLoopThreshold，spec §2 reopen≥5 口径）
-// 自动标 escalate（T12 裁决链消费通知）。reopen 理由 text 非空时追加 replies
-// （不可变追加，裁决回填同通道）。操作者须=提评者。
+// loop_count 达阈值（config escalate.loop_threshold 注入，spec §2 reopen≥5 口径）
+// 自动标 escalate 并写通知位行（issues notification，T12 裁决链消费）。reopen
+// 理由 text 非空时追加 replies（不可变追加，裁决回填同通道）。操作者须=提评者。
 //
 // 入参：req.CommentId 必填；req.Operator 必填；text 可选理由。
 // 出参：追加后 loop_count + 评论行。
@@ -412,11 +416,16 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 			row.LoopCount = row.LoopCount + effect.LoopCountDelta
 			audits = append(audits, issueAudit(row.IssueID, "loop_count",
 				fmt.Sprintf("%d", row.LoopCount-effect.LoopCountDelta), fmt.Sprintf("%d", row.LoopCount), in.operator))
-			// 澄清不收敛自动上升（spec §2：loop_count 达阈值如 reopen≥5；T12 消费通知）
-			if in.action == domain.IssueActionReopen && domain.AutoEscalateNeeded(row.LoopCount, domain.DefaultEscalateLoopThreshold) && row.Escalate == 0 {
+			// 澄清不收敛自动上升（spec §2：loop_count 达阈值如 reopen≥5，阈值经
+			// config escalate.loop_threshold 注入）+ 通知位行（T12，同事务）
+			if in.action == domain.IssueActionReopen && domain.AutoEscalateNeeded(row.LoopCount, s.escalateLoopThreshold) && row.Escalate == 0 {
 				updates["escalate"] = domain.MarkEscalate()
 				row.Escalate = 1
 				audits = append(audits, issueAudit(row.IssueID, "escalate", "0", "1", in.operator))
+				if _, err := writeEscalationNoticeTx(ctx, tx, s.repo, row,
+					domain.AutoEscalateTriggerText(s.escalateLoopThreshold), auditByWhoPlugin); err != nil {
+					return err
+				}
 			}
 		}
 		if effect.AppendReply && in.reply.By != "" {

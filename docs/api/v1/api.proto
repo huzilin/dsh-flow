@@ -1052,3 +1052,74 @@ message DecisionResp {
   // next_node_id approved 后前移到的节点 id（未推进/重复拍板为空串）
   string next_node_id = 6;
 }
+
+// ---------------------------------------------------------------------------
+// escalation（T12 冲突上升裁决链：wb_escalate 拉起裁决 session + wb_adjudicate
+// User 仲裁结论回填；spec §1.2 wb_override 移出 agent/HTTP 清单——仲裁推翻语义
+// 收编在 service 层 EscalationService.OverrideIssueTx，不暴露端点）
+// ---------------------------------------------------------------------------
+
+// EscalateReq POST /api/comments/:commentId/escalate 入参。
+// 手动上升裁决：escalate 置位（幂等）+ 拉起裁决 session（sessions 表建绑，
+// role=user 仲裁语义，dsh_ref 占位待 DSH 接入）+ 通知位（issues notification 行）。
+// 自动上升（reopen 达 loop_threshold）只置标 + 通知；裁决 session 由本端点拉起
+// （幂等：已有进行中裁决 session 时 noop=true 返回既有 session）。
+message EscalateReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // operator 上升操作者（冲突任一方；审计 by_who）
+  string operator = 2;
+  // reason 上升理由（可选；非空时追加 replies 上升条目）
+  string reason = 3;
+}
+
+// EscalateResp POST /api/comments/:commentId/escalate 出参。
+message EscalateResp {
+  // ok 恒 true
+  bool ok = 1;
+  // comment_id 评论业务 id（回显）
+  string comment_id = 2;
+  // escalated true=本次调用新置位 escalate；false=建评/先行动作已置位
+  bool escalated = 3;
+  // noop true=已有进行中裁决 session（幂等 no-op，未重复建绑）
+  bool noop = 4;
+  // session_id 裁决 session 业务 id（noop 时=既有进行中 session 回显）
+  string session_id = 5;
+  // issue 上升后评论行
+  IssueItem issue = 6;
+}
+
+// AdjudicateReq POST /api/comments/:commentId/adjudicate 入参。
+// User 仲裁结论回填（裁决链第 3 拍）：replies 追加裁决条目（数据层留痕、节点可见）
+// → verdict=override 时 wb_override 语义收编落 overridden 终态（resolve_path=ruling
+// + resolve_note 引用结论）→ escalate 复位 → reviewer 重表态（评审轮重入新轮）。
+message AdjudicateReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // verdict 仲裁结论：uphold=维持议题（回正常澄清/修复链）| override=仲裁推翻
+  // （issue 落 overridden 终态，wb_override 语义收编）
+  string verdict = 2;
+  // conclusion 裁决结论文本（必填；裁决条目 text 与 override 路径 resolve_note 同源）
+  string conclusion = 3;
+  // decided_by 仲裁人（恒 user；审计 by_who）
+  string decided_by = 4;
+}
+
+// AdjudicateResp POST /api/comments/:commentId/adjudicate 出参。
+message AdjudicateResp {
+  // ok 恒 true
+  bool ok = 1;
+  // comment_id 评论业务 id（回显）
+  string comment_id = 2;
+  // verdict 落库仲裁结论（uphold | override）
+  string verdict = 3;
+  // session_id 已终局裁决 session 业务 id（回显）
+  string session_id = 4;
+  // reentered true=reviewer 重表态轮已拉起（评审轮重入新轮）；
+  // false=issue 挂载节点不在 review/respond 相位，轮重入 no-op
+  bool reentered = 5;
+  // round 重入后的评审轮（reentered=false 时为节点当前轮回显）
+  int64 round = 6;
+  // issue 回填后评论行
+  IssueItem issue = 7;
+}

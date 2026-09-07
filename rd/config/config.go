@@ -25,6 +25,7 @@ type Config struct {
 	Log       LogConfig       `yaml:"log"`
 	Auth      AuthConfig      `yaml:"auth"`
 	Artifacts ArtifactsConfig `yaml:"artifacts"`
+	Escalate  EscalateConfig  `yaml:"escalate"`
 }
 
 // HTTPConfig HTTP 服务配置。
@@ -67,6 +68,16 @@ type ArtifactsConfig struct {
 	// 工作目录解析；绝对路径原样使用）。安全默认最小权限：根目录收敛到仓库内
 	// 专用目录而非 "/"；读取路径 resolve（含 symlink 展开）后越出该目录一律拒绝。
 	DocsRoot string `yaml:"docs_root"`
+}
+
+// EscalateConfig 冲突上升配置（T12：spec §2「loop_count 达阈值自动标 escalate」
+// 口径的参数化——阈值进 config，不硬编码在写路径）。
+type EscalateConfig struct {
+	// LoopThreshold 澄清不收敛自动上升阈值：reopen 计数（澄清期 loop_count 读法）
+	// 达到该值时自动置位 escalate 并写 notification 通知行（spec §2 reopen≥5 口径，
+	// 默认 5；≤0 视为关闭自动上升）。手动上升（comment/resolve +escalate 与
+	// wb_escalate 端点）不受本阈值影响。
+	LoopThreshold int64 `yaml:"loop_threshold"`
 }
 
 // Load 加载配置：mainPath 必选；localPath 可选（不存在时静默跳过）。
@@ -118,6 +129,9 @@ func defaults() *Config {
 		},
 		Artifacts: ArtifactsConfig{
 			DocsRoot: "docs",
+		},
+		Escalate: EscalateConfig{
+			LoopThreshold: 5,
 		},
 	}
 }

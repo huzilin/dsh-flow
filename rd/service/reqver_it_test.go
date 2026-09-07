@@ -26,6 +26,7 @@ import (
 
 	"github.com/huzilin/wbflow/rd/config"
 	"github.com/huzilin/wbflow/rd/database"
+	"github.com/huzilin/wbflow/rd/domain"
 	"github.com/huzilin/wbflow/rd/handler"
 	"github.com/huzilin/wbflow/rd/migration"
 	"github.com/huzilin/wbflow/rd/repo"
@@ -35,7 +36,15 @@ import (
 const itToken = "it-test-token"
 
 // openScratch 每测试独立 scratch 库（建库 → 迁移 → 装配真实 service 的路由），测后 DROP。
+// 阈值缺省=domain.DefaultEscalateLoopThreshold（config escalate.loop_threshold 默认值）。
 func openScratch(t *testing.T) (*gin.Engine, *database.DB) {
+	t.Helper()
+	return openScratchWithThreshold(t, domain.DefaultEscalateLoopThreshold)
+}
+
+// openScratchWithThreshold openScratch 阈值注入变体（T12 AC「注入小阈值跑通自动
+// escalate」——escalate.loop_threshold 的 IT 注入口）。
+func openScratchWithThreshold(t *testing.T, escalateLoopThreshold int64) (*gin.Engine, *database.DB) {
 	t.Helper()
 	if os.Getenv("WBFLOW_MYSQL_IT") == "" {
 		t.Skip("真实 MySQL 集成：设 WBFLOW_MYSQL_IT=1 且注入 WBFLOW_MYSQL_PASSWORD 后运行")
@@ -70,15 +79,16 @@ func openScratch(t *testing.T) (*gin.Engine, *database.DB) {
 	r := repo.NewRepo(handles.Gorm)
 	gin.SetMode(gin.TestMode)
 	router := handler.NewRouter(&handler.Deps{
-		Logger:   zap.NewNop(),
-		Health:   service.NewHealth(handles),
-		Token:    itToken,
-		Reqs:     service.NewRequirementService(r),
-		Vers:     service.NewVersionService(r),
-		Flows:    service.NewFlowService(r),
-		Tasks:    service.NewTaskService(r),
-		Comments: service.NewIssueService(r),
-		Reviews:  service.NewReviewService(r),
+		Logger:      zap.NewNop(),
+		Health:      service.NewHealth(handles),
+		Token:       itToken,
+		Reqs:        service.NewRequirementService(r),
+		Vers:        service.NewVersionService(r),
+		Flows:       service.NewFlowService(r),
+		Tasks:       service.NewTaskService(r),
+		Comments:    service.NewIssueService(r, escalateLoopThreshold),
+		Reviews:     service.NewReviewService(r),
+		Escalations: service.NewEscalationService(r),
 	})
 	return router, handles
 }

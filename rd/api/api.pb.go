@@ -5575,6 +5575,343 @@ func (x *DecisionResp) GetNextNodeId() string {
 	return ""
 }
 
+// EscalateReq POST /api/comments/:commentId/escalate 入参。
+// 手动上升裁决：escalate 置位（幂等）+ 拉起裁决 session（sessions 表建绑，
+// role=user 仲裁语义，dsh_ref 占位待 DSH 接入）+ 通知位（issues notification 行）。
+// 自动上升（reopen 达 loop_threshold）只置标 + 通知；裁决 session 由本端点拉起
+// （幂等：已有进行中裁决 session 时 noop=true 返回既有 session）。
+type EscalateReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// comment_id 评论业务 id（commentId 取路径）
+	CommentId string `protobuf:"bytes,1,opt,name=comment_id,json=commentId,proto3" json:"comment_id,omitempty"`
+	// operator 上升操作者（冲突任一方；审计 by_who）
+	Operator string `protobuf:"bytes,2,opt,name=operator,proto3" json:"operator,omitempty"`
+	// reason 上升理由（可选；非空时追加 replies 上升条目）
+	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EscalateReq) Reset() {
+	*x = EscalateReq{}
+	mi := &file_api_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EscalateReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EscalateReq) ProtoMessage() {}
+
+func (x *EscalateReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EscalateReq.ProtoReflect.Descriptor instead.
+func (*EscalateReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *EscalateReq) GetCommentId() string {
+	if x != nil {
+		return x.CommentId
+	}
+	return ""
+}
+
+func (x *EscalateReq) GetOperator() string {
+	if x != nil {
+		return x.Operator
+	}
+	return ""
+}
+
+func (x *EscalateReq) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// EscalateResp POST /api/comments/:commentId/escalate 出参。
+type EscalateResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// comment_id 评论业务 id（回显）
+	CommentId string `protobuf:"bytes,2,opt,name=comment_id,json=commentId,proto3" json:"comment_id,omitempty"`
+	// escalated true=本次调用新置位 escalate；false=建评/先行动作已置位
+	Escalated bool `protobuf:"varint,3,opt,name=escalated,proto3" json:"escalated,omitempty"`
+	// noop true=已有进行中裁决 session（幂等 no-op，未重复建绑）
+	Noop bool `protobuf:"varint,4,opt,name=noop,proto3" json:"noop,omitempty"`
+	// session_id 裁决 session 业务 id（noop 时=既有进行中 session 回显）
+	SessionId string `protobuf:"bytes,5,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// issue 上升后评论行
+	Issue         *IssueItem `protobuf:"bytes,6,opt,name=issue,proto3" json:"issue,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EscalateResp) Reset() {
+	*x = EscalateResp{}
+	mi := &file_api_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EscalateResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EscalateResp) ProtoMessage() {}
+
+func (x *EscalateResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EscalateResp.ProtoReflect.Descriptor instead.
+func (*EscalateResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *EscalateResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *EscalateResp) GetCommentId() string {
+	if x != nil {
+		return x.CommentId
+	}
+	return ""
+}
+
+func (x *EscalateResp) GetEscalated() bool {
+	if x != nil {
+		return x.Escalated
+	}
+	return false
+}
+
+func (x *EscalateResp) GetNoop() bool {
+	if x != nil {
+		return x.Noop
+	}
+	return false
+}
+
+func (x *EscalateResp) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *EscalateResp) GetIssue() *IssueItem {
+	if x != nil {
+		return x.Issue
+	}
+	return nil
+}
+
+// AdjudicateReq POST /api/comments/:commentId/adjudicate 入参。
+// User 仲裁结论回填（裁决链第 3 拍）：replies 追加裁决条目（数据层留痕、节点可见）
+// → verdict=override 时 wb_override 语义收编落 overridden 终态（resolve_path=ruling
+// + resolve_note 引用结论）→ escalate 复位 → reviewer 重表态（评审轮重入新轮）。
+type AdjudicateReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// comment_id 评论业务 id（commentId 取路径）
+	CommentId string `protobuf:"bytes,1,opt,name=comment_id,json=commentId,proto3" json:"comment_id,omitempty"`
+	// verdict 仲裁结论：uphold=维持议题（回正常澄清/修复链）| override=仲裁推翻
+	// （issue 落 overridden 终态，wb_override 语义收编）
+	Verdict string `protobuf:"bytes,2,opt,name=verdict,proto3" json:"verdict,omitempty"`
+	// conclusion 裁决结论文本（必填；裁决条目 text 与 override 路径 resolve_note 同源）
+	Conclusion string `protobuf:"bytes,3,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
+	// decided_by 仲裁人（恒 user；审计 by_who）
+	DecidedBy     string `protobuf:"bytes,4,opt,name=decided_by,json=decidedBy,proto3" json:"decided_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdjudicateReq) Reset() {
+	*x = AdjudicateReq{}
+	mi := &file_api_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdjudicateReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdjudicateReq) ProtoMessage() {}
+
+func (x *AdjudicateReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdjudicateReq.ProtoReflect.Descriptor instead.
+func (*AdjudicateReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *AdjudicateReq) GetCommentId() string {
+	if x != nil {
+		return x.CommentId
+	}
+	return ""
+}
+
+func (x *AdjudicateReq) GetVerdict() string {
+	if x != nil {
+		return x.Verdict
+	}
+	return ""
+}
+
+func (x *AdjudicateReq) GetConclusion() string {
+	if x != nil {
+		return x.Conclusion
+	}
+	return ""
+}
+
+func (x *AdjudicateReq) GetDecidedBy() string {
+	if x != nil {
+		return x.DecidedBy
+	}
+	return ""
+}
+
+// AdjudicateResp POST /api/comments/:commentId/adjudicate 出参。
+type AdjudicateResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// comment_id 评论业务 id（回显）
+	CommentId string `protobuf:"bytes,2,opt,name=comment_id,json=commentId,proto3" json:"comment_id,omitempty"`
+	// verdict 落库仲裁结论（uphold | override）
+	Verdict string `protobuf:"bytes,3,opt,name=verdict,proto3" json:"verdict,omitempty"`
+	// session_id 已终局裁决 session 业务 id（回显）
+	SessionId string `protobuf:"bytes,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// reentered true=reviewer 重表态轮已拉起（评审轮重入新轮）；
+	// false=issue 挂载节点不在 review/respond 相位，轮重入 no-op
+	Reentered bool `protobuf:"varint,5,opt,name=reentered,proto3" json:"reentered,omitempty"`
+	// round 重入后的评审轮（reentered=false 时为节点当前轮回显）
+	Round int64 `protobuf:"varint,6,opt,name=round,proto3" json:"round,omitempty"`
+	// issue 回填后评论行
+	Issue         *IssueItem `protobuf:"bytes,7,opt,name=issue,proto3" json:"issue,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdjudicateResp) Reset() {
+	*x = AdjudicateResp{}
+	mi := &file_api_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdjudicateResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdjudicateResp) ProtoMessage() {}
+
+func (x *AdjudicateResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdjudicateResp.ProtoReflect.Descriptor instead.
+func (*AdjudicateResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *AdjudicateResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *AdjudicateResp) GetCommentId() string {
+	if x != nil {
+		return x.CommentId
+	}
+	return ""
+}
+
+func (x *AdjudicateResp) GetVerdict() string {
+	if x != nil {
+		return x.Verdict
+	}
+	return ""
+}
+
+func (x *AdjudicateResp) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *AdjudicateResp) GetReentered() bool {
+	if x != nil {
+		return x.Reentered
+	}
+	return false
+}
+
+func (x *AdjudicateResp) GetRound() int64 {
+	if x != nil {
+		return x.Round
+	}
+	return 0
+}
+
+func (x *AdjudicateResp) GetIssue() *IssueItem {
+	if x != nil {
+		return x.Issue
+	}
+	return nil
+}
+
 var File_api_proto protoreflect.FileDescriptor
 
 const file_api_proto_rawDesc = "" +
@@ -6065,7 +6402,40 @@ const file_api_proto_rawDesc = "" +
 	"\x04noop\x18\x04 \x01(\bR\x04noop\x12#\n" +
 	"\rlast_decision\x18\x05 \x01(\tR\flastDecision\x12 \n" +
 	"\fnext_node_id\x18\x06 \x01(\tR\n" +
-	"nextNodeIdB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
+	"nextNodeId\"`\n" +
+	"\vEscalateReq\x12\x1d\n" +
+	"\n" +
+	"comment_id\x18\x01 \x01(\tR\tcommentId\x12\x1a\n" +
+	"\boperator\x18\x02 \x01(\tR\boperator\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"\xbe\x01\n" +
+	"\fEscalateResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1d\n" +
+	"\n" +
+	"comment_id\x18\x02 \x01(\tR\tcommentId\x12\x1c\n" +
+	"\tescalated\x18\x03 \x01(\bR\tescalated\x12\x12\n" +
+	"\x04noop\x18\x04 \x01(\bR\x04noop\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x05 \x01(\tR\tsessionId\x12.\n" +
+	"\x05issue\x18\x06 \x01(\v2\x18.wbflow.api.v1.IssueItemR\x05issue\"\x87\x01\n" +
+	"\rAdjudicateReq\x12\x1d\n" +
+	"\n" +
+	"comment_id\x18\x01 \x01(\tR\tcommentId\x12\x18\n" +
+	"\averdict\x18\x02 \x01(\tR\averdict\x12\x1e\n" +
+	"\n" +
+	"conclusion\x18\x03 \x01(\tR\n" +
+	"conclusion\x12\x1d\n" +
+	"\n" +
+	"decided_by\x18\x04 \x01(\tR\tdecidedBy\"\xdc\x01\n" +
+	"\x0eAdjudicateResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1d\n" +
+	"\n" +
+	"comment_id\x18\x02 \x01(\tR\tcommentId\x12\x18\n" +
+	"\averdict\x18\x03 \x01(\tR\averdict\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x04 \x01(\tR\tsessionId\x12\x1c\n" +
+	"\treentered\x18\x05 \x01(\bR\treentered\x12\x14\n" +
+	"\x05round\x18\x06 \x01(\x03R\x05round\x12.\n" +
+	"\x05issue\x18\a \x01(\v2\x18.wbflow.api.v1.IssueItemR\x05issueB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
 
 var (
 	file_api_proto_rawDescOnce sync.Once
@@ -6079,7 +6449,7 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 65)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_api_proto_goTypes = []any{
 	(*ErrorResp)(nil),              // 0: wbflow.api.v1.ErrorResp
 	(*ListRequirementsReq)(nil),    // 1: wbflow.api.v1.ListRequirementsReq
@@ -6146,6 +6516,10 @@ var file_api_proto_goTypes = []any{
 	(*ReviewResp)(nil),             // 62: wbflow.api.v1.ReviewResp
 	(*DecisionReq)(nil),            // 63: wbflow.api.v1.DecisionReq
 	(*DecisionResp)(nil),           // 64: wbflow.api.v1.DecisionResp
+	(*EscalateReq)(nil),            // 65: wbflow.api.v1.EscalateReq
+	(*EscalateResp)(nil),           // 66: wbflow.api.v1.EscalateResp
+	(*AdjudicateReq)(nil),          // 67: wbflow.api.v1.AdjudicateReq
+	(*AdjudicateResp)(nil),         // 68: wbflow.api.v1.AdjudicateResp
 }
 var file_api_proto_depIdxs = []int32{
 	2,  // 0: wbflow.api.v1.ListRequirementsResp.items:type_name -> wbflow.api.v1.RequirementItem
@@ -6182,11 +6556,13 @@ var file_api_proto_depIdxs = []int32{
 	7,  // 31: wbflow.api.v1.AddArtifactResp.artifact:type_name -> wbflow.api.v1.ArtifactItem
 	56, // 32: wbflow.api.v1.AssignTaskResp.task:type_name -> wbflow.api.v1.TaskItem
 	56, // 33: wbflow.api.v1.TaskUpdateResp.task:type_name -> wbflow.api.v1.TaskItem
-	34, // [34:34] is the sub-list for method output_type
-	34, // [34:34] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	8,  // 34: wbflow.api.v1.EscalateResp.issue:type_name -> wbflow.api.v1.IssueItem
+	8,  // 35: wbflow.api.v1.AdjudicateResp.issue:type_name -> wbflow.api.v1.IssueItem
+	36, // [36:36] is the sub-list for method output_type
+	36, // [36:36] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -6200,7 +6576,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   65,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
