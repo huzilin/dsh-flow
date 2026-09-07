@@ -19,6 +19,7 @@ import (
 	"github.com/huzilin/wbflow/rd/database"
 	"github.com/huzilin/wbflow/rd/handler"
 	"github.com/huzilin/wbflow/rd/logger"
+	"github.com/huzilin/wbflow/rd/repo"
 	"github.com/huzilin/wbflow/rd/service"
 )
 
@@ -56,10 +57,22 @@ func main() {
 		)
 	}
 
-	// 4. Gin 路由注册
+	// 4. Gin 路由注册（DB 未就绪时服务降级：仅 /healthz，API 路由不注册）
+	var reqSvc *service.RequirementService
+	var verSvc *service.VersionService
+	if db.Gorm != nil {
+		r := repo.NewRepo(db.Gorm)
+		reqSvc = service.NewRequirementService(r)
+		verSvc = service.NewVersionService(r)
+	} else {
+		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
+	}
 	router := handler.NewRouter(&handler.Deps{
 		Logger: lg,
 		Health: service.NewHealth(db),
+		Token:  cfg.Auth.Token,
+		Reqs:   reqSvc,
+		Vers:   verSvc,
 	})
 	srv := &http.Server{
 		Addr:    ":" + strconv.FormatInt(cfg.HTTP.Port, 10),

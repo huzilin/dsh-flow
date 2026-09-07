@@ -24,6 +24,10 @@ var (
 	ErrIdempotentConflict = perr.New("wbflow: 幂等冲突")
 	// ErrStaleReport 过期上报：complete 判据校验不满足或状态过期。
 	ErrStaleReport = perr.New("wbflow: 过期上报")
+	// ErrInvalidArgument 入参校验失败：必填缺失 / 枚举外值 / 取值非法。
+	ErrInvalidArgument = perr.New("wbflow: 入参非法")
+	// ErrNotFound 目标资源不存在：业务 id 未命中。
+	ErrNotFound = perr.New("wbflow: 资源不存在")
 )
 
 // Trace 统一错误包裹入口：内部错误链路层层包裹，保留堆栈。
@@ -44,6 +48,9 @@ const (
 	CodeGateBlocked        Code = "GATE_BLOCKED"
 	CodeIdempotentConflict Code = "IDEMPOTENT_CONFLICT"
 	CodeStaleReport        Code = "STALE_REPORT"
+	CodeInvalidArgument    Code = "INVALID_ARGUMENT"
+	CodeNotFound           Code = "NOT_FOUND"
+	CodeUnauthorized       Code = "UNAUTHORIZED"
 	CodeInternal           Code = "INTERNAL"
 )
 
@@ -71,6 +78,10 @@ func MapToHTTP(err error) HTTPMapping {
 		return HTTPMapping{HTTPStatus: http.StatusConflict, Code: CodeOptimisticLock}
 	case Is(err, ErrStaleReport):
 		return HTTPMapping{HTTPStatus: http.StatusConflict, Code: CodeStaleReport}
+	case Is(err, ErrInvalidArgument):
+		return HTTPMapping{HTTPStatus: http.StatusBadRequest, Code: CodeInvalidArgument}
+	case Is(err, ErrNotFound):
+		return HTTPMapping{HTTPStatus: http.StatusNotFound, Code: CodeNotFound}
 	default:
 		return HTTPMapping{HTTPStatus: http.StatusInternalServerError, Code: CodeInternal}
 	}

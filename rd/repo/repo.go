@@ -43,11 +43,17 @@ func NowMillis() int64 {
 //   - updates：键=列名（snake_case），值=新值；updated_at 由本 helper 自动写入新时间戳，
 //     调用方不得自带 updated_at 键。
 func (r *Repo) UpdateWithOptimisticLock(ctx context.Context, model any, id int64, readUpdatedAt int64, updates map[string]any) error {
+	return UpdateWithOptimisticLockTx(ctx, r.g, model, id, readUpdatedAt, updates)
+}
+
+// UpdateWithOptimisticLockTx 事务内乐观锁更新：语义同 UpdateWithOptimisticLock，
+// 在指定句柄（业务事务）内执行，保证「更新 + 审计」同事务原子。
+func UpdateWithOptimisticLockTx(ctx context.Context, tx *gorm.DB, model any, id int64, readUpdatedAt int64, updates map[string]any) error {
 	if _, ok := updates["updated_at"]; ok {
 		return errs.Trace(perr.Errorf("updates 不得携带 updated_at（由 helper 维护乐观锁时间戳）"))
 	}
 	updates["updated_at"] = NowMillis()
-	res := r.g.WithContext(ctx).Model(model).
+	res := tx.WithContext(ctx).Model(model).
 		Where("id = ? AND updated_at = ?", id, readUpdatedAt).
 		Updates(updates)
 	if res.Error != nil {
