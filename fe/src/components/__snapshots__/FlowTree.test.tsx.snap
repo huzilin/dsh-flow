@@ -1,0 +1,1117 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快照（集-序锁定） > flowtree-full-13 1`] = `
+<svg
+  aria-label="流程树"
+  class="flow-tree"
+  height="882"
+  role="list"
+  viewBox="0 0 460 882"
+  width="460"
+>
+  <g
+    aria-label="节点 1 待启动"
+    class="flow-node"
+    data-node-id="n-01"
+    role="listitem"
+    tabindex="0"
+  >
+    <rect
+      class="flow-node-card   "
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="12"
+    />
+    <circle
+      class="phase-dot phase-review"
+      cx="30"
+      cy="39"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="34"
+    >
+      1
+      . 
+      待启动
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="34"
+    >
+      review / gate / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="54"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 2 需求对齐"
+    class="flow-node"
+    data-node-id="n-02"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,66 v12"
+    />
+    <rect
+      class="flow-node-card   "
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="78"
+    />
+    <circle
+      class="phase-dot phase-review"
+      cx="30"
+      cy="105"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="100"
+    >
+      2
+      . 
+      需求对齐
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="100"
+    >
+      review / align / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="120"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 3 产品设计"
+    class="flow-node"
+    data-node-id="n-03"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,132 v12"
+    />
+    <rect
+      class="flow-node-card   "
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="144"
+    />
+    <circle
+      class="phase-dot phase-review"
+      cx="30"
+      cy="171"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="166"
+    >
+      3
+      . 
+      产品设计
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="166"
+    >
+      review / produce
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="186"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 4 产品设计评审"
+    class="flow-node"
+    data-node-id="n-04"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,198 v12"
+    />
+    <rect
+      class="flow-node-card   "
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="210"
+    />
+    <circle
+      class="phase-dot phase-review"
+      cx="30"
+      cy="237"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="232"
+    >
+      4
+      . 
+      产品设计评审
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="232"
+    >
+      review / review / gate / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="252"
+    >
+      表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+  </g>
+  <g
+    aria-label="节点 5 RD 技术设计"
+    class="flow-node"
+    data-node-id="n-05"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,264 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="276"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="303"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="298"
+    >
+      5
+      . 
+      RD 技术设计
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="298"
+    >
+      produce
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="318"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 6 RD 技术评审"
+    class="flow-node"
+    data-node-id="n-06"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,330 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="342"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="369"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="364"
+    >
+      6
+      . 
+      RD 技术评审
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="364"
+    >
+      review / gate / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="384"
+    >
+      表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+  </g>
+  <g
+    aria-label="节点 7 FE 技术设计"
+    class="flow-node"
+    data-node-id="n-07"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,396 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="408"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="435"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="430"
+    >
+      7
+      . 
+      FE 技术设计
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="430"
+    >
+      produce
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="450"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 8 FE 设计评审"
+    class="flow-node"
+    data-node-id="n-08"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,462 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="474"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="501"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="496"
+    >
+      8
+      . 
+      FE 设计评审
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="496"
+    >
+      review / gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="516"
+    >
+      表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+  </g>
+  <g
+    aria-label="节点 9 RD 开发"
+    class="flow-node"
+    data-node-id="n-09"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,528 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="540"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="567"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="562"
+    >
+      9
+      . 
+      RD 开发
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="562"
+    >
+      produce / gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="582"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 10 FE 开发"
+    class="flow-node"
+    data-node-id="n-10"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,594 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="606"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="633"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="628"
+    >
+      10
+      . 
+      FE 开发
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="628"
+    >
+      produce / gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="648"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 11 QA 验收（含联调）"
+    class="flow-node"
+    data-node-id="n-11"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,660 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="672"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="699"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="694"
+    >
+      11
+      . 
+      QA 验收（含联调）
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="694"
+    >
+      produce / gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="714"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 12 用户验收"
+    class="flow-node"
+    data-node-id="n-12"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,726 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="738"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="765"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="760"
+    >
+      12
+      . 
+      用户验收
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="760"
+    >
+      gate / gate / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="780"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 13 完成"
+    class="flow-node"
+    data-node-id="n-13"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,792 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="804"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="831"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="826"
+    >
+      13
+      . 
+      完成
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="826"
+    >
+      gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="846"
+    >
+      无评审位
+    </text>
+  </g>
+</svg>
+`;
+
+exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe/QA 侧被裁不占位，序号重排） > flowtree-rd-9 1`] = `
+<svg
+  aria-label="流程树"
+  class="flow-tree"
+  height="618"
+  role="list"
+  viewBox="0 0 460 618"
+  width="460"
+>
+  <g
+    aria-label="节点 1 待启动"
+    class="flow-node"
+    data-node-id="n-01"
+    role="listitem"
+    tabindex="0"
+  >
+    <rect
+      class="flow-node-card   "
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="12"
+    />
+    <circle
+      class="phase-dot phase-review"
+      cx="30"
+      cy="39"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="34"
+    >
+      1
+      . 
+      待启动
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="34"
+    >
+      review / gate / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="54"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 2 需求对齐"
+    class="flow-node"
+    data-node-id="n-02"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,66 v12"
+    />
+    <rect
+      class="flow-node-card   "
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="78"
+    />
+    <circle
+      class="phase-dot phase-review"
+      cx="30"
+      cy="105"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="100"
+    >
+      2
+      . 
+      需求对齐
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="100"
+    >
+      review / align / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="120"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 3 产品设计"
+    class="flow-node"
+    data-node-id="n-03"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,132 v12"
+    />
+    <rect
+      class="flow-node-card   "
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="144"
+    />
+    <circle
+      class="phase-dot phase-review"
+      cx="30"
+      cy="171"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="166"
+    >
+      3
+      . 
+      产品设计
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="166"
+    >
+      review / produce
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="186"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 4 产品设计评审"
+    class="flow-node"
+    data-node-id="n-04"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,198 v12"
+    />
+    <rect
+      class="flow-node-card   "
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="210"
+    />
+    <circle
+      class="phase-dot phase-review"
+      cx="30"
+      cy="237"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="232"
+    >
+      4
+      . 
+      产品设计评审
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="232"
+    >
+      review / review / gate / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="252"
+    >
+      表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+  </g>
+  <g
+    aria-label="节点 5 RD 技术设计"
+    class="flow-node"
+    data-node-id="n-05"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,264 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="276"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="303"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="298"
+    >
+      5
+      . 
+      RD 技术设计
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="298"
+    >
+      produce
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="318"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 6 RD 技术评审"
+    class="flow-node"
+    data-node-id="n-06"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,330 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="342"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="369"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="364"
+    >
+      6
+      . 
+      RD 技术评审
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="364"
+    >
+      review / gate / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="384"
+    >
+      表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+  </g>
+  <g
+    aria-label="节点 7 RD 开发"
+    class="flow-node"
+    data-node-id="n-07"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,396 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="408"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="435"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="430"
+    >
+      7
+      . 
+      RD 开发
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="430"
+    >
+      produce / gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="450"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 8 用户验收"
+    class="flow-node"
+    data-node-id="n-08"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,462 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="474"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="501"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="496"
+    >
+      8
+      . 
+      用户验收
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="496"
+    >
+      gate / gate / user_gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="516"
+    >
+      无评审位
+    </text>
+  </g>
+  <g
+    aria-label="节点 9 完成"
+    class="flow-node"
+    data-node-id="n-09"
+    role="listitem"
+    tabindex="0"
+  >
+    <path
+      class="flow-link"
+      d="M230,528 v12"
+    />
+    <rect
+      class="flow-node-card   is-idle"
+      height="54"
+      rx="8"
+      width="436"
+      x="12"
+      y="540"
+    />
+    <circle
+      class="phase-dot phase-none"
+      cx="30"
+      cy="567"
+      r="5"
+    />
+    <text
+      class="flow-node-title"
+      x="46"
+      y="562"
+    >
+      9
+      . 
+      完成
+    </text>
+    <text
+      class="flow-node-chips"
+      text-anchor="end"
+      x="440"
+      y="562"
+    >
+      gate
+    </text>
+    <text
+      class="flow-node-sub"
+      x="46"
+      y="582"
+    >
+      无评审位
+    </text>
+  </g>
+</svg>
+`;
