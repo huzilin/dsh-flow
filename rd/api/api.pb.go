@@ -2797,9 +2797,12 @@ type MyTaskResp struct {
 	// review_summary 目标节点评审表态摘要（per-agent 聚合计数与明细）
 	ReviewSummary *ReviewSummary `protobuf:"bytes,7,opt,name=review_summary,json=reviewSummary,proto3" json:"review_summary,omitempty"`
 	// related_nodes 该角色相关节点集（最小返回集）
-	RelatedNodes  []*RelatedNodeItem `protobuf:"bytes,8,rep,name=related_nodes,json=relatedNodes,proto3" json:"related_nodes,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	RelatedNodes []*RelatedNodeItem `protobuf:"bytes,8,rep,name=related_nodes,json=relatedNodes,proto3" json:"related_nodes,omitempty"`
+	// related_artifacts 目标节点已登记产物摘要（产物侧上下文注入；
+	// 未进入编排/未解析目标节点时为空集）
+	RelatedArtifacts []*RelatedArtifactItem `protobuf:"bytes,9,rep,name=related_artifacts,json=relatedArtifacts,proto3" json:"related_artifacts,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *MyTaskResp) Reset() {
@@ -2884,6 +2887,13 @@ func (x *MyTaskResp) GetReviewSummary() *ReviewSummary {
 func (x *MyTaskResp) GetRelatedNodes() []*RelatedNodeItem {
 	if x != nil {
 		return x.RelatedNodes
+	}
+	return nil
+}
+
+func (x *MyTaskResp) GetRelatedArtifacts() []*RelatedArtifactItem {
+	if x != nil {
+		return x.RelatedArtifacts
 	}
 	return nil
 }
@@ -3080,6 +3090,424 @@ func (x *DependencyTreeResp) GetRoot() *DependencyNodeItem {
 		return x.Root
 	}
 	return nil
+}
+
+// AddArtifactReq POST /api/requirements/:reqId/nodes/:nodeId/artifacts 入参。
+// product_type 为受控枚举（越集拦截：400 + blocked）；产物是评审与评论的锚定对象。
+type AddArtifactReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 需求业务 id（reqId 取路径）
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 实例节点 id（nodeId 取路径；须存在于该需求的流程实例）
+	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// product_type 产物受控类型（必填）：brd/product_doc/rd_design/fe_design/
+	// architecture/research/plan/alignment/dev_notes/code_mr/test_result/defect/
+	// discussion（无 case_design——data-tools-final §1.2 定稿）
+	ProductType string `protobuf:"bytes,3,opt,name=product_type,json=productType,proto3" json:"product_type,omitempty"`
+	// label 产物显示名（必填），如《RD 技术设计》
+	Label string `protobuf:"bytes,4,opt,name=label,proto3" json:"label,omitempty"`
+	// href document=相对 docs root 的项目路径；link=http(s) 外链（必填）
+	Href string `protobuf:"bytes,5,opt,name=href,proto3" json:"href,omitempty"`
+	// kind document | link；空=按 document 处理（与 DDL 默认值一致）
+	Kind string `protobuf:"bytes,6,opt,name=kind,proto3" json:"kind,omitempty"`
+	// note 备注；空=无
+	Note string `protobuf:"bytes,7,opt,name=note,proto3" json:"note,omitempty"`
+	// added_by 登记人角色（必填；审计 by_who 同源）
+	AddedBy       string `protobuf:"bytes,8,opt,name=added_by,json=addedBy,proto3" json:"added_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddArtifactReq) Reset() {
+	*x = AddArtifactReq{}
+	mi := &file_api_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddArtifactReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddArtifactReq) ProtoMessage() {}
+
+func (x *AddArtifactReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddArtifactReq.ProtoReflect.Descriptor instead.
+func (*AddArtifactReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *AddArtifactReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *AddArtifactReq) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *AddArtifactReq) GetProductType() string {
+	if x != nil {
+		return x.ProductType
+	}
+	return ""
+}
+
+func (x *AddArtifactReq) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *AddArtifactReq) GetHref() string {
+	if x != nil {
+		return x.Href
+	}
+	return ""
+}
+
+func (x *AddArtifactReq) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *AddArtifactReq) GetNote() string {
+	if x != nil {
+		return x.Note
+	}
+	return ""
+}
+
+func (x *AddArtifactReq) GetAddedBy() string {
+	if x != nil {
+		return x.AddedBy
+	}
+	return ""
+}
+
+// AddArtifactResp POST /api/requirements/:reqId/nodes/:nodeId/artifacts 出参。
+// 幂等口径：同 requirement×node×product_type×href 重复登记 no-op 返回既有行
+// （不新取号、不重复审计）。
+type AddArtifactResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// artifact 登记后的产物行（含生成的 artifact_id；幂等命中=既有行）
+	Artifact      *ArtifactItem `protobuf:"bytes,2,opt,name=artifact,proto3" json:"artifact,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddArtifactResp) Reset() {
+	*x = AddArtifactResp{}
+	mi := &file_api_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddArtifactResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddArtifactResp) ProtoMessage() {}
+
+func (x *AddArtifactResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddArtifactResp.ProtoReflect.Descriptor instead.
+func (*AddArtifactResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *AddArtifactResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *AddArtifactResp) GetArtifact() *ArtifactItem {
+	if x != nil {
+		return x.Artifact
+	}
+	return nil
+}
+
+// GetArtifactContentReq GET /api/requirements/:reqId/artifacts/:artifactId/content 入参。
+type GetArtifactContentReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 需求业务 id（reqId 取路径）
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// artifact_id 产物业务 id（artifactId 取路径）
+	ArtifactId    string `protobuf:"bytes,2,opt,name=artifact_id,json=artifactId,proto3" json:"artifact_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetArtifactContentReq) Reset() {
+	*x = GetArtifactContentReq{}
+	mi := &file_api_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetArtifactContentReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetArtifactContentReq) ProtoMessage() {}
+
+func (x *GetArtifactContentReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetArtifactContentReq.ProtoReflect.Descriptor instead.
+func (*GetArtifactContentReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *GetArtifactContentReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *GetArtifactContentReq) GetArtifactId() string {
+	if x != nil {
+		return x.ArtifactId
+	}
+	return ""
+}
+
+// GetArtifactContentResp GET /api/requirements/:reqId/artifacts/:artifactId/content 出参。
+// 阅读器渲染与锚点定位所需元数据齐备。kind=document：content=文件文本内容
+// （docs root 下相对路径读取；文件缺失 404）；kind=link：content 恒空、href 即外链。
+type GetArtifactContentResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// artifact_id 产物业务 id（回显）
+	ArtifactId string `protobuf:"bytes,2,opt,name=artifact_id,json=artifactId,proto3" json:"artifact_id,omitempty"`
+	// node_id 所属节点 id（锚点定位语境）
+	NodeId string `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// product_type 产物受控类型
+	ProductType string `protobuf:"bytes,4,opt,name=product_type,json=productType,proto3" json:"product_type,omitempty"`
+	// label 产物显示名
+	Label string `protobuf:"bytes,5,opt,name=label,proto3" json:"label,omitempty"`
+	// kind document | link
+	Kind string `protobuf:"bytes,6,opt,name=kind,proto3" json:"kind,omitempty"`
+	// href document=相对 docs root 路径回显；link=外链
+	Href string `protobuf:"bytes,7,opt,name=href,proto3" json:"href,omitempty"`
+	// content document 正文文本（link 恒空）
+	Content string `protobuf:"bytes,8,opt,name=content,proto3" json:"content,omitempty"`
+	// mime_type 按扩展名推断（阅读器渲染模式选择）；推断不出为空
+	MimeType      string `protobuf:"bytes,9,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetArtifactContentResp) Reset() {
+	*x = GetArtifactContentResp{}
+	mi := &file_api_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetArtifactContentResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetArtifactContentResp) ProtoMessage() {}
+
+func (x *GetArtifactContentResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetArtifactContentResp.ProtoReflect.Descriptor instead.
+func (*GetArtifactContentResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *GetArtifactContentResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *GetArtifactContentResp) GetArtifactId() string {
+	if x != nil {
+		return x.ArtifactId
+	}
+	return ""
+}
+
+func (x *GetArtifactContentResp) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *GetArtifactContentResp) GetProductType() string {
+	if x != nil {
+		return x.ProductType
+	}
+	return ""
+}
+
+func (x *GetArtifactContentResp) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *GetArtifactContentResp) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *GetArtifactContentResp) GetHref() string {
+	if x != nil {
+		return x.Href
+	}
+	return ""
+}
+
+func (x *GetArtifactContentResp) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *GetArtifactContentResp) GetMimeType() string {
+	if x != nil {
+		return x.MimeType
+	}
+	return ""
+}
+
+// RelatedArtifactItem 节点已登记产物摘要（wb_my_task relatedArtifacts 条目：
+// 产物侧上下文注入的最小集）。
+type RelatedArtifactItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// artifact_id 产物业务 id
+	ArtifactId string `protobuf:"bytes,1,opt,name=artifact_id,json=artifactId,proto3" json:"artifact_id,omitempty"`
+	// product_type 产物受控类型
+	ProductType string `protobuf:"bytes,2,opt,name=product_type,json=productType,proto3" json:"product_type,omitempty"`
+	// label 产物显示名
+	Label string `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`
+	// kind document | link
+	Kind          string `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelatedArtifactItem) Reset() {
+	*x = RelatedArtifactItem{}
+	mi := &file_api_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelatedArtifactItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelatedArtifactItem) ProtoMessage() {}
+
+func (x *RelatedArtifactItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelatedArtifactItem.ProtoReflect.Descriptor instead.
+func (*RelatedArtifactItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *RelatedArtifactItem) GetArtifactId() string {
+	if x != nil {
+		return x.ArtifactId
+	}
+	return ""
+}
+
+func (x *RelatedArtifactItem) GetProductType() string {
+	if x != nil {
+		return x.ProductType
+	}
+	return ""
+}
+
+func (x *RelatedArtifactItem) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *RelatedArtifactItem) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
 }
 
 var File_api_proto protoreflect.FileDescriptor
@@ -3324,7 +3752,7 @@ const file_api_proto_rawDesc = "" +
 	"\vdef_node_id\x18\x02 \x01(\tR\tdefNodeId\x12\x1b\n" +
 	"\tnode_type\x18\x03 \x01(\tR\bnodeType\x12\x14\n" +
 	"\x05state\x18\x04 \x01(\tR\x05state\x12\x1c\n" +
-	"\treviewers\x18\x05 \x01(\tR\treviewers\"\xfd\x02\n" +
+	"\treviewers\x18\x05 \x01(\tR\treviewers\"\xce\x03\n" +
 	"\n" +
 	"MyTaskResp\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12%\n" +
@@ -3334,7 +3762,8 @@ const file_api_proto_rawDesc = "" +
 	"\rcurrent_phase\x18\x05 \x01(\tR\fcurrentPhase\x12F\n" +
 	"\x0eactive_actions\x18\x06 \x03(\v2\x1f.wbflow.api.v1.MyTaskActionItemR\ractiveActions\x12C\n" +
 	"\x0ereview_summary\x18\a \x01(\v2\x1c.wbflow.api.v1.ReviewSummaryR\rreviewSummary\x12C\n" +
-	"\rrelated_nodes\x18\b \x03(\v2\x1e.wbflow.api.v1.RelatedNodeItemR\frelatedNodes\"\xdd\x01\n" +
+	"\rrelated_nodes\x18\b \x03(\v2\x1e.wbflow.api.v1.RelatedNodeItemR\frelatedNodes\x12O\n" +
+	"\x11related_artifacts\x18\t \x03(\v2\".wbflow.api.v1.RelatedArtifactItemR\x10relatedArtifacts\"\xdd\x01\n" +
 	"\x12DependencyNodeItem\x12%\n" +
 	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
@@ -3347,7 +3776,40 @@ const file_api_proto_rawDesc = "" +
 	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\"[\n" +
 	"\x12DependencyTreeResp\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x125\n" +
-	"\x04root\x18\x02 \x01(\v2!.wbflow.api.v1.DependencyNodeItemR\x04rootB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
+	"\x04root\x18\x02 \x01(\v2!.wbflow.api.v1.DependencyNodeItemR\x04root\"\xe0\x01\n" +
+	"\x0eAddArtifactReq\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12!\n" +
+	"\fproduct_type\x18\x03 \x01(\tR\vproductType\x12\x14\n" +
+	"\x05label\x18\x04 \x01(\tR\x05label\x12\x12\n" +
+	"\x04href\x18\x05 \x01(\tR\x04href\x12\x12\n" +
+	"\x04kind\x18\x06 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04note\x18\a \x01(\tR\x04note\x12\x19\n" +
+	"\badded_by\x18\b \x01(\tR\aaddedBy\"Z\n" +
+	"\x0fAddArtifactResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x127\n" +
+	"\bartifact\x18\x02 \x01(\v2\x1b.wbflow.api.v1.ArtifactItemR\bartifact\"_\n" +
+	"\x15GetArtifactContentReq\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x1f\n" +
+	"\vartifact_id\x18\x02 \x01(\tR\n" +
+	"artifactId\"\xfa\x01\n" +
+	"\x16GetArtifactContentResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1f\n" +
+	"\vartifact_id\x18\x02 \x01(\tR\n" +
+	"artifactId\x12\x17\n" +
+	"\anode_id\x18\x03 \x01(\tR\x06nodeId\x12!\n" +
+	"\fproduct_type\x18\x04 \x01(\tR\vproductType\x12\x14\n" +
+	"\x05label\x18\x05 \x01(\tR\x05label\x12\x12\n" +
+	"\x04kind\x18\x06 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04href\x18\a \x01(\tR\x04href\x12\x18\n" +
+	"\acontent\x18\b \x01(\tR\acontent\x12\x1b\n" +
+	"\tmime_type\x18\t \x01(\tR\bmimeType\"\x83\x01\n" +
+	"\x13RelatedArtifactItem\x12\x1f\n" +
+	"\vartifact_id\x18\x01 \x01(\tR\n" +
+	"artifactId\x12!\n" +
+	"\fproduct_type\x18\x02 \x01(\tR\vproductType\x12\x14\n" +
+	"\x05label\x18\x03 \x01(\tR\x05label\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kindB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
 
 var (
 	file_api_proto_rawDescOnce sync.Once
@@ -3361,46 +3823,51 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
 var file_api_proto_goTypes = []any{
-	(*ErrorResp)(nil),             // 0: wbflow.api.v1.ErrorResp
-	(*ListRequirementsReq)(nil),   // 1: wbflow.api.v1.ListRequirementsReq
-	(*RequirementItem)(nil),       // 2: wbflow.api.v1.RequirementItem
-	(*ListRequirementsResp)(nil),  // 3: wbflow.api.v1.ListRequirementsResp
-	(*GetRequirementReq)(nil),     // 4: wbflow.api.v1.GetRequirementReq
-	(*FlowItem)(nil),              // 5: wbflow.api.v1.FlowItem
-	(*FlowNodeItem)(nil),          // 6: wbflow.api.v1.FlowNodeItem
-	(*ArtifactItem)(nil),          // 7: wbflow.api.v1.ArtifactItem
-	(*IssueItem)(nil),             // 8: wbflow.api.v1.IssueItem
-	(*GetRequirementResp)(nil),    // 9: wbflow.api.v1.GetRequirementResp
-	(*CreateRequirementReq)(nil),  // 10: wbflow.api.v1.CreateRequirementReq
-	(*CreateRequirementResp)(nil), // 11: wbflow.api.v1.CreateRequirementResp
-	(*UpdateRequirementReq)(nil),  // 12: wbflow.api.v1.UpdateRequirementReq
-	(*UpdateRequirementResp)(nil), // 13: wbflow.api.v1.UpdateRequirementResp
-	(*DeleteRequirementReq)(nil),  // 14: wbflow.api.v1.DeleteRequirementReq
-	(*DeleteRequirementResp)(nil), // 15: wbflow.api.v1.DeleteRequirementResp
-	(*ListVersionsReq)(nil),       // 16: wbflow.api.v1.ListVersionsReq
-	(*VersionItem)(nil),           // 17: wbflow.api.v1.VersionItem
-	(*ListVersionsResp)(nil),      // 18: wbflow.api.v1.ListVersionsResp
-	(*CreateVersionReq)(nil),      // 19: wbflow.api.v1.CreateVersionReq
-	(*CreateVersionResp)(nil),     // 20: wbflow.api.v1.CreateVersionResp
-	(*UpdateVersionReq)(nil),      // 21: wbflow.api.v1.UpdateVersionReq
-	(*UpdateVersionResp)(nil),     // 22: wbflow.api.v1.UpdateVersionResp
-	(*AdvanceVersionReq)(nil),     // 23: wbflow.api.v1.AdvanceVersionReq
-	(*RequirementRef)(nil),        // 24: wbflow.api.v1.RequirementRef
-	(*AdvanceVersionResp)(nil),    // 25: wbflow.api.v1.AdvanceVersionResp
-	(*DeprecateVersionReq)(nil),   // 26: wbflow.api.v1.DeprecateVersionReq
-	(*DeprecateVersionResp)(nil),  // 27: wbflow.api.v1.DeprecateVersionResp
-	(*MyTaskReq)(nil),             // 28: wbflow.api.v1.MyTaskReq
-	(*MyTaskActionItem)(nil),      // 29: wbflow.api.v1.MyTaskActionItem
-	(*ReviewResultItem)(nil),      // 30: wbflow.api.v1.ReviewResultItem
-	(*ReviewSummary)(nil),         // 31: wbflow.api.v1.ReviewSummary
-	(*RelatedNodeItem)(nil),       // 32: wbflow.api.v1.RelatedNodeItem
-	(*MyTaskNode)(nil),            // 33: wbflow.api.v1.MyTaskNode
-	(*MyTaskResp)(nil),            // 34: wbflow.api.v1.MyTaskResp
-	(*DependencyNodeItem)(nil),    // 35: wbflow.api.v1.DependencyNodeItem
-	(*DependencyTreeReq)(nil),     // 36: wbflow.api.v1.DependencyTreeReq
-	(*DependencyTreeResp)(nil),    // 37: wbflow.api.v1.DependencyTreeResp
+	(*ErrorResp)(nil),              // 0: wbflow.api.v1.ErrorResp
+	(*ListRequirementsReq)(nil),    // 1: wbflow.api.v1.ListRequirementsReq
+	(*RequirementItem)(nil),        // 2: wbflow.api.v1.RequirementItem
+	(*ListRequirementsResp)(nil),   // 3: wbflow.api.v1.ListRequirementsResp
+	(*GetRequirementReq)(nil),      // 4: wbflow.api.v1.GetRequirementReq
+	(*FlowItem)(nil),               // 5: wbflow.api.v1.FlowItem
+	(*FlowNodeItem)(nil),           // 6: wbflow.api.v1.FlowNodeItem
+	(*ArtifactItem)(nil),           // 7: wbflow.api.v1.ArtifactItem
+	(*IssueItem)(nil),              // 8: wbflow.api.v1.IssueItem
+	(*GetRequirementResp)(nil),     // 9: wbflow.api.v1.GetRequirementResp
+	(*CreateRequirementReq)(nil),   // 10: wbflow.api.v1.CreateRequirementReq
+	(*CreateRequirementResp)(nil),  // 11: wbflow.api.v1.CreateRequirementResp
+	(*UpdateRequirementReq)(nil),   // 12: wbflow.api.v1.UpdateRequirementReq
+	(*UpdateRequirementResp)(nil),  // 13: wbflow.api.v1.UpdateRequirementResp
+	(*DeleteRequirementReq)(nil),   // 14: wbflow.api.v1.DeleteRequirementReq
+	(*DeleteRequirementResp)(nil),  // 15: wbflow.api.v1.DeleteRequirementResp
+	(*ListVersionsReq)(nil),        // 16: wbflow.api.v1.ListVersionsReq
+	(*VersionItem)(nil),            // 17: wbflow.api.v1.VersionItem
+	(*ListVersionsResp)(nil),       // 18: wbflow.api.v1.ListVersionsResp
+	(*CreateVersionReq)(nil),       // 19: wbflow.api.v1.CreateVersionReq
+	(*CreateVersionResp)(nil),      // 20: wbflow.api.v1.CreateVersionResp
+	(*UpdateVersionReq)(nil),       // 21: wbflow.api.v1.UpdateVersionReq
+	(*UpdateVersionResp)(nil),      // 22: wbflow.api.v1.UpdateVersionResp
+	(*AdvanceVersionReq)(nil),      // 23: wbflow.api.v1.AdvanceVersionReq
+	(*RequirementRef)(nil),         // 24: wbflow.api.v1.RequirementRef
+	(*AdvanceVersionResp)(nil),     // 25: wbflow.api.v1.AdvanceVersionResp
+	(*DeprecateVersionReq)(nil),    // 26: wbflow.api.v1.DeprecateVersionReq
+	(*DeprecateVersionResp)(nil),   // 27: wbflow.api.v1.DeprecateVersionResp
+	(*MyTaskReq)(nil),              // 28: wbflow.api.v1.MyTaskReq
+	(*MyTaskActionItem)(nil),       // 29: wbflow.api.v1.MyTaskActionItem
+	(*ReviewResultItem)(nil),       // 30: wbflow.api.v1.ReviewResultItem
+	(*ReviewSummary)(nil),          // 31: wbflow.api.v1.ReviewSummary
+	(*RelatedNodeItem)(nil),        // 32: wbflow.api.v1.RelatedNodeItem
+	(*MyTaskNode)(nil),             // 33: wbflow.api.v1.MyTaskNode
+	(*MyTaskResp)(nil),             // 34: wbflow.api.v1.MyTaskResp
+	(*DependencyNodeItem)(nil),     // 35: wbflow.api.v1.DependencyNodeItem
+	(*DependencyTreeReq)(nil),      // 36: wbflow.api.v1.DependencyTreeReq
+	(*DependencyTreeResp)(nil),     // 37: wbflow.api.v1.DependencyTreeResp
+	(*AddArtifactReq)(nil),         // 38: wbflow.api.v1.AddArtifactReq
+	(*AddArtifactResp)(nil),        // 39: wbflow.api.v1.AddArtifactResp
+	(*GetArtifactContentReq)(nil),  // 40: wbflow.api.v1.GetArtifactContentReq
+	(*GetArtifactContentResp)(nil), // 41: wbflow.api.v1.GetArtifactContentResp
+	(*RelatedArtifactItem)(nil),    // 42: wbflow.api.v1.RelatedArtifactItem
 }
 var file_api_proto_depIdxs = []int32{
 	2,  // 0: wbflow.api.v1.ListRequirementsResp.items:type_name -> wbflow.api.v1.RequirementItem
@@ -3423,13 +3890,15 @@ var file_api_proto_depIdxs = []int32{
 	29, // 17: wbflow.api.v1.MyTaskResp.active_actions:type_name -> wbflow.api.v1.MyTaskActionItem
 	31, // 18: wbflow.api.v1.MyTaskResp.review_summary:type_name -> wbflow.api.v1.ReviewSummary
 	32, // 19: wbflow.api.v1.MyTaskResp.related_nodes:type_name -> wbflow.api.v1.RelatedNodeItem
-	35, // 20: wbflow.api.v1.DependencyNodeItem.children:type_name -> wbflow.api.v1.DependencyNodeItem
-	35, // 21: wbflow.api.v1.DependencyTreeResp.root:type_name -> wbflow.api.v1.DependencyNodeItem
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	42, // 20: wbflow.api.v1.MyTaskResp.related_artifacts:type_name -> wbflow.api.v1.RelatedArtifactItem
+	35, // 21: wbflow.api.v1.DependencyNodeItem.children:type_name -> wbflow.api.v1.DependencyNodeItem
+	35, // 22: wbflow.api.v1.DependencyTreeResp.root:type_name -> wbflow.api.v1.DependencyNodeItem
+	7,  // 23: wbflow.api.v1.AddArtifactResp.artifact:type_name -> wbflow.api.v1.ArtifactItem
+	24, // [24:24] is the sub-list for method output_type
+	24, // [24:24] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -3443,7 +3912,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   38,
+			NumMessages:   43,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

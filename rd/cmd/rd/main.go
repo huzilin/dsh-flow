@@ -61,21 +61,24 @@ func main() {
 	var reqSvc *service.RequirementService
 	var verSvc *service.VersionService
 	var flowSvc *service.FlowService
+	var artSvc *service.ArtifactService
 	if db.Gorm != nil {
 		r := repo.NewRepo(db.Gorm)
 		reqSvc = service.NewRequirementService(r)
 		verSvc = service.NewVersionService(r)
 		flowSvc = service.NewFlowService(r)
+		artSvc = service.NewArtifactService(r, cfg.Artifacts.DocsRoot)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
 	router := handler.NewRouter(&handler.Deps{
-		Logger: lg,
-		Health: service.NewHealth(db),
-		Token:  cfg.Auth.Token,
-		Reqs:   reqSvc,
-		Vers:   verSvc,
-		Flows:  flowSvc,
+		Logger:    lg,
+		Health:    service.NewHealth(db),
+		Token:     cfg.Auth.Token,
+		Reqs:      reqSvc,
+		Vers:      verSvc,
+		Flows:     flowSvc,
+		Artifacts: artSvc,
 	})
 	srv := &http.Server{
 		Addr:    ":" + strconv.FormatInt(cfg.HTTP.Port, 10),

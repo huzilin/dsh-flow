@@ -31,7 +31,8 @@ func NewFlowService(r *repo.Repo) *FlowService {
 // 出参：node（目标节点摘要；未进入编排且未指定 nodeId 时未填充）、
 // current_phase（=node.state，""=未进入编排）、active_actions（节点激活清单 ×
 // 相位 on × 角色归属过滤）、review_summary（per-agent 聚合计数与明细）、
-// related_nodes（该角色相关节点最小集：评审位 / node action 响应者 / 能力归属）。
+// related_nodes（该角色相关节点最小集：评审位 / node action 响应者 / 能力归属）、
+// related_artifacts（目标节点已登记产物摘要，T6 产物侧注入；无目标节点=空集）。
 //
 // 错误集：ErrInvalidArgument（requirement_id/role 缺失）；ErrNotFound（需求 /
 // 流程实例 / 节点未命中）。
@@ -120,8 +121,16 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 		resp.CurrentPhase = repo.PhaseEmpty
 		resp.ActiveActions = make([]*api.MyTaskActionItem, 0)
 		resp.ReviewSummary = &api.ReviewSummary{}
+		resp.RelatedArtifacts = make([]*api.RelatedArtifactItem, 0)
 		return resp, nil
 	}
+
+	// 产物侧上下文注入：目标节点已登记产物摘要（无登记=空集，不报错）
+	relatedArtifacts, err := s.loadRelatedArtifacts(ctx, req.RequirementId, node.NodeID)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	resp.RelatedArtifacts = relatedArtifacts
 
 	nodeType := ""
 	nodeActions := ""
@@ -251,6 +260,26 @@ func (s *FlowService) DependencyTree(ctx context.Context, req *api.DependencyTre
 		Root: s.buildDependencyNode(req.RequirementId, edges, reqCache, map[string]bool{req.RequirementId: true}),
 	}
 	return resp, nil
+}
+
+// loadRelatedArtifacts 目标节点已登记产物摘要（my_task 产物侧上下文注入，
+// T6）。登记集为空=无产物（空集不报错）；改动收敛于本独立函数，便于并行
+// 工单对 flow.go 的三方合并。
+func (s *FlowService) loadRelatedArtifacts(ctx context.Context, requirementID string, nodeID string) ([]*api.RelatedArtifactItem, error) {
+	rows, err := s.repo.ListArtifactsByRequirementAndNode(ctx, requirementID, nodeID)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	items := make([]*api.RelatedArtifactItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, &api.RelatedArtifactItem{
+			ArtifactId:  row.ArtifactID,
+			ProductType: row.ProductType,
+			Label:       row.Label,
+			Kind:        row.Kind,
+		})
+	}
+	return items, nil
 }
 
 // resolveTargetNode 解析 my_task 目标节点：显式 nodeId 优先；缺省取当前节点

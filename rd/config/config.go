@@ -20,10 +20,11 @@ const DefaultLocalConfigPath = "configs/config.local.yaml"
 
 // Config rd 服务总配置。
 type Config struct {
-	HTTP  HTTPConfig  `yaml:"http"`
-	MySQL MySQLConfig `yaml:"mysql"`
-	Log   LogConfig   `yaml:"log"`
-	Auth  AuthConfig  `yaml:"auth"`
+	HTTP      HTTPConfig      `yaml:"http"`
+	MySQL     MySQLConfig     `yaml:"mysql"`
+	Log       LogConfig       `yaml:"log"`
+	Auth      AuthConfig      `yaml:"auth"`
+	Artifacts ArtifactsConfig `yaml:"artifacts"`
 }
 
 // HTTPConfig HTTP 服务配置。
@@ -58,6 +59,14 @@ type LogConfig struct {
 	// Mode 运行环境：dev（控制台彩色） / prod（JSON 文件）
 	Mode string `yaml:"mode"`
 	Path string `yaml:"path"`
+}
+
+// ArtifactsConfig 产物配置（T6 wb_get_artifact_content document 读取口径）。
+type ArtifactsConfig struct {
+	// DocsRoot document 类产物 href 的解析根目录（默认 docs，相对路径按服务进程
+	// 工作目录解析；绝对路径原样使用）。安全默认最小权限：根目录收敛到仓库内
+	// 专用目录而非 "/"；读取路径 resolve（含 symlink 展开）后越出该目录一律拒绝。
+	DocsRoot string `yaml:"docs_root"`
 }
 
 // Load 加载配置：mainPath 必选；localPath 可选（不存在时静默跳过）。
@@ -106,6 +115,9 @@ func defaults() *Config {
 			Level: "info",
 			Mode:  "dev",
 			Path:  "logs/rd.log",
+		},
+		Artifacts: ArtifactsConfig{
+			DocsRoot: "docs",
 		},
 	}
 }
