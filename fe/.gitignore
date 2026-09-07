@@ -1,0 +1,15 @@
+# 依赖与构建产物
+node_modules/
+dist/
+
+# 本地环境（真实 token 一律不落地仓库）
+.env
+.env.local
+.env.*.local
+
+# 日志与杂项
+logs/
+*.log
+.vite/
+# TS 增量构建缓存
+*.tsbuildinfo
