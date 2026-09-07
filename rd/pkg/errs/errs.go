@@ -30,6 +30,9 @@ var (
 	ErrNotFound = perr.New("wbflow: 资源不存在")
 	// ErrDependencyCycle 依赖环：flows.dependencies 依赖图成环，树不可构建（T4）。
 	ErrDependencyCycle = perr.New("wbflow: 依赖环")
+	// ErrInvalidTransition 非法状态迁移：issue 状态机 v2 拒绝该操作（当前态 ×
+	// 动作 × 操作者约束任一不成立，T7）。
+	ErrInvalidTransition = perr.New("wbflow: 非法状态迁移")
 )
 
 // Trace 统一错误包裹入口：内部错误链路层层包裹，保留堆栈。
@@ -53,6 +56,7 @@ const (
 	CodeInvalidArgument    Code = "INVALID_ARGUMENT"
 	CodeNotFound           Code = "NOT_FOUND"
 	CodeDependencyCycle    Code = "DEPENDENCY_CYCLE"
+	CodeInvalidTransition  Code = "INVALID_TRANSITION"
 	CodeUnauthorized       Code = "UNAUTHORIZED"
 	CodeInternal           Code = "INTERNAL"
 )
@@ -87,6 +91,8 @@ func MapToHTTP(err error) HTTPMapping {
 		return HTTPMapping{HTTPStatus: http.StatusNotFound, Code: CodeNotFound}
 	case Is(err, ErrDependencyCycle):
 		return HTTPMapping{HTTPStatus: http.StatusConflict, Code: CodeDependencyCycle}
+	case Is(err, ErrInvalidTransition):
+		return HTTPMapping{HTTPStatus: http.StatusConflict, Code: CodeInvalidTransition}
 	default:
 		return HTTPMapping{HTTPStatus: http.StatusInternalServerError, Code: CodeInternal}
 	}
