@@ -179,7 +179,9 @@ node_type: gate | gate: 1 | user_gate: 1 | reviewers: []
 C0 待启动 → C1 需求对齐 → C2 技术设计 → C3 技术评审 → C4 开发 → C5 QA验收 → C6 用户验收 → C7 完成
 ```
 
-> **task scope：二值 {rd, fe}——无 full**（2026-09-07 用户确认：任务单执行者二选一；scope_options={rd, fe}）。节点恒渲染（内容按 scope 选执行者/能力）。C5 QA 验收渲染规则：按「QA=联调职责」推演，task 单分支无联调场景 → **C5 不渲染**（流程 8→7 节点：C0→C1→C2→C3→C4→C6→C7；QA 能力在 task 不参与）——**按规则落地，待否决**：若 task 需保留独立测试验收请明示。
+> **task scope：三值 {full, rd, fe}**（2026-09-07 用户二次裁决：修 bug 类 task 可能双侧+联调——**统一三开发流程逻辑：QA 验收节点都按 scope 动态渲染联调**，scope_options={full, rd, fe}；上轮「C5 不渲染」推演撤销）。
+> - **full**：C4 双执行者（backend-dev + frontend-dev 都激活，各修各侧缺陷）；C5 渲染（联调+QA 验收）；C6 会话绑定 qa
+> - **rd / fe 单侧**：C4 单执行者；C5 不渲染（无联调）；C6 会话绑定对应开发执行者（报障直连）
 
 ### C0 待启动
 
@@ -240,13 +242,13 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {arch: arch.rd-design-
 ### C4 开发（内嵌 CR——节点内评审异化）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | reviewers: [ {cr: code-review} ]   # 单分支无并行组
+node_type: produce | gate: 1 | user_gate: 0 | reviewers: [ {cr: code-review} ]   # 单节点无并行组；full=双执行者（backend-dev+frontend-dev 各修各侧）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
-| exec 首次 | backend-dev.dev 或 frontend-dev.dev（by scope） | implement-techdesign | 执行者 | 完成上报+判据（提评登记内联）→ plugin 轮转 → review |
+| exec 首次 | backend-dev.dev / frontend-dev.dev（单侧=by scope；**full=双执行者各修各侧缺陷**） | implement-techdesign | 执行者 | 完成上报+判据（提评登记内联）→ plugin 轮转 → review |
 | exec 重入 | backend-dev / frontend-dev.diagnosing-bugs | diagnosing-bugs | 执行者 | 完成上报+校验（按 C5 rejected 返工）→ 重新提评 |
 | review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
 | respond | backend-dev / frontend-dev.fix_on_review（**只响应 CR，不做澄清**） | inline | 执行者 | 全 resolve → confirming |
@@ -278,15 +280,16 @@ node_type: produce | gate: 1 | user_gate: 0 | reviewers: []   # qa 不自审
 
 ```yaml
 node_type: gate | gate: 1 | user_gate: 1 | reviewers: []
+# 会话通道绑定按 scope 动态：full=qa / 单侧（fe-only=fe、rd-only=rd）（同 business 节点 11）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
-| entry | 会话通道迎宾呈现（绑定 qa） | 开场白模板 | 响应者=qa | User 终拍板 |
+| entry | 会话通道迎宾呈现（绑定角色按 scope 动态） | 开场白模板 | 响应者=绑定角色 | User 终拍板 |
 | exec / review / respond | ——跳过（门禁类） | —— | —— | —— |
 
 **reviewState**: 恒 '-'。
-**裁决**：approve → C7；rejected → 回退 C5 exec 重入（复验重测）。
+**裁决**：approve → C7；rejected 路由按 scope：full → C5 exec 重入（retest）/ 单侧 → C4 exec 重入（diagnosing-bugs）。
 
 ### C7 完成：DONE 占位。
 
