@@ -6,6 +6,17 @@
 
 ## 1. tech 技术需求流程（11 节点）
 
+> **tech scope：三值 {full, rd, fe}——不要求必有 rd**（2026-09-07 用户确认：fe-only 纯前端技术需求合法，B2/B3 不渲染、B4 起步；scope_options={full, rd, fe}）。
+>
+> | 节点 | scope 标注 | full | rd | fe |
+> |---|---|---|---|---|
+> | B0 / B1 需求对齐 | ''（中性） | ✓ | ✓ | ✓ |
+> | B2 / B3 / B8a（RD 侧） | rd | ✓ | ✓ | — |
+> | B4 / B5 / B8b（FE 侧） | fe | ✓ | — | ✓ |
+> | B9 QA 验收（含联调） | full | ✓ | — | — |
+> | B10 用户验收 / B11 完成 | ''（中性） | ✓ | ✓ | ✓ |
+
+
 ```
 B0 待启动 → B1 需求对齐 → B2 RD技术设计 → B3 RD技术评审(按需) → B4 FE技术设计(按需)
 → B5 FE技术评审(按需) → B8a RD开发 ∥ B8b FE开发 → B9 QA验收 → B10 用户验收 → B11 完成
@@ -41,7 +52,7 @@ node_type: align | gate: 0 | user_gate: 1 | reviewers: []
 ### B2 RD 技术设计
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | scope: be | reviewers: []
+node_type: produce | gate: 0 | user_gate: 0 | scope: rd | reviewers: []
 # 编写文档节点没有 review 相位（同 business 节点 4；内嵌 CR 补裁作废）
 ```
 
@@ -57,9 +68,9 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: be | reviewers: []
 ### B3 RD 技术评审（按需）
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 1 | scope: be
-reviewers: [ {arch(be): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review} ]
-# fe 位按需：需求含 fe（full）时才实例化——be-only 需求无接口消费方（2026-09-07 用户裁决，位级 scope）
+node_type: review | gate: 1 | user_gate: 1 | scope: rd
+reviewers: [ {arch(rd): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review} ]
+# fe 位按需：需求含 fe（full）时才实例化——rd-only 需求无接口消费方（2026-09-07 用户裁决，位级 scope）
 # 无 rd 位（产出者不自审）、无 pm 位（技术需求无产品视角评审）
 ```
 
@@ -107,7 +118,7 @@ reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 ### B8a / B8b 并行开发（内嵌 CR——节点内评审异化）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | branch: rd|fe | parallel_group: dev | scope: be|fe
+node_type: produce | gate: 1 | user_gate: 0 | branch: rd|fe | parallel_group: dev | scope: rd|fe（按分支）
 reviewers: [ {cr: code-review} ]
 ```
 
@@ -147,7 +158,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: full | reviewers: []
 
 ```yaml
 node_type: gate | gate: 1 | user_gate: 1 | reviewers: []
-# 会话通道绑定按 scope 动态：full=qa / 单侧=对应开发执行者（同 business 节点 11）
+# 会话通道绑定按 scope 动态：full=qa / 单侧（fe-only=fe、rd-only=rd）（同 business 节点 11）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
@@ -167,6 +178,8 @@ node_type: gate | gate: 1 | user_gate: 1 | reviewers: []
 ```
 C0 待启动 → C1 需求对齐 → C2 技术设计 → C3 技术评审 → C4 开发 → C5 QA验收 → C6 用户验收 → C7 完成
 ```
+
+> **task scope：二值 {rd, fe}——无 full**（2026-09-07 用户确认：任务单执行者二选一；scope_options={rd, fe}）。节点恒渲染（内容按 scope 选执行者/能力）。C5 QA 验收渲染规则：按「QA=联调职责」推演，task 单分支无联调场景 → **C5 不渲染**（流程 8→7 节点：C0→C1→C2→C3→C4→C6→C7；QA 能力在 task 不参与）——**按规则落地，待否决**：若 task 需保留独立测试验收请明示。
 
 ### C0 待启动
 
@@ -454,5 +467,5 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 5. **state 单列完整性**：每节点 4 相位逐一列出（含跳过标注）；reviewState 轮转逐节点标注（恒 '-' 或完整链）。
 6. **已知取舍落盘**：tech brd 无评审；task C1 无产物（C2 基础=简单描述）；D7 leader 直执行完成判据=数据落库。
 
-**位级 scope 按需（2026-09-07 用户裁决）**：按需评审节点内的特定评审位按 scope 实例化——B3 fe 位=需求含 fe（full）时才参与（be-only 无接口消费方）；business 节点 5 fe 位同规则；qa/arch/pm 位恒在。
+**位级 scope 按需（2026-09-07 用户裁决）**：按需评审节点内的特定评审位按 scope 实例化——B3 fe 位=需求含 fe（full）时才参与（rd-only 无接口消费方）；business 节点 5 fe 位同规则；qa/arch/pm 位恒在。
 **评审能力对象化（2026-09-05 用户裁决：最小上下文准则）**：跨节点评审能力（pm/arch/rd/fe/qa-tech-review）废除——评审能力按「对象×角色」切分（{role}.{object}-review，如 arch.prd-review），inputs 仅含评审对象，skill 仅含该对象维度。**ATAM 权衡点标注**：能力碎片化（5→12） vs 每节点最小 ctx——裁最小上下文（用户准则）。rd-tech-review 退役问题随之消解（对象化后自然不存在）。能力池 17→**24**（12 基础 + 12 对象化评审）。

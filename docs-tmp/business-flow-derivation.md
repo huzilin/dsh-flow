@@ -1,7 +1,17 @@
 # 业务需求流程（business）· 节点状态挂载配置 v3.1（逐 state 单列）
 
 > **状态**：2026-09-05 v3.1（格式修正：每节点所有 state 单列，逐 state 明确挂载 action——含跳过相位，配置无歧义）。模型权威=`capability-model-final.md` v3；动作→skill=`capability-actions-final.md`。
-> **拓扑**：13 节点。scope 裁剪：RD 侧=be、FE 侧=fe。
+> **拓扑**：13 节点。**需求 scope 三值：full（rd+fe）/ rd / fe**（2026-09-07 术语统一：be→rd，与角色名一致）。
+>
+> **scope × 节点渲染矩阵**：
+
+| 节点 | scope 标注 | full | rd | fe |
+|---|---|---|---|---|
+| 0 待启动 / 1 需求对齐 / 2 产品设计 / 3 产品设计评审 | ''（中性） | ✓ | ✓ | ✓ |
+| 4 RD 技术设计 / 5 RD 技术评审 / 8 RD 开发 | rd | ✓ | ✓ | — |
+| 6 FE 技术设计 / 7 FE 设计评审 / 9 FE 开发 | fe | ✓ | — | ✓ |
+| 10 QA 验收 | full | ✓ | — | — |
+| 11 用户验收 / 12 完成 | ''（中性） | ✓ | ✓ | ✓ |
 > **通用约定**（全节点适用，详见各节不重复）：两层属性（node.state 可配相位 + node.reviewState 审批子状态 plugin 轮转不可配）；rolled_back_count 计数位（0=首次，≥1=重入，entry/exec 多配置按计数选）；回退路由=rejected → plugin 回退被重做节点（targetBranch/assignee 映射）→ 目标节点 exec 重入；幂等声明（event:'complete' 幂等、回退按 req+node+round 幂等）；自审禁令（reviewers[] 不得含本节点产物 owner）；escalate 全局规则（轮内不收敛→会话通道 User 仲裁，送审含正反方意见）；gate=1 ⟺ 节点有准出判定；brd 修正路径（评审异议→User→leader 同步 brd）。
 
 **节点表**：
@@ -69,7 +79,7 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: '' | reviewers: []
 
 ```yaml
 node_type: review | gate: 1 | user_gate: 1 | scope: '' 
-reviewers: [ {arch: arch.prd-review}, {rd(be): rd.prd-review}, {fe(fe): fe.prd-review} ]
+reviewers: [ {arch: arch.prd-review}, {rd(rd): rd.prd-review}, {fe(fe): fe.prd-review} ]
 # pm 不设评审位——产出者不自审（2026-09-05 裁决，旧模型 pm-review@节点3 废除）
 ```
 
@@ -88,7 +98,7 @@ reviewers: [ {arch: arch.prd-review}, {rd(be): rd.prd-review}, {fe(fe): fe.prd-r
 ## 节点 4：RD 技术设计
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | scope: be | reviewers: []
+node_type: produce | gate: 0 | user_gate: 0 | scope: rd | reviewers: []
 # 编写文档节点没有 review 相位（2026-09-05 用户澄清共识；此前内嵌 CR 补裁作废——undermined 入模型 §8）
 ```
 
@@ -107,9 +117,9 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: be | reviewers: []
 ## 节点 5：RD 技术评审
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 1 | scope: be
-reviewers: [ {arch(be): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review}, {pm: pm.rd-design-review} ]
-# fe 位按需：需求含 fe（full）时才参与（be-only 无接口消费方）——位级 scope（2026-09-07 用户裁决）
+node_type: review | gate: 1 | user_gate: 1 | scope: rd
+reviewers: [ {arch(rd): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review}, {pm: pm.rd-design-review} ]
+# fe 位按需：需求含 fe（full）时才参与（rd-only 无接口消费方）——位级 scope（2026-09-07 用户裁决）
 # rd 不设评审位——产出者不自审（2026-09-05 举一反三，旧模型「自评+评审」废除）
 ```
 
@@ -164,7 +174,7 @@ reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 ## 节点 8：RD 开发（内嵌 CR——节点内评审异化）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | scope: be | branch: rd | parallel_group: dev
+node_type: produce | gate: 1 | user_gate: 0 | scope: rd | branch: rd | parallel_group: dev
 reviewers: [ {cr: code-review} ]
 ```
 
@@ -227,13 +237,13 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: full | reviewers: []
 
 ```yaml
 node_type: gate | gate: 1 | user_gate: 1 | scope: '' | reviewers: []
-# 会话通道绑定按 scope 动态（2026-09-07 用户裁决）：full=qa / fe-only=fe / be-only=rd
+# 会话通道绑定按 scope 动态（2026-09-07 用户裁决）：full=qa / fe-only=fe / rd-only=rd
 # 单侧需求节点 10 不渲染——用户验收直接对接开发节点（报障不经 QA 中转）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
-| entry | 会话通道迎宾呈现（绑定角色按 scope 动态：full=qa / fe-only=fe / be-only=rd） | 开场白模板（绑定配置） | 响应者=绑定角色 | User 终拍板 |
+| entry | 会话通道迎宾呈现（绑定角色按 scope 动态：full=qa / fe-only=fe / rd-only=rd） | 开场白模板（绑定配置） | 响应者=绑定角色 | User 终拍板 |
 | exec / review / respond | ——跳过（门禁类） | —— | —— | —— |
 
 **reviewState**: 恒 '-'。

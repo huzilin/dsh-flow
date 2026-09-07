@@ -38,7 +38,7 @@
 - 新增：**`node_actions`** TEXT NOT NULL DEFAULT '[]'（JSON 两类条目：
   `{kind:'capability', capability_id, actions:[action_id…]}` = 节点动作激活清单；
   `{kind:'node', action_id, on, executor:'program'|'subagent', executor_role?, skill?|inline?}` = node action（开场白/to-brd））
-- `scope` 枚举扩展（2026-09-07）：''=全量渲染｜'be'/'fe'=仅含该侧｜**'full'=仅全量需求渲染**——QA 验收=联调职责仅 full 渲染；实例化时按 requirement.scope 过滤（单侧需求跳过 QA 节点，用户验收直接对接开发节点）
+- `scope` 枚举统一（2026-09-07）：''=中性（任何 scope 渲染）｜'rd'/'fe'=仅含该侧需求渲染（术语统一 be→rd，与角色名一致）｜'full'=仅 full 需求渲染（QA 验收=联调职责）；实例化按 requirement.scope 过滤。scope_options：business/tech={full, rd, fe}、task={rd, fe}、plan=无 scope
 - `reviewers` 保留 [{role, capability_id, scope?}]（审批 skills map 派生源）；**运行时实例（flow_nodes.reviewers）条目扩展表态字段**：`verdict: {round, result: 'pass'|'block', at, note?}`——collect barrier 判据=全部条目 verdict.round==rolled_back_count 且非空；历史轮表态由 audit_log 回放（wb_review 全落审计），不加新表；表态与意见分离（意见=issues 线程，表态=结构化 verdict）
 - 删除：用例设计/用例设计评审两行（qa 职责重定义）；修正旧残留（plan 拆分拓扑 gate 值、tech/task 需求对齐 gate 统一为 1——有 User 判定即 gate=1）
 - `expected_outputs` 保留
@@ -87,7 +87,7 @@ CREATE TABLE sessions (
   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
 );
 ```
-用途：flow↔session 绑定注册表（D6 节点会话入口 + 按需会话通道共用）。**绑定角色支持按 scope 动态**（plugin 框架：full=qa / fe-only=fe / be-only=rd——用户验收报障对接方随需求侧变化，2026-09-07）。
+用途：flow↔session 绑定注册表（D6 节点会话入口 + 按需会话通道共用）。**绑定角色支持按 scope 动态**（plugin 框架：full=qa / fe-only=fe / rd-only=rd——用户验收报障对接方随需求侧变化，2026-09-07）。
 
 **audit_log / meta**：结构不变；`meta.schema_version` → v0.29。
 
