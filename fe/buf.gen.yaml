@@ -1,0 +1,12 @@
+# proto 生成配置：docs/api/v1/api.proto（契约真相源）→ TS 类型 + protojson 编解码。
+# 复现：cd fe && pnpm gen:proto（buf + ts-proto，插件从 node_modules/.bin 解析）。
+# 生成物 src/api/proto/api.ts 入库（禁手写镜像类型，改契约即重新生成）。
+# forceLong=string：int64 字段一律按 string 承接（后端 protojson 出参口径，2^53 精度安全）。
+version: v2
+plugins:
+  - local: protoc-gen-ts_proto
+    out: src/api/proto
+    opt:
+      - forceLong=string
+      - stringEnums=true
+      - esModuleInterop=true
