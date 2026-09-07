@@ -23,10 +23,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 1
 
-- [ ] 14 表 DDL testcontainers 真实执行通过，逐表列注释与 spec §0 一致
-- [ ] seed 装载后：40 定义节点 scope_expr/reviewers/node_actions 与 docs-tmp 定稿逐项对得上
-- [ ] 乐观锁 helper：并发更新一胜一败（败者收 ErrOptimisticLock）
-- [ ] append-only 表（audit_log）created_at=updated_at 恒同值由 helper 保证
+- [x] 14 表 DDL testcontainers 真实执行通过，逐表列注释与 spec §0 一致（testcontainers 不可用，降级 192.168.3.100 目标库真实执行 + 幂等重跑验证）
+- [x] seed 装载后：40 定义节点 scope_expr/reviewers/node_actions 与 docs-tmp 定稿逐项对得上
+- [x] 乐观锁 helper：并发更新一胜一败（败者收 ErrOptimisticLock）
+- [x] append-only 表（audit_log）created_at=updated_at 恒同值由 helper 保证
 
 ## 3. proto 契约真相源 + 需求/版本管理纵切
 
