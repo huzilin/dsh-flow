@@ -79,7 +79,7 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: '' | reviewers: []
 
 ```yaml
 node_type: review | gate: 1 | user_gate: 1 | scope: '' 
-reviewers: [ {arch: arch.prd-review}, {rd(rd): rd.prd-review}, {fe(fe): fe.prd-review} ]
+reviewers: [ {arch: arch.prd-review}, {rd|full: rd.prd-review}, {full: fe.prd-review} ]
 # pm 不设评审位——产出者不自审（2026-09-05 裁决，旧模型 pm-review@节点3 废除）
 ```
 
@@ -98,7 +98,7 @@ reviewers: [ {arch: arch.prd-review}, {rd(rd): rd.prd-review}, {fe(fe): fe.prd-r
 ## 节点 4：RD 技术设计
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | scope: rd | reviewers: []
+node_type: produce | gate: 0 | user_gate: 0 | scope: rd|full | reviewers: []
 # 编写文档节点没有 review 相位（2026-09-05 用户澄清共识；此前内嵌 CR 补裁作废——undermined 入模型 §8）
 ```
 
@@ -117,8 +117,8 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: rd | reviewers: []
 ## 节点 5：RD 技术评审
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 1 | scope: rd
-reviewers: [ {arch(rd): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review}, {pm: pm.rd-design-review} ]
+node_type: review | gate: 1 | user_gate: 1 | scope: rd|full
+reviewers: [ {arch(rd|full): arch.rd-design-review}, {full: fe.rd-design-review}, {qa: qa.rd-design-review}, {pm: pm.rd-design-review} ]
 # fe 位按需：需求含 fe（full）时才参与（rd-only 无接口消费方）——位级 scope（2026-09-07 用户裁决）
 # rd 不设评审位——产出者不自审（2026-09-05 举一反三，旧模型「自评+评审」废除）
 ```
@@ -137,7 +137,7 @@ reviewers: [ {arch(rd): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {
 ## 节点 6：FE 技术设计
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | scope: fe | reviewers: []
+node_type: produce | gate: 0 | user_gate: 0 | scope: fe|full | reviewers: []
 # 编写文档节点没有 review 相位（同节点 4）
 ```
 
@@ -156,7 +156,7 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: fe | reviewers: []
 ## 节点 7：FE 设计评审
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 0 | scope: fe
+node_type: review | gate: 1 | user_gate: 0 | scope: fe|full
 reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 ```
 
@@ -174,7 +174,7 @@ reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 ## 节点 8：RD 开发（内嵌 CR——节点内评审异化）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | scope: rd | branch: rd | parallel_group: dev
+node_type: produce | gate: 1 | user_gate: 0 | scope: rd|full | branch: rd | parallel_group: dev
 reviewers: [ {cr: code-review} ]
 ```
 
@@ -196,7 +196,7 @@ reviewers: [ {cr: code-review} ]
 ## 节点 9：FE 开发（内嵌 CR）——与节点 8 完全同构（fe 侧）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | scope: fe | branch: fe | parallel_group: dev
+node_type: produce | gate: 1 | user_gate: 0 | scope: fe|full | branch: fe | parallel_group: dev
 reviewers: [ {cr: code-review} ]
 ```
 

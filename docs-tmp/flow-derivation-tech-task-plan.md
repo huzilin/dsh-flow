@@ -52,7 +52,7 @@ node_type: align | gate: 0 | user_gate: 1 | reviewers: []
 ### B2 RD 技术设计
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | scope: rd | reviewers: []
+node_type: produce | gate: 0 | user_gate: 0 | scope: rd|full | reviewers: []
 # 编写文档节点没有 review 相位（同 business 节点 4；内嵌 CR 补裁作废）
 ```
 
@@ -68,8 +68,8 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: rd | reviewers: []
 ### B3 RD 技术评审（按需）
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 1 | scope: rd
-reviewers: [ {arch(rd): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review} ]
+node_type: review | gate: 1 | user_gate: 1 | scope: rd|full
+reviewers: [ {arch(rd|full): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {qa: qa.rd-design-review} ]
 # fe 位按需：需求含 fe（full）时才实例化——rd-only 需求无接口消费方（2026-09-07 用户裁决，位级 scope）
 # 无 rd 位（产出者不自审）、无 pm 位（技术需求无产品视角评审）
 ```
@@ -86,7 +86,7 @@ reviewers: [ {arch(rd): arch.rd-design-review}, {fe(fe): fe.rd-design-review}, {
 ### B4 FE 技术设计（按需）
 
 ```yaml
-node_type: produce | gate: 0 | user_gate: 0 | scope: fe | reviewers: []
+node_type: produce | gate: 0 | user_gate: 0 | scope: fe|full | reviewers: []
 # 编写文档节点没有 review 相位（同 B2）
 ```
 
@@ -102,7 +102,7 @@ node_type: produce | gate: 0 | user_gate: 0 | scope: fe | reviewers: []
 ### B5 FE 技术评审（按需）
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 0 | scope: fe
+node_type: review | gate: 1 | user_gate: 0 | scope: fe|full
 reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 ```
 
@@ -118,7 +118,7 @@ reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 ### B8a / B8b 并行开发（内嵌 CR——节点内评审异化）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | branch: rd|fe | parallel_group: dev | scope: rd|fe（按分支）
+node_type: produce | gate: 1 | user_gate: 0 | branch: rd|fe | parallel_group: dev | scope: rd|full（B8a）/ fe|full（B8b）（按分支）
 reviewers: [ {cr: code-review} ]
 ```
 
@@ -240,7 +240,7 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {arch: arch.rd-design-
 ### C4 开发（内嵌 CR——节点内评审异化）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | reviewers: [ {cr: code-review} ]   # 单分支单执行者（by scope）
+node_type: produce | gate: 1 | user_gate: 0 | scope: rd|fe | reviewers: [ {cr: code-review} ]   # 单分支单执行者（by scope；task 无 full）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |

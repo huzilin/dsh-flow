@@ -38,7 +38,7 @@
 - 新增：**`node_actions`** TEXT NOT NULL DEFAULT '[]'（JSON 两类条目：
   `{kind:'capability', capability_id, actions:[action_id…]}` = 节点动作激活清单；
   `{kind:'node', action_id, on, executor:'program'|'subagent', executor_role?, skill?|inline?}` = node action（开场白/to-brd））
-- `scope` 枚举统一（2026-09-07）：''=中性（任何 scope 渲染）｜'rd'/'fe'=仅含该侧需求渲染（术语统一 be→rd，与角色名一致）｜'full'=仅 full 需求渲染（QA 验收=联调职责）；实例化按 requirement.scope 过滤。scope_options：business/tech={full, rd, fe}（QA 验收=联调职责，动态渲染）、task={rd, fe}（单执行者无联调，无 QA 节点）、plan=无 scope
+- `scope` = **渲染集合表达式**（2026-09-07 用户裁定，取代单值枚举）：''=any（任何 scope 渲染）｜'rd|full'=rd 侧节点（full 与 rd 需求渲染）｜'fe|full'=fe 侧节点｜'full'=仅 full（QA 验收=联调职责）｜'rd|fe'=task 全渲染（task 无 full）。需求 scope 三值 {full, rd, fe}（术语统一 be→rd）；实例化时按表达式 ∩ requirement.scope 判定渲染。scope_options：business/tech={full, rd, fe}（QA 验收=联调职责，动态渲染）、task={rd, fe}（单执行者无联调，无 QA 节点）、plan=无 scope
 - `reviewers` 保留 [{role, capability_id, scope?}]（审批 skills map 派生源）；**运行时实例（flow_nodes.reviewers）条目扩展表态字段**：`verdict: {round, result: 'pass'|'block', at, note?}`——collect barrier 判据=全部条目 verdict.round==rolled_back_count 且非空；历史轮表态由 audit_log 回放（wb_review 全落审计），不加新表；表态与意见分离（意见=issues 线程，表态=结构化 verdict）
 - 删除：用例设计/用例设计评审两行（qa 职责重定义）；修正旧残留（plan 拆分拓扑 gate 值、tech/task 需求对齐 gate 统一为 1——有 User 判定即 gate=1）
 - `expected_outputs` 保留
