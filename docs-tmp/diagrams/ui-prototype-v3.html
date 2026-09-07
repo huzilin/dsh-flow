@@ -173,7 +173,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 
 <!-- ═════ P2 · 时间线备选 ═════ -->
 <div class="panel" id="p2">
-<h1>P2 · 评审轮（per-agent 表态轮转 + collect 内置聚合）</h1>
+<h1>P2 · 评审轮（per-agent 表态轮转 + collect 内置聚合）<span class="tag t-pc" style="margin-left:10px">暂缓开发</span></h1>
 <div class="desc">reviewState 是<b>每一个评审位（agent）各自的轮转</b>（1/10），不是节点整体状态；节点级聚合由 collect 内置完成（不暴露、无专门 state）。</div>
 <div class="card">
   <h3>per-agent 三态（每个评审位独立轮转）</h3>
@@ -194,7 +194,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </div>
 
 <div class="panel" id="p3">
-<h1>P3 · 进度面板（per-agent 表 + collect 输出）</h1>
+<h1>P3 · 进度面板（per-agent 表 + collect 输出）<span class="tag t-pc" style="margin-left:10px">暂缓开发</span></h1>
 <div class="desc">表态看 per-agent 表（各自轮转）；问题细节看 issue 列表（澄清/修复子状态+计数）；collect 输出即门禁结果。</div>
 <div class="card">
   <h3>① per-agent 表态表（各自独立轮转）</h3>
@@ -245,7 +245,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <div class="panel" id="p5">
 <h1>P5 · 冲突卡与上升裁决（取代 override 强权）</h1>
 <div class="conflict">
-  <div class="head"><span class="tag t-esc">escalate</span> 冲突：分页方案分歧（issue cm-3341 · 第 3 轮 reopen）<button style="margin-left:auto" class="pri">上升裁决</button></div>
+  <div class="head"><span class="tag t-esc">escalate</span> 冲突：分页方案分歧（issue cm-3341 · 第 3 轮 reopen）<button style="margin-left:auto" class="pri">上升裁决</button><button>↗ 节点 5 详情</button></div>
   <div class="versus">
     <div class="side"><h5>正方 · QA</h5>cursor 分页：对账明细量大，offset 深翻页性能劣化；并发写入漏记/重记，违反资金域正确性。</div>
     <div class="side"><h5>反方 · RD</h5>offset 分页：下游批量拉取依赖页码重试语义；cursor 需改导出链路协议，本期改动面大。</div>
@@ -257,7 +257,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
   <div class="chat">
     <div class="msg ai">双方最终立场如上。请 User 裁决：① cursor（导出协议改造 +2d）② offset（加深翻页保护）③ 其他。</div>
     <div class="msg me">采用 cursor，导出链路本期一起改。</div>
-    <div class="msg ai">结论已回填 issue cm-3341：「User 裁决：采用 cursor」→ rd 重新表态（confirm）→ 轮次恢复。</div>
+    <div class="msg ai">结论已回填 issue cm-3341：「User 裁决：采用 cursor」→ rd 重新表态（confirm）→ 轮次恢复。<u>↗ 查看节点 5 详情</u></div>
   </div>
   <div class="hint">评论区可见回填（数据层留痕）→ reviewer 重新表态 → 正常判据链恢复</div>
 </div>
