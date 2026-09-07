@@ -45,10 +45,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 3
 
-- [ ] 三种 scope 实例化矩阵断言：节点集与序号符合渲染矩阵，被裁节点不占位（spec §4.2 流程树 AC）
-- [ ] business/tech/plan 各流程实例化正确（plan 无 scope、task 无 QA）
-- [ ] my_task 对不属于当前节点的角色返回空动作集（三向校验拦截）
-- [ ] httptest 直打路由验证实例化 + my_task 全分支
+- [x] 三种 scope 实例化矩阵断言：节点集与序号符合渲染矩阵，被裁节点不占位（spec §4.2 流程树 AC）
+- [x] business/tech/plan 各流程实例化正确（plan 无 scope、task 无 QA）
+- [x] my_task 对不属于当前节点的角色返回空动作集（三向校验拦截）
+- [x] httptest 直打路由验证实例化 + my_task 全分支
 
 ## 5. 任务总线：派发与上报
 
