@@ -1,0 +1,22 @@
+# wbflow rd 服务配置（主配置，提交进仓库）
+#
+# 凭据红线：password 等敏感字段只允许环境变量占位（${VAR} 语法，加载时展开），
+# 真实值一律不落地本仓库文件。本地自测二选一：
+#   1) export WBFLOW_MYSQL_PASSWORD='真实密码'
+#   2) 复制本文件为 configs/config.local.yaml（已 gitignore）填真实值，覆盖任意字段。
+http:
+  port: 8080
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: ${WBFLOW_MYSQL_PASSWORD}
+  dbname: wbflow
+  # 连接池参数（按部署配置）
+  max_open_conns: 20
+  max_idle_conns: 10
+  conn_max_lifetime_sec: 3600
+log:
+  level: info
+  mode: dev
+  path: logs/rd.log
