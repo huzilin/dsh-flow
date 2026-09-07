@@ -82,3 +82,38 @@ func TestUnit_Load_MainMissingIsErr(t *testing.T) {
 	_, err := Load(filepath.Join(t.TempDir(), "no.yaml"), "")
 	assert.Assert(t, err != nil)
 }
+
+// T10 扫描器段：阈值参数化可覆盖（演练加速口径）+ 默认值兜底（5min 催办 / 10min
+// 介入，spec §2「agent 无响应」行参数化配置）。
+func TestUnit_Load_ScannerOverlay(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "config.yaml")
+	mainYAML := `
+http:
+  port: 8080
+scanner:
+  enabled: true
+  interval_sec: 1
+  followup_after_sec: 5
+  intervene_after_sec: 10
+  retry_backoff_sec: 1
+`
+	assert.NilError(t, os.WriteFile(mainPath, []byte(mainYAML), 0o600))
+
+	cfg, err := Load(mainPath, "")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg.Scanner.IntervalSec, int64(1))
+	assert.Equal(t, cfg.Scanner.FollowupAfterSec, int64(5))
+	assert.Equal(t, cfg.Scanner.InterveneAfterSec, int64(10))
+
+	// 无 scanner 段：默认值兜底
+	minimal := filepath.Join(dir, "minimal.yaml")
+	assert.NilError(t, os.WriteFile(minimal, []byte("http:\n  port: 8080\n"), 0o600))
+	cfg2, err := Load(minimal, "")
+	assert.NilError(t, err)
+	assert.Equal(t, cfg2.Scanner.Enabled, true)
+	assert.Equal(t, cfg2.Scanner.IntervalSec, int64(30))
+	assert.Equal(t, cfg2.Scanner.FollowupAfterSec, int64(300))
+	assert.Equal(t, cfg2.Scanner.InterveneAfterSec, int64(600))
+	assert.Equal(t, cfg2.Scanner.RetryBackoffSec, int64(5))
+}

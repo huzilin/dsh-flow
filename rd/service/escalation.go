@@ -121,7 +121,7 @@ func (s *EscalationService) escalateOnce(ctx context.Context, req *api.EscalateR
 			return nil
 		}
 
-		sessionID, err := s.repo.AllocSessionIDTx(ctx, tx)
+		sessionID, err := s.repo.AllocAdjudicationSessionIDTx(ctx, tx)
 		if err != nil {
 			return err
 		}

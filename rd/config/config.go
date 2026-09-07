@@ -26,6 +26,7 @@ type Config struct {
 	Auth      AuthConfig      `yaml:"auth"`
 	Artifacts ArtifactsConfig `yaml:"artifacts"`
 	Escalate  EscalateConfig  `yaml:"escalate"`
+	Scanner   ScannerConfig   `yaml:"scanner"`
 }
 
 // HTTPConfig HTTP 服务配置。
@@ -80,6 +81,22 @@ type EscalateConfig struct {
 	LoopThreshold int64 `yaml:"loop_threshold"`
 }
 
+// ScannerConfig 扫描器配置（T10：催办/介入阈值参数化——spec §2「agent 无响应」行
+// 参数化配置 + §4.1 P2 AC「阈值参数化：配置改小即可加速演练」）。
+type ScannerConfig struct {
+	// Enabled 扫描器开关；false 不启动扫描循环
+	Enabled bool `yaml:"enabled"`
+	// IntervalSec 扫描间隔（秒）
+	IntervalSec int64 `yaml:"interval_sec"`
+	// FollowupAfterSec 催办阈值（秒；spec 默认 5min=300）
+	FollowupAfterSec int64 `yaml:"followup_after_sec"`
+	// InterveneAfterSec 介入升级阈值（秒；spec 默认 10min=600；须 ≥ 催办阈值，
+	// 否则催办恒被介入取代）
+	InterveneAfterSec int64 `yaml:"intervene_after_sec"`
+	// RetryBackoffSec MySQL 不可用退避间隔（秒）
+	RetryBackoffSec int64 `yaml:"retry_backoff_sec"`
+}
+
 // Load 加载配置：mainPath 必选；localPath 可选（不存在时静默跳过）。
 // 两份文件内容均做 ${VAR} 环境变量展开。
 func Load(mainPath string, localPath string) (*Config, error) {
@@ -132,6 +149,13 @@ func defaults() *Config {
 		},
 		Escalate: EscalateConfig{
 			LoopThreshold: 5,
+		},
+		Scanner: ScannerConfig{
+			Enabled:           true,
+			IntervalSec:       30,
+			FollowupAfterSec:  300,
+			InterveneAfterSec: 600,
+			RetryBackoffSec:   5,
 		},
 	}
 }
