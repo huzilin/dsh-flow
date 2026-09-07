@@ -78,11 +78,11 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4
 
-- [ ] 状态机全迁移分支单测：合法迁移 + 非法迁移拦截（无 IO 全覆盖）
-- [ ] loop_count 双读法正确（澄清期=reopen 次数，修复期=revise 次数）
-- [ ] reviewer_role 推导与 assignee 指派落库正确
-- [ ] escalate 标记可写（裁决链在 12 消费）
-- [ ] httptest 五端点正常/拦截分支
+- [x] 状态机全迁移分支单测：合法迁移 + 非法迁移拦截（无 IO 全覆盖）
+- [x] loop_count 双读法正确（澄清期=reopen 次数，修复期=revise 次数）
+- [x] reviewer_role 推导与 assignee 指派落库正确
+- [x] escalate 标记可写（裁决链在 12 消费）
+- [x] httptest 五端点正常/拦截分支（IT 已编码，真实库集中验证由编排者执行）
 
 ## 8. 评审表态 + collect 聚合 + 门禁推进 + 拍板
 
