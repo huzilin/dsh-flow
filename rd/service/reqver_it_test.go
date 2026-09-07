@@ -65,7 +65,7 @@ func openScratch(t *testing.T) (*gin.Engine, *database.DB) {
 	})
 	report, err := migration.Run(context.Background(), handles.Gorm)
 	assert.NilError(t, err)
-	assert.Equal(t, report.ToVersion, migration.SeedVersion)
+	assert.Equal(t, report.ToVersion, migration.LatestVersion())
 
 	r := repo.NewRepo(handles.Gorm)
 	gin.SetMode(gin.TestMode)

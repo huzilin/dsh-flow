@@ -154,7 +154,7 @@ func openScratch(t *testing.T) *database.DB {
 	})
 	report, err := migration.Run(context.Background(), handles.Gorm)
 	assert.NilError(t, err)
-	assert.Equal(t, report.ToVersion, migration.SeedVersion)
+	assert.Equal(t, report.ToVersion, migration.LatestVersion())
 	return handles
 }
 
