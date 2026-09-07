@@ -13,6 +13,7 @@ import (
 	"github.com/huzilin/wbflow/rd/api"
 	"github.com/huzilin/wbflow/rd/domain"
 	"github.com/huzilin/wbflow/rd/pkg/errs"
+	"github.com/huzilin/wbflow/rd/pkg/utils"
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
@@ -87,9 +88,10 @@ func (s *RequirementService) List(ctx context.Context, req *api.ListRequirements
 	}, nil
 }
 
-// Get wb_get_requirement：聚合快照基础版——需求行 + 归属版本信息 +
-// flows/flow_nodes/artifacts/issues 集合字段（T4 实例化前为空集，结构先立住）
-// + review_results 汇总 JSON 文本（TEXT 列同构，T4 前恒 "[]"）。
+// Get wb_get_requirement：聚合快照——需求行 + 归属版本信息 + 流程实例数据
+// （flows 含 scope；flow_nodes 含流程树渲染所需 nodeType/gate/userGate/reviewers/
+// lastDecision，定义属性经 def_node_id 关联 flow_def_nodes 填充）+
+// artifacts/issues 集合字段 + 全节点 review_results 汇总 JSON 文本（TEXT 列同构扁平合并）。
 //
 // 入参：req.RequirementId 需求业务 id。
 // 出参：requirement 恒填充；version 仅归属版本存在时填充（待分配池为 nil，
@@ -135,6 +137,7 @@ func (s *RequirementService) Get(ctx context.Context, req *api.GetRequirementReq
 			CurrentNodeId: currentNode,
 			CreatedAt:     f.CreatedAt,
 			UpdatedAt:     f.UpdatedAt,
+			Scope:         f.Scope,
 		})
 	}
 
@@ -142,28 +145,19 @@ func (s *RequirementService) Get(ctx context.Context, req *api.GetRequirementReq
 	if err != nil {
 		return nil, errs.Trace(err)
 	}
+	// 定义属性（node_type/gate/user_gate）不在实例表，经 def_node_id 批量关联填充
+	defNodes, err := s.repo.ListFlowDefNodesByTemplateIDs(ctx, uniqueDefNodeIDs(nodeRows))
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	defByTmplID := make(map[string]*repo.FlowDefNode, len(defNodes))
+	for _, defNode := range defNodes {
+		defByTmplID[defNode.TemplateNodeID] = defNode
+	}
 	nodes := make([]*api.FlowNodeItem, 0, len(nodeRows))
-	for _, n := range nodeRows {
-		featureBranch := ""
-		if n.FeatureBranch != nil {
-			featureBranch = *n.FeatureBranch
-		}
-		enteredAt := int64(0)
-		if n.EnteredAt != nil {
-			enteredAt = *n.EnteredAt
-		}
-		nodes = append(nodes, &api.FlowNodeItem{
-			NodeId:          n.NodeID,
-			DefNodeId:       n.DefNodeID,
-			NodeOrder:       n.NodeOrder,
-			NodeKey:         n.NodeKey,
-			State:           n.State,
-			ReviewResults:   n.ReviewResults,
-			ReopenSource:    n.ReopenSource,
-			RolledBackCount: n.RolledBackCount,
-			FeatureBranch:   featureBranch,
-			EnteredAt:       enteredAt,
-		})
+	mergedReviews := make([]repo.ReviewResult, 0)
+	for _, n := range flowNodeItems(nodeRows, defByTmplID, &mergedReviews) {
+		nodes = append(nodes, n)
 	}
 
 	artifactRows, err := s.repo.ListArtifactsByRequirement(ctx, req.RequirementId)
@@ -206,6 +200,11 @@ func (s *RequirementService) Get(ctx context.Context, req *api.GetRequirementReq
 		})
 	}
 
+	reviewResults, err := utils.MarshalJSONText(mergedReviews)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+
 	return &api.GetRequirementResp{
 		Ok:            true,
 		Requirement:   requirementItem(row),
@@ -214,22 +213,87 @@ func (s *RequirementService) Get(ctx context.Context, req *api.GetRequirementReq
 		FlowNodes:     nodes,
 		Artifacts:     artifacts,
 		Issues:        issues,
-		ReviewResults: "[]",
+		ReviewResults: reviewResults,
 	}, nil
+}
+
+// flowNodeItems 实例行 → 快照出参（定义属性填充 + review_results 扁平合并）。
+func flowNodeItems(nodeRows []*repo.FlowNode, defByTmplID map[string]*repo.FlowDefNode, merged *[]repo.ReviewResult) []*api.FlowNodeItem {
+	items := make([]*api.FlowNodeItem, 0, len(nodeRows))
+	for _, n := range nodeRows {
+		featureBranch := ""
+		if n.FeatureBranch != nil {
+			featureBranch = *n.FeatureBranch
+		}
+		enteredAt := int64(0)
+		if n.EnteredAt != nil {
+			enteredAt = *n.EnteredAt
+		}
+		lastDecision := ""
+		if n.LastDecision != nil {
+			lastDecision = *n.LastDecision
+		}
+		nodeType, gate, userGate := "", int64(0), int64(0)
+		if defNode, ok := defByTmplID[n.DefNodeID]; ok {
+			nodeType = defNode.NodeType
+			gate = defNode.Gate
+			userGate = defNode.UserGate
+		}
+		var reviews []repo.ReviewResult
+		if err := utils.UnmarshalJSONText(n.ReviewResults, &reviews); err == nil {
+			*merged = append(*merged, reviews...)
+		}
+		items = append(items, &api.FlowNodeItem{
+			NodeId:          n.NodeID,
+			DefNodeId:       n.DefNodeID,
+			NodeOrder:       n.NodeOrder,
+			NodeKey:         n.NodeKey,
+			State:           n.State,
+			ReviewResults:   n.ReviewResults,
+			ReopenSource:    n.ReopenSource,
+			RolledBackCount: n.RolledBackCount,
+			FeatureBranch:   featureBranch,
+			EnteredAt:       enteredAt,
+			NodeType:        nodeType,
+			Gate:            gate,
+			UserGate:        userGate,
+			Reviewers:       n.Reviewers,
+			LastDecision:    lastDecision,
+		})
+	}
+	return items
+}
+
+// uniqueDefNodeIDs 实例行引用的定义节点 id 去重集合。
+func uniqueDefNodeIDs(nodeRows []*repo.FlowNode) []string {
+	seen := make(map[string]bool, len(nodeRows))
+	ids := make([]string, 0, len(nodeRows))
+	for _, n := range nodeRows {
+		if !seen[n.DefNodeID] {
+			seen[n.DefNodeID] = true
+			ids = append(ids, n.DefNodeID)
+		}
+	}
+	return ids
 }
 
 // Create wb_create_requirement：需求创建——category 派生流程类型绑定
 // （domain.DeriveFlowDefsID；explicit flow_defs_id 须在类别允许集内）+
+// scope 归一（domain.ResolveScope：空=scope_options 首值、越集非法、plan 恒空）+
 // requirement_id 取号（req-NNN 递增，事务内取号防重，竞态整体重试）+
+// **同事务流程实例化**（T4）：flows 1 行（requirement 唯一，uk_flows_req；
+// current_node_id NULL=未进入编排）+ flow_nodes 按 flow_def_nodes scope_expr ∩ scope
+// 投影重排（node_id n-NN 全局取号、state=""、评审位/激活清单同函数裁剪）+
 // 默认 version_id NULL=待分配池、status=待启动、priority 空值默认 P2。
-// 创建动作同事务写 audit_log（INSERT，by_who=user）。
+// 创建动作同事务写 audit_log（requirements/flows/flow_nodes INSERT，by_who=user）。
 //
-// 入参：title/created_by 必填；category 必填且须为已知类别；
-// version_id 提供时须为已存在版本。
-// 出参：创建后的需求行（含生成的 requirement_id 与新基线 updated_at）。
+// 入参：title/created_by 必填；category 必填且须为已知类别；scope 越出
+// flow_defs.scope_options 非法；version_id 提供时须为已存在版本。
+// 出参：创建后的需求行（含生成的 requirement_id 与新基线 updated_at；
+// 流程实例经 wb_get_requirement 快照读取）。
 //
-// 错误集：ErrInvalidArgument（必填缺失/未知类别/流程越集/优先级枚举外）；
-// ErrNotFound（version_id 未命中）；ErrIdempotentConflict（取号重试耗尽）。
+// 错误集：ErrInvalidArgument（必填缺失/未知类别/流程越集/优先级枚举外/scope 越集）；
+// ErrNotFound（version_id 或流程定义未命中）；ErrIdempotentConflict（取号重试耗尽）。
 func (s *RequirementService) Create(ctx context.Context, req *api.CreateRequirementReq) (*api.CreateRequirementResp, error) {
 	if req.Title == "" {
 		return nil, invalidArg("title 必填")
@@ -261,8 +325,33 @@ func (s *RequirementService) Create(ctx context.Context, req *api.CreateRequirem
 		}
 	}
 
+	// 流程定义与全部定义节点（实例化投影输入；定义行缺失=seed 异常，显式 404）
+	flowDef, err := s.repo.GetFlowDefByID(ctx, flowDefsID)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	if flowDef == nil {
+		return nil, notFound("流程定义 %q 不存在", flowDefsID)
+	}
+	scopeOptions, err := domain.ParseScopeOptions(flowDef.ScopeOptions)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	scope, err := domain.ResolveScope(scopeOptions, req.Scope)
+	if err != nil {
+		return nil, invalidArg("%v", err)
+	}
+	defNodes, err := s.repo.ListFlowDefNodesByFlowDefsID(ctx, flowDefsID)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	defRows := make([]repo.FlowDefNode, 0, len(defNodes))
+	for _, defNode := range defNodes {
+		defRows = append(defRows, *defNode)
+	}
+
 	for attempt := 0; attempt < idAllocRetryLimit; attempt++ {
-		row, retryable, err := s.createOnce(ctx, req, flowDefsID, priority)
+		row, retryable, err := s.createOnce(ctx, req, flowDefsID, priority, scope, defRows)
 		if err != nil {
 			if retryable {
 				continue
@@ -274,9 +363,9 @@ func (s *RequirementService) Create(ctx context.Context, req *api.CreateRequirem
 	return nil, errs.Trace(errs.ErrIdempotentConflict)
 }
 
-// createOnce 单次创建尝试（事务：取号 → 插入 → 审计）；返回 retryable=true
-// 表示唯一键冲突/锁竞争可整体重试。
-func (s *RequirementService) createOnce(ctx context.Context, req *api.CreateRequirementReq, flowDefsID string, priority string) (*repo.Requirement, bool, error) {
+// createOnce 单次创建尝试（事务：取号 → 插入需求 → 流程实例化 → 审计）；
+// 返回 retryable=true 表示唯一键冲突/锁竞争可整体重试。
+func (s *RequirementService) createOnce(ctx context.Context, req *api.CreateRequirementReq, flowDefsID string, priority string, scope string, defNodes []repo.FlowDefNode) (*repo.Requirement, bool, error) {
 	row := &repo.Requirement{
 		Title:       req.Title,
 		Description: req.Description,
@@ -299,6 +388,9 @@ func (s *RequirementService) createOnce(ctx context.Context, req *api.CreateRequ
 		if err := tx.Create(row).Error; err != nil {
 			return err
 		}
+		if err := s.instantiateFlowTx(ctx, tx, requirementID, flowDefsID, scope, defNodes); err != nil {
+			return err
+		}
 		return s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
 			Table:  "requirements",
 			RowID:  requirementID,
@@ -313,6 +405,74 @@ func (s *RequirementService) createOnce(ctx context.Context, req *api.CreateRequ
 		return nil, false, errs.Trace(txErr)
 	}
 	return row, false, nil
+}
+
+// instantiateFlowTx 事务内流程实例化（T4）：flows 1 行 + flow_nodes 投影行 + INSERT 审计。
+//
+// 节点集 = flow_def_nodes.scope_expr ∩ scope（domain.ProjectFlowNodes，被裁不占位、
+// node_order 1 起连续重排）；node_id = n-NN 全局取号（uk_flow_nodes_nid 全局唯一，
+// 事务内 FOR UPDATE 取基值后本地递增派生）；state=""（未进入编排）、
+// current_node_id NULL、review_results="[]"、回退/分支/进入时间族一律零值。
+// 审计：flows 1 行 + flow_nodes 逐节点 INSERT（by_who=user，append-only helper）。
+func (s *RequirementService) instantiateFlowTx(ctx context.Context, tx *gormio.DB, requirementID string, flowDefsID string, scope string, defNodes []repo.FlowDefNode) error {
+	projected, err := domain.ProjectFlowNodes(flowDefsID, scope, defNodes)
+	if err != nil {
+		return errs.Trace(err)
+	}
+	flowRow := &repo.Flow{
+		RequirementID: requirementID,
+		FlowDefsID:    flowDefsID,
+		Dependencies:  "[]",
+		Scope:         scope,
+	}
+	if err := tx.Create(flowRow).Error; err != nil {
+		return errs.Trace(err)
+	}
+	if err := s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
+		Table:  "flows",
+		RowID:  requirementID,
+		Action: "INSERT",
+		ByWho:  auditByWhoManagement,
+	}); err != nil {
+		return err
+	}
+	if len(projected) == 0 {
+		return nil
+	}
+	base, err := s.repo.AllocNodeIDBaseTx(ctx, tx)
+	if err != nil {
+		return err
+	}
+	nodeRows := make([]*repo.FlowNode, 0, len(projected))
+	nodeIDs := make([]string, 0, len(projected))
+	for i, node := range projected {
+		nodeID := repo.FormatNodeID(base + int64(i) + 1)
+		nodeRows = append(nodeRows, &repo.FlowNode{
+			RequirementID: requirementID,
+			NodeID:        nodeID,
+			DefNodeID:     node.DefNodeID,
+			NodeOrder:     node.NodeOrder,
+			NodeKey:       node.NodeKey,
+			State:         repo.PhaseEmpty,
+			ReviewResults: "[]",
+			Reviewers:     node.Reviewers,
+		})
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	if err := tx.Create(&nodeRows).Error; err != nil {
+		return errs.Trace(err)
+	}
+	for _, nodeID := range nodeIDs {
+		if err := s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
+			Table:  "flow_nodes",
+			RowID:  nodeID,
+			Action: "INSERT",
+			ByWho:  auditByWhoManagement,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Update wb_update_requirement：乐观锁更新（全字段替换语义）+ 自动 diff
