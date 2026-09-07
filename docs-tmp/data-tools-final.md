@@ -39,7 +39,7 @@
   `{kind:'capability', capability_id, actions:[action_id…]}` = 节点动作激活清单；
   `{kind:'node', action_id, on, executor:'program'|'subagent', executor_role?, skill?|inline?}` = node action（开场白/to-brd））
 - `scope` = **渲染集合表达式**（2026-09-07 用户裁定，取代单值枚举）：''=any（任何 scope 渲染）｜'rd|full'=rd 侧节点（full 与 rd 需求渲染）｜'fe|full'=fe 侧节点｜'full'=仅 full（QA 验收=联调职责）｜'rd|fe'=task 全渲染（task 无 full）。需求 scope 三值 {full, rd, fe}（术语统一 be→rd）；实例化时按表达式 ∩ requirement.scope 判定渲染。scope_options：business/tech={full, rd, fe}（QA 验收=联调职责，动态渲染）、task={rd, fe}（单执行者无联调，无 QA 节点）、plan=无 scope
-- `reviewers` 保留 [{role, capability_id, scope?}]（审批 skills map 派生源）；**运行时实例（flow_nodes.reviewers）条目扩展表态字段**：`verdict: {round, result: 'pass'|'block', at, note?}`——collect barrier 判据=全部条目 verdict.round==rolled_back_count 且非空；历史轮表态由 audit_log 回放（wb_review 全落审计），不加新表；表态与意见分离（意见=issues 线程，表态=结构化 verdict）
+- `reviewers` 保留 [{role, capability_id, scope?}]（审批 skills map 派生源）；**运行时实例（flow_nodes.reviewers）条目扩展表态字段**：`verdict: {round, result: 'agree'|'unagree', at, note?}`（2026-09-07 表态三值：未表态/unagree/agree——pass/reject 不作为表态值，具体问题用 open 工单表达）——collect = 纯 barrier 等待（无状态机）：全表态即推进；历史轮表态由 audit_log 回放（wb_review 全落审计），不加新表；表态与意见分离（意见=issues 线程，表态=结构化 verdict）
 - 删除：用例设计/用例设计评审两行（qa 职责重定义）；修正旧残留（plan 拆分拓扑 gate 值、tech/task 需求对齐 gate 统一为 1——有 User 判定即 gate=1）
 - `expected_outputs` 保留
 
@@ -70,7 +70,10 @@
 
 **issues（评论/问题）**：
 - 新增：**`escalate`** INTEGER NOT NULL DEFAULT 0（冲突响应标记——wb_resolve/wb_reopen 可选参数写入；escalate=1 → plugin 拉起会话通道裁决 session）
-- `state` 枚举不变（open/pending-confirm/resolved/overridden；已处理=pending-confirm）
+- `state` 枚举扩展（2026-09-07 issue 状态机 v2）：open（待澄清）/ pending-confirm（已澄清待复核）/ **to-fix（待修复——确认真问题）** / **fixed（已修复——待复核）** / resolved / overridden；已处理=pending-confirm
+  - 澄清阶段子机：open → pending-confirm → resolved（疑问解）/ to-fix（真问题）/ open（回待澄清）
+  - 修复阶段子机：to-fix → fixed → 复核 → resolved / to-fix（失败回退）
+- 新增：**`loop_count`** INTEGER NOT NULL DEFAULT 0（回退计数器——澄清阶段读=reopen 次数，修复阶段读=revise 次数；每次回到前一状态 +1）
 - 裁决结论回填：追加到 `replies`（JSON 不可变追加）
 
 **sessions（新表 #12）**：

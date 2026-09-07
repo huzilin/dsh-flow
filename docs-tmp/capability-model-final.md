@@ -55,6 +55,28 @@ agree（全部 open 项确定）→ plugin 收集多审批者结论（barrier）
 
 ---
 
+## 1.4 评审轮内部小状态机（2026-09-07 详细设计）
+
+**① collect · 无状态机（纯 barrier 等待）**：表态三值 ⏳未表态 / ⛔unagree / ✅agree（verdict 值；pass/reject 不作为表态值——具体问题用 open 工单表达）。推进规则：全表态即 barrier 达成，无子机。
+
+**② 澄清阶段 · issue 状态机**（owner respond 相位，逐 issue）：
+```
+open（待澄清）→ pending-confirm（已澄清待复核）
+pending-confirm 出口三向：
+  ① resolved（澄清解释了疑问）
+  ② to-fix 待修复（确定是真问题 → 触发打回）
+  ③ open（未解释清楚，reopen 计数 +1）
+```
+
+**③ 修复阶段 · issue 状态机**（产出节点 exec 重入相位，逐 issue）：
+```
+to-fix（待修复）→ fixed（已修复）→ 复核 → resolved（修复成功）/ to-fix（失败回退，revise 计数 +1）
+```
+
+**计数器**：单字段 loop_count（回退计数），阶段语义解释——澄清阶段读=reopen 次数、修复阶段读=revise 次数。
+
+**UI 视角规则**：collect 看表态标签矩阵（角色×三值）；澄清/修复看 **issue 视角**（每条工单的子状态+计数），非角色状态栏。
+
 ## 2. 节点类型实例化（统一词汇，四类）
 
 | 节点类型 | 可配相位（node.state） | reviewState | 例 |
