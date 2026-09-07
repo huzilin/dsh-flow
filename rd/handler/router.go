@@ -22,6 +22,9 @@ type Deps struct {
 	Vers VersionAPI
 	// Flows 流程实例端点（wb_my_task / 依赖树）service；nil=不注册对应路由
 	Flows FlowAPI
+	// Artifacts 产物端点（wb_add_artifact / wb_get_artifact_content）service；
+	// nil=不注册对应路由
+	Artifacts ArtifactAPI
 }
 
 // NewRouter 注册全部路由（含全局中间件）。
@@ -42,6 +45,9 @@ func NewRouter(deps *Deps) *gin.Engine {
 	}
 	if deps.Flows != nil {
 		RegisterFlowRoutes(api.Group("/requirements"), deps.Flows)
+	}
+	if deps.Artifacts != nil {
+		RegisterArtifactRoutes(api.Group("/requirements"), deps.Artifacts)
 	}
 	return r
 }
