@@ -182,7 +182,7 @@ CREATE TABLE sessions (
 1. **capabilities**：21 活跃能力按 `{inputs, actions}` 重写（挂载映射见 capability-actions-final §1/§2；decide-cap=create_reqs 单动作；final-approve 移除）。
 2. **flow_defs / flow_def_nodes**：4 流程按 business v3 配置 + flow-derivation-tech-task-plan（tech 11 / task 7 / plan 9）逐节点全配（node_type/gate/user_gate/reviewers/node_actions/def_node_id）；修正旧残留：用例两节点删除、plan 拆分拓扑 gate 修正、tech/task 对齐 gate=1 统一。
 3. **flow_nodes / tasks / artifacts / issues**：按新列语义重生成 demo 数据。
-4. **gen_flow_rows.py**：按 v3 配置重写（保持脚本化恢复产物原则；旧版归档）。
+4. **gen_flow_rows.py**：按 v3 配置重写（保持脚本化恢复产物原则；旧版已归档至 `.archive/docs-tmp-history/`）。
 5. **seed.sql / workbench.db**：v0.29 建库 + 重新导入。
 
 ---
