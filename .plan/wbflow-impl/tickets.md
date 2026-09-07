@@ -56,10 +56,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4
 
-- [ ] 重复 complete / 重复派发幂等无害（spec §4.1 P2 AC）
-- [ ] 谎报完成被判据拦截并回 in-progress，missing 列出缺项
-- [ ] task 族（produce/dev/review/respond/accept/create_reqs）判据校验表驱动单测
-- [ ] 写路径单事务 + 行锁；GoDoc 错误集引用哨兵错误
+- [x] 重复 complete / 重复派发幂等无害（spec §4.1 P2 AC）（真实库 IT 集中验证由编排者执行）
+- [x] 谎报完成被判据拦截并回 in-progress，missing 列出缺项
+- [x] task 族（produce/dev/review/respond/accept/create_reqs）判据校验表驱动单测
+- [x] 写路径单事务 + 行锁；GoDoc 错误集引用哨兵错误
 
 ## 6. 产物登记与正文阅读
 
