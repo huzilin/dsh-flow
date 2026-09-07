@@ -108,7 +108,7 @@ message GetRequirementReq {
   string requirement_id = 1;
 }
 
-// FlowItem 流程实例行（聚合快照基础版；T4 实例化前为空集）。
+// FlowItem 流程实例行（聚合快照；T4 起需求创建即实例化，恒 1 行）。
 message FlowItem {
   // flow_defs_id 流程类型
   string flow_defs_id = 1;
@@ -120,9 +120,11 @@ message FlowItem {
   int64 created_at = 4;
   // updated_at 更新时间，unix 毫秒
   int64 updated_at = 5;
+  // scope 需求所选渲染 scope：full/rd/fe；空=无 scope（plan 流程）
+  string scope = 6;
 }
 
-// FlowNodeItem 流程实例节点行（T4 实例化前为空集）。
+// FlowNodeItem 流程实例节点行（T4 起实例化填充；流程树渲染所需字段齐备）。
 message FlowNodeItem {
   // node_id 实例节点 id，如 n-05
   string node_id = 1;
@@ -144,6 +146,16 @@ message FlowNodeItem {
   string feature_branch = 9;
   // entered_at 进入执行时间，unix 毫秒；0=未进入
   int64 entered_at = 10;
+  // node_type 节点类型（来自定义节点）：produce/review/align/gate
+  string node_type = 11;
+  // gate 是否门禁：1=有准出判定
+  int64 gate = 12;
+  // user_gate User 终审拍板位：1=agreed 后唤醒 User
+  int64 user_gate = 13;
+  // reviewers 实例评审位声明 JSON 文本（实例化按 scope 过滤后的静态声明）
+  string reviewers = 14;
+  // last_decision 门禁裁决结果 JSON 文本（{verdict,reason,at,branch?}）；空=未判定（DB 侧 NULL）
+  string last_decision = 15;
 }
 
 // ArtifactItem 产物行（T6 前为空集）。
@@ -233,6 +245,10 @@ message CreateRequirementReq {
   string owner = 7;
   // created_by 创建人（必填）
   string created_by = 8;
+  // scope 需求所选渲染 scope：business/tech ∈ {full, rd, fe}；task ∈ {rd, fe}；
+  // plan 恒空串。空=取 flow_defs.scope_options 首值（business/tech 默认 full、task 默认 rd）。
+  // 越出 scope_options → 400。实例化按 flow_def_nodes.scope_expr ∩ scope 过滤投影（T4）。
+  string scope = 9;
 }
 
 // CreateRequirementResp POST /api/requirements 出参。
@@ -400,4 +416,148 @@ message DeprecateVersionResp {
   bool ok = 1;
   // version 更新后的版本行（state=已废弃）
   VersionItem version = 2;
+}
+
+// ---------------------------------------------------------------------------
+// my_task / dependencies tree（T4：wb_my_task 三向校验 + 依赖树分析师视图）
+// ---------------------------------------------------------------------------
+
+// MyTaskReq POST /api/requirements/:reqId/my-task 入参。
+// 身份 three-way（role × node × 相位）：不属于该节点/该相位的角色返回空动作集，
+// 不报错（data-tools-final §2.2 wb_my_task 升级契约）。
+message MyTaskReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // role 请求角色（必填）；未知角色=空动作集
+  string role = 2;
+  // node_id 目标节点；空=当前节点（flows.current_node_id；NULL=未进入编排）
+  string node_id = 3;
+}
+
+// MyTaskActionItem 激活动作（wb_my_task activeActions 条目；
+// kind=capability 来自能力动作词表，kind=node 为节点公共动作）。
+message MyTaskActionItem {
+  // action_id 动作标识（kind=capability 为能力内动作 id；kind=node 为 node action id）
+  string action_id = 1;
+  // name 动作显示名（kind=node 无独立名，取 action_id）
+  string name = 2;
+  // kind capability | node
+  string kind = 3;
+  // capability_id 所属能力（kind=capability 有效；kind=node 为空）
+  string capability_id = 4;
+  // on 挂载相位（=current_phase，过滤后恒一致，冗余便于消费）
+  string on = 5;
+  // executor 执行者：program | subagent（kind=node 有效）
+  string executor = 6;
+  // executor_role 响应者角色（kind=node 有效）
+  string executor_role = 7;
+  // skill 挂载 skill；空=无
+  string skill = 8;
+  // inline 一句话内联定义；空=无
+  string inline = 9;
+}
+
+// ReviewResultItem 评审表态明细（flow_nodes.review_results 条目同构）。
+message ReviewResultItem {
+  // role 表态角色
+  string role = 1;
+  // capability_id 评审能力
+  string capability_id = 2;
+  // state reviewing | agree | unagree
+  string state = 3;
+  // round 评审轮（与 rolled_back_count 对齐）
+  int64 round = 4;
+  // at 表态时间，unix 毫秒
+  int64 at = 5;
+}
+
+// ReviewSummary 评审表态摘要（per-agent 聚合计数 + 明细）。
+message ReviewSummary {
+  // agree 已同意计数
+  int64 agree = 1;
+  // unagree 已反对计数
+  int64 unagree = 2;
+  // reviewing 待表态计数
+  int64 reviewing = 3;
+  // details 表态明细（role+capabilityId 维度）
+  repeated ReviewResultItem details = 4;
+}
+
+// RelatedNodeItem 角色相关节点（wb_my_task relatedNodes 最小返回集：
+// 该角色在实例评审位或激活清单能力归属中出现的节点）。
+message RelatedNodeItem {
+  // node_id 实例节点 id
+  string node_id = 1;
+  // node_key 节点名
+  string node_key = 2;
+  // node_order 渲染序号
+  int64 node_order = 3;
+  // state 可配相位
+  string state = 4;
+}
+
+// MyTaskNode wb_my_task 目标节点摘要（未进入编排且未指定 nodeId 时未填充）。
+message MyTaskNode {
+  // node_id 实例节点 id
+  string node_id = 1;
+  // def_node_id 定义节点引用
+  string def_node_id = 2;
+  // node_type 节点类型：produce/review/align/gate
+  string node_type = 3;
+  // state 可配相位（=current_phase）
+  string state = 4;
+  // reviewers 实例评审位声明 JSON 文本（scope 过滤后静态声明）
+  string reviewers = 5;
+}
+
+// MyTaskResp POST /api/requirements/:reqId/my-task 出参。
+message MyTaskResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement_id 需求业务 id
+  string requirement_id = 2;
+  // role 请求角色（回显）
+  string role = 3;
+  // node 目标节点摘要；未进入编排（未指定 nodeId 且无当前节点）时未填充（protojson 出 null）
+  MyTaskNode node = 4;
+  // current_phase 当前相位（=node.state；""=未进入编排）
+  string current_phase = 5;
+  // active_actions 激活动作清单：node_actions 激活清单 × 相位（on）× 角色（能力归属/node executor_role）过滤
+  repeated MyTaskActionItem active_actions = 6;
+  // review_summary 目标节点评审表态摘要（per-agent 聚合计数与明细）
+  ReviewSummary review_summary = 7;
+  // related_nodes 该角色相关节点集（最小返回集）
+  repeated RelatedNodeItem related_nodes = 8;
+}
+
+// DependencyNodeItem 依赖树节点（GET /api/requirements/:reqId/dependencies/tree；
+// 动态加载分析师视图：按需拉取，不对用户显示内部分层——ui-interaction-final §2）。
+message DependencyNodeItem {
+  // requirement_id 需求业务 id
+  string requirement_id = 1;
+  // title 需求标题；found=false 时为空
+  string title = 2;
+  // status 需求状态；found=false 时为空
+  string status = 3;
+  // version_id 归属版本；待分配池为空串
+  string version_id = 4;
+  // found 依赖 id 是否命中需求行（false=悬挂边：无对应需求，不再展开）
+  bool found = 5;
+  // children 直接前置依赖子树（flows.dependencies 递归展开）
+  repeated DependencyNodeItem children = 6;
+}
+
+// DependencyTreeReq GET /api/requirements/:reqId/dependencies/tree 入参。
+message DependencyTreeReq {
+  // requirement_id 根需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+}
+
+// DependencyTreeResp GET /api/requirements/:reqId/dependencies/tree 出参。
+// 依赖图成环时拒绝（DEPENDENCY_CYCLE，409）——树不可构建。
+message DependencyTreeResp {
+  // ok 恒 true
+  bool ok = 1;
+  // root 根节点（当前需求）子树
+  DependencyNodeItem root = 2;
 }
