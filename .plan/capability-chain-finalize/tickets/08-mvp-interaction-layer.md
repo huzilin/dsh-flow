@@ -31,5 +31,6 @@ claimed_at: 2026-09-07
 3. **模块 III/IV**：收件箱条目 v3（七类映射基线六类：待拍板/澄清任务/重表态请求/悬置催办 5min/需你介入 10min/冲突上升/会话消息）；TODO=投影不变。
 4. **§4 UI↔数据对应表**：每组件消费字段与工具。
 5. **暂缓项**：P2/P3 视图、对峙增强、依赖调度器。
+6. **既有设计吸收对照**（docs/v1.0/02 rd+fe design ↔ 本文）：ArtifactReader/AnchorPicker（阅读器+四级锚点+防漂移）→ §1.7 零改动沿用；FlowTree 左列 → §1.1 升级为上下分栏 SVG 泳道+动态渲染重排；NodeDetail 四区 → §1.2 五区分栏；ReviewerPillRow → §1.2② per-agent verdict 药丸；RoleThread → §1.2④ 意见区（+escalate）；fe/design 左右布局描述滞后（以 client.js pkg-28 与本文为准）。**交付物归拢**：增补稿=ui-interaction-final.md · 原型=diagrams/ui-prototype-v3.html（P7 阅读器示意已吸收）· 基线=docs/v1.0/01~03 PRD 不动。
 
 **遗留**：无（P2/P3 暂缓为优先级裁决非遗留）。**review 通过后工单 08 关闭**，前沿=工单 09（范围确认+定稿收尾）。

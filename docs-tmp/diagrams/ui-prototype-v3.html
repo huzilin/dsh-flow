@@ -144,7 +144,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
   </div>
   <div class="card">
     <h3>③ 产物（点击 → 既有阅读器，不变）</h3>
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line)"><span style="color:var(--blue);cursor:pointer">📄《RD 技术设计》design.md</span><span style="margin-left:auto;color:var(--sub);font-size:12px">💬6</span></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line)"><span style="color:var(--blue);cursor:pointer" onclick="mvTo('p7')">📄《RD 技术设计》design.md</span><span style="margin-left:auto;color:var(--sub);font-size:12px">💬6</span></div>
     <div style="display:flex;align-items:center;gap:8px;padding:8px 0"><span style="color:var(--blue)">🔗 MR !12</span><span style="margin-left:auto;color:var(--sub);font-size:12px">外链</span></div>
     <div class="hint">阅读器：块/行/范围/文档四级锚点评论（既有实现，不变）</div>
   </div>
@@ -278,20 +278,44 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <div class="hint">按当前推演：用户确认=唯一信号 → exec(to-brd) 落盘 brd → approve 迁移（无预览审批步；brd 在节点 2 产物区可见）</div></div>
 </div>
 
+<!-- ═════ P7 · 产物阅读器（既有形态吸收） ═════ -->
+<div class="panel" id="p7">
+<h1>P7 · 产物阅读器（既有设计吸收 · 零改动示意）</h1>
+<div class="desc">02-module-flow-tree fe/design：飞书式弹窗 ~72vw×85vh · 轻量 Markdown + 行号 · 四级锚点展示 · 行级锚点防漂移（lineText 反查 ⚠）· 底部输入框随选中态变文案</div>
+<div style="background:#14161d;border:1px solid var(--line);border-radius:10px;overflow:hidden">
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)"><b>《RD 技术设计》design.md</b><span class="hint">req-014 · rd · v第1轮</span><span style="margin-left:auto;color:var(--sub);cursor:pointer">✕</span></div>
+  <div style="padding:12px 0;max-height:420px;overflow:auto;font-size:13px">
+    <div style="display:flex;gap:12px;padding:2px 14px"><span style="color:var(--dim);width:28px;text-align:right;flex:none">1</span><span># 对账明细导出 · 技术设计</span></div>
+    <div style="display:flex;gap:12px;padding:2px 14px"><span style="color:var(--dim);width:28px;text-align:right;flex:none">2</span><span></span></div>
+    <div style="display:flex;gap:12px;padding:2px 14px;background:rgba(122,184,255,.08)"><span style="color:var(--dim);width:28px;text-align:right;flex:none">3</span><span>## 接口设计</span></div>
+    <div style="display:flex;gap:12px;padding:2px 14px"><span style="color:var(--dim);width:28px;text-align:right;flex:none">4</span><span>### 分页约定</span></div>
+    <div style="display:flex;gap:12px;padding:2px 14px"><span style="color:var(--dim);width:28px;text-align:right;flex:none">5</span><span>导出接口统一 cursor 分页（User 裁决）</span></div>
+    <div style="display:flex;gap:12px;padding:2px 14px;border-top:1px dashed rgba(232,179,74,.5);border-bottom:1px dashed rgba(232,179,74,.5);background:rgba(232,179,74,.06)"><span style="color:var(--amber);width:28px;text-align:right;flex:none">↔</span><span style="color:var(--amber);font-size:12px">range 8~9 · QA：对账周期字段建议显式声明时区（pending-confirm · reopen×0）</span></div>
+    <div style="display:flex;gap:12px;padding:2px 14px"><span style="color:var(--dim);width:28px;text-align:right;flex:none">8</span><span>对账周期字段按 UTC+8 存储，导出按查询时区转换。</span></div>
+    <div style="display:flex;gap:12px;padding:2px 14px"><span style="color:var(--dim);width:28px;text-align:right;flex:none">9</span><span>跨日切分以记账时间为准。</span></div>
+    <div style="display:flex;gap:12px;padding:2px 14px"><span style="color:var(--dim);width:28px;text-align:right;flex:none">10</span><span>### 数据与存储</span></div>
+    <div style="padding:8px 14px;border-top:1px dashed var(--line);font-size:12.5px"><span class="tag t-res">document 锚点</span> 全文级评论示例：整体方案通过，建议补充容量估算。</div>
+  </div>
+  <div style="padding:10px 14px;border-top:1px solid var(--line)"><span style="color:var(--sub);font-size:12.5px">发表评论…（未选中=document 锚点；点行=line；两次点行=range；框选代码块=block）</span></div>
+</div>
+</div>
+
 <div class="switch">
   <button onclick="mv(-1)">←</button><span class="lb" id="lb"></span><button onclick="mv(1)">→</button>
 </div>
 <script>
 const panels=[
- ['p1','P1/6 · 节点详情（上下分栏：流程图+四区分栏）'],
- ['p2','P2/6 · 状态卡备选：相位时间线'],
- ['p3','P3/6 · 角色药丸 v3（三轮期）'],
- ['p4','P4/6 · user_gate 拍板卡'],
- ['p5','P5/6 · 冲突卡与上升裁决'],
- ['p6','P6/6 · 对齐节点（会话+两步完成）'],
+ ['p1','P1/7 · 节点详情（上下分栏：流程图+四区分栏）'],
+ ['p2','P2/7 · 状态卡备选：相位时间线'],
+ ['p3','P3/7 · 角色药丸 v3（三轮期）'],
+ ['p4','P4/7 · user_gate 拍板卡'],
+ ['p5','P5/7 · 冲突卡与上升裁决'],
+ ['p6','P6/7 · 对齐节点（会话+完成对齐）'],
+ ['p7','P7/7 · 产物阅读器（既有吸收·零改动）'],
 ];
 let cur=0;
 function show(){panels.forEach(([id],i)=>document.getElementById(id).classList.toggle('on',i===cur));document.getElementById('lb').textContent=panels[cur][1];scrollTo(0,0)}
+function mvTo(id){cur=panels.findIndex(p=>p[0]===id);show();history.replaceState(null,null,"#"+id)}
 function mv(d){cur=(cur+d+panels.length)%panels.length;show();history.replaceState(null,'','#'+panels[cur][0])}
 document.addEventListener('keydown',e=>{if(/input|textarea/i.test(document.activeElement.tagName))return;if(e.key==='ArrowRight')mv(1);if(e.key==='ArrowLeft')mv(-1)});
 const NODES=[
