@@ -195,6 +195,7 @@ node_type: align | gate: 0 | user_gate: 1 | reviewers: []
 
 ```yaml
 node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
+# 编写文档节点没有 review 相位（同 B2）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |

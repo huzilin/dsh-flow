@@ -42,4 +42,5 @@
 - **插件代码实现本身**：工作台 wbflow 插件的编码落地不在本地图内，本地图终点是 MVP 设计定稿（docs-tmp）。
 - **编码向技能（tdd / code-review / diagnosing-bugs 等）落地**：与当前设计推演阶段无关，留待插件实现期单独评估。
 - **v1.1 增强项**：不在 v1.0 MVP 推演范围内。
+- **冲突对峙增强**（2026-09-07 记录）：现状=MVP 用「双方结陈 + reviewer 主持人汇总呈用户」（DSH 会话与 agent 一对一，无多 subagent 同会话机制，见 capability-model-final §6.8）；改进项=顺序质询轮（双方各 inject 对方结陈有限反驳）/ 多 agent 同会话真对峙（待 DSH 能力演进）——插件实现期评估。
 - **术语统一执行**：CONTEXT.md 术语与既有文档（docs/README 术语表、arch_design）的统一合并，留到推演全部完成后最后统一执行（2026-09-02）。
