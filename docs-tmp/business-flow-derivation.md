@@ -201,10 +201,11 @@ reviewers: [ {cr: code-review} ]
 
 ---
 
-## 节点 10：QA 验收
+## 节点 10：QA 验收（含联调）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | scope: '' | reviewers: []
+node_type: produce | gate: 1 | user_gate: 0 | scope: full | reviewers: []
+# **仅 scope=full 渲染**（2026-09-07 用户裁决：QA 验收=联调职责，单侧需求无联调 → 节点不渲染）
 # qa 不自审——验收结论=exec 产出本身（无 review 相位、无评审位）
 ```
 
@@ -226,15 +227,17 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: '' | reviewers: []
 
 ```yaml
 node_type: gate | gate: 1 | user_gate: 1 | scope: '' | reviewers: []
+# 会话通道绑定按 scope 动态（2026-09-07 用户裁决）：full=qa / fe-only=fe / be-only=rd
+# 单侧需求节点 10 不渲染——用户验收直接对接开发节点（报障不经 QA 中转）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
-| entry | 会话通道迎宾呈现（绑定 qa——用户报障对话走按需会话通道） | 开场白模板（绑定配置） | 响应者=qa | User 终拍板 |
+| entry | 会话通道迎宾呈现（绑定角色按 scope 动态：full=qa / fe-only=fe / be-only=rd） | 开场白模板（绑定配置） | 响应者=绑定角色 | User 终拍板 |
 | exec / review / respond | ——跳过（门禁类） | —— | —— | —— |
 
 **reviewState**: 恒 '-'。
-**裁决**：User 通过 → approved → 节点 12；rejected（报障经 qa 澄清确认）→ plugin 回退节点 10 exec 重入（复验重测）。死循环兜底：反复分歧走线下。
+**裁决**：User 通过 → approved → 节点 12；rejected（报障经绑定角色澄清确认）→ plugin 回退路由按 scope：full → 节点 10 exec 重入（retest）；单侧 → 开发节点（8/9）exec 重入（diagnosing-bugs）。死循环兜底：反复分歧走线下。
 
 ---
 

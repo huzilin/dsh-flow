@@ -124,11 +124,11 @@ reviewers: [ {cr: code-review} ]
 **回退进入**：B9 rejected(targetBranch) → plugin 回退本节点 → exec 重入（diagnosing-bugs）。
 **产物**：dev_notes, code_mr。
 
-### B9 QA 验收
+### B9 QA 验收（含联调）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | reviewers: []
-# qa 不自审——验收结论=exec 产出本身（无 review 相位、无评审位）
+node_type: produce | gate: 1 | user_gate: 0 | scope: full | reviewers: []
+# **仅 scope=full 渲染**（联调职责，同 business 节点 10——2026-09-07）；qa 不自审
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
@@ -147,11 +147,12 @@ node_type: produce | gate: 1 | user_gate: 0 | reviewers: []
 
 ```yaml
 node_type: gate | gate: 1 | user_gate: 1 | reviewers: []
+# 会话通道绑定按 scope 动态：full=qa / 单侧=对应开发执行者（同 business 节点 11）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
-| entry | 会话通道迎宾呈现（绑定 qa） | 开场白模板（绑定配置） | 响应者=qa | User 终拍板 |
+| entry | 会话通道迎宾呈现（绑定角色按 scope 动态） | 开场白模板（绑定配置） | 响应者=绑定角色 | User 终拍板 |
 | exec / review / respond | ——跳过（门禁类） | —— | —— | —— |
 
 **reviewState**: 恒 '-'。
