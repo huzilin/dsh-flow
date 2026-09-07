@@ -134,9 +134,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 7, 8
 
-- [ ] §4.1 冲突上升 AC：escalate→裁决→回填→重表态→恢复全链路 httptest 走通
-- [ ] 阈值自动 escalate 触发且通知 user
-- [ ] 裁决 session 落 sessions 表并与节点关联
+- [x] §4.1 冲突上升 AC：escalate→裁决→回填→重表态→恢复全链路 httptest 走通
+- [x] 阈值自动 escalate 触发且通知 user
+- [x] 裁决 session 落 sessions 表并与节点关联
 
 ## 13. 审计全路径收口
 
