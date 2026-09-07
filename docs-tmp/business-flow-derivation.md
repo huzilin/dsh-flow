@@ -211,7 +211,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: '' | reviewers: []
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
 | exec 首次 | acceptance-test.accept | qa-acceptance（用例设计+执行+AC 核对；缺陷登记 defect，triage 纪律） | qa | 完成上报+判据（test_result/defect 落库）→ respond |
-| exec 重入 | acceptance-test.复验重测 | inline：「针对重新提测的代码重新执行测试→核对是否修复→更新 defect 文档（已解决标记/新增缺陷登记并分派）」 | qa | 完成上报+校验 → respond 重开 |
+| exec 重入 | acceptance-test.retest（复验重测） | inline：「针对重新提测的代码重新执行测试→核对是否修复→更新 defect 文档（已解决标记/新增缺陷登记并分派）」 | qa | 完成上报+校验 → respond 重开 |
 | review | ——跳过（**无评审位——qa 不自审**） | —— | —— | —— |
 | respond | backend-dev.clarify / frontend-dev.clarify（rd/fe 各自缺陷确认/归属争议——跨节点路由，按 assignee 分派；修复在节点 8/9 exec 重入） | inline | rd / fe | 全 resolve → confirming（qa 复核缺陷响应）→ agreed |
 

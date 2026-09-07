@@ -126,7 +126,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | respond | fix_on_review（只响应 CR，不做澄清） | rd |
 | review | code-review（评审位） | cr |
 
-QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认/归属争议）]；exec 重入=复验重测（重新提测代码重测→核对修复→更新 defect：已解决/新增）。
+QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认/归属争议）]；exec 重入=retest（复验重测：重新提测代码重测→核对修复→更新 defect：已解决/新增）。
 
 ---
 
@@ -139,6 +139,16 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 5. **三重匹配派发**：判据成立+节点声明相位挂载+存在匹配数据；缺一环空转降级。
 6. **冲突响应机制**：clarify/confirm 循环不收敛 → escalate 标记 → plugin 拉起按需会话通道裁决 session（响应者=reviewer，开场白=分歧点+双方立场）→ 用户裁决 → **结论追加到冲突 issue**（数据层留痕、node 可见）→ reviewer 重新表态落库 → 正常判据链恢复。
 7. **按需会话通道**：plugin 泛用接口（拉起角色会话+开场白模板随绑定配置），前端按节点绑定表达；实例：对齐=PM、拍板呈现=owner、冲突上升=reviewer、用户验收报障=qa——不占相位词汇。
+8. **用户门禁与上升通知规程**（2026-09-05 定稿：通用能力——门禁汇总结果与待评审内容报送用户，由责任人发出）：
+
+| 阶段 | 报送责任人 | 通知内容 | 渠道 |
+|---|---|---|---|
+| 用户拍板（user_gate 节点） | **owner（被评审方）** | 门禁汇总：reviewState 结果 + 各评审位 verdict + 已 resolved 意见摘要 + 待拍板产物链接 + 建议 | 会话通道（owner 迎宾呈现）+ 收件箱通知 |
+| 冲突上升（escalate） | **reviewer** | 分歧点 + **正反双方结论汇总**（各一段最终立场）+ issue 线程引用 | 裁决 session（reviewer 迎宾等待） |
+| 用户验收（节点 11 类） | **qa**（通道绑定） | 验收材料呈现（test_result/defect）+ 报障收集 | 会话通道（qa 开场白） |
+
+   - 双通道分工：收件箱通知=系统层（plugin 投递，触达保障）；会话迎宾=agent 层（责任人呈现材料，承接交互）——通知由责任人负责，plugin 只做系统投递。
+   - **冲突对峙的 DSH 能力结论（2026-09-05 查证）**：DSH 会话与 agent 一对一（「Agent 收件箱是唯一队列」，session 私有），**无多 subagent 共享同一会话的原生机制**——「拉冲突双方同会话对峙」不可直接实现。MVP 替代方案（等效材料对峙）：plugin 分别 followup 双方 subagent 提交最终立场结陈 → 主持人（reviewer）在裁决 session 汇总正反结论呈用户裁决；后期增强可选「顺序质询轮」（双方各 inject 对方结陈反驳一轮，有限轮次）。
 
 ---
 
