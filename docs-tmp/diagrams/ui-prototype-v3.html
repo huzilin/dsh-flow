@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>PROTOTYPE · wbflow 交互层 v3（对齐现有客户端 · 丢弃式）</title>
+<style>
+:root{--bg:#14161d;--card:#1b1e27;--panel:#212530;--line:#2b2f3d;--ink:#e6e8ef;--sub:#8a90a3;--dim:#4a4f60;--blue:#7ab8ff;--green:#58c07a;--amber:#e8b34a;--red:#d98080;--purple:#b39dff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.6 -apple-system,"PingFang SC",sans-serif;background:var(--bg);color:var(--ink);padding-bottom:90px}
+.proto-banner{background:#000;color:#ffd666;padding:6px 16px;font-size:12px;letter-spacing:.05em}
+.detailtop{display:flex;align-items:center;gap:12px;padding:14px 20px 0;flex-wrap:wrap}
+.back{color:var(--blue);cursor:pointer;font-size:14px}
+.title{font-size:19px;font-weight:600}
+.chip{font-size:13px;padding:3px 10px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:var(--sub)}
+.chip.pri{color:var(--amber);border-color:rgba(232,179,74,.4)}
+.chip.st{color:var(--amber);border-color:rgba(232,179,74,.4)}
+.panel{display:none;max-width:1280px;margin:0 auto;padding:0 20px}
+.panel.on{display:block}
+h3{font-size:13px;color:var(--sub);font-weight:600;margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px}
+.grid4{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.flowwrap{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:12px;overflow-x:auto}
+.flowhead{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.sbtn{padding:3px 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--sub);font-size:12px;cursor:pointer}
+.sbtn.on{color:var(--amber);border-color:rgba(232,179,74,.5)}
+.hint{font-size:12px;color:var(--sub);margin-top:6px}
+svg text{font-family:inherit}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.b-wait{background:rgba(138,144,163,.15);color:var(--sub)}
+.b-cla{background:rgba(179,157,255,.14);color:var(--purple)}
+.b-con{background:rgba(88,192,122,.12);color:var(--green)}
+.statecard .row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.statecard .row:last-child{border-bottom:none}
+.k{width:56px;flex:none;font-size:12px;color:var(--sub)}
+.who{font-size:12px;color:var(--sub)}
+.pills{display:flex;gap:10px;flex-wrap:wrap}
+.pill{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 13px;border:1px solid var(--line);border-radius:10px;min-width:92px;cursor:pointer}
+.pill:hover{border-color:var(--blue)}
+.pill .r{font-size:13px;font-weight:600}
+.pill .v{font-size:11.5px}
+.v.wait{color:var(--sub)}.v.pass{color:var(--green)}.v.block{color:var(--red)}.v.clar{color:var(--purple)}.v.conf{color:var(--green)}
+.pill .n{font-size:11px;color:var(--sub)}
+.pill.hl{border-color:var(--amber);background:rgba(232,179,74,.05)}
+.thread{border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px;font-size:13px}
+.thd-head{display:flex;gap:8px;align-items:center;margin-bottom:5px}
+.tag{padding:1px 8px;border-radius:6px;font-size:11px}
+.t-pc{background:rgba(232,179,74,.14);color:var(--amber)}
+.t-esc{background:rgba(179,157,255,.14);color:var(--purple)}
+.meta{color:var(--sub);font-size:12px}
+.btns{margin-top:8px;display:flex;gap:8px}
+button{padding:5px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:12.5px;cursor:pointer}
+button.pri{background:rgba(122,184,255,.15);color:var(--blue);border-color:rgba(122,184,255,.4)}
+button.dgr{color:var(--red);border-color:rgba(217,128,128,.5)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.sumrow{display:flex;gap:8px;padding:5px 0;font-size:13px;border-bottom:1px dashed var(--line)}
+.sumrow:last-of-type{border:none}
+.ok{color:var(--green);font-weight:600}
+.lead{background:rgba(122,184,255,.06);border:1px solid rgba(122,184,255,.25);border-radius:8px;padding:9px 12px;font-size:12.5px;color:var(--blue);margin-bottom:10px}
+.conflict{border:1px solid var(--purple);border-radius:10px;overflow:hidden}
+.conflict .head{background:rgba(179,157,255,.1);padding:8px 12px;display:flex;gap:8px;align-items:center;font-weight:600;font-size:13px}
+.versus{display:flex}
+.versus .side{flex:1;padding:10px 12px;font-size:12.5px}
+.versus .side:first-child{border-right:1px dashed var(--line)}
+.versus .side h5{font-size:12px;color:var(--purple);margin-bottom:4px}
+.chat{display:flex;flex-direction:column;gap:10px}
+.msg{max-width:76%;padding:9px 12px;border-radius:12px;font-size:13px}
+.msg.ai{background:var(--panel);border-top-left-radius:4px;align-self:flex-start}
+.msg.me{background:rgba(122,184,255,.14);border-top-right-radius:4px;align-self:flex-end}
+.entrybar{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--sub);margin-bottom:10px}
+.brd{border:1px dashed rgba(122,184,255,.5);border-radius:10px;padding:12px;background:rgba(122,184,255,.05);font-size:13px}
+.brd h4{font-size:13px;color:var(--blue);margin-bottom:6px}
+.tabs{display:flex;gap:14px;font-size:13px;color:var(--sub);margin-bottom:10px}
+.tabs .on{color:var(--amber);font-weight:600}
+.switch{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:#000;padding:9px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:9;border:1px solid #333}
+.switch button{background:none;border:none;color:#fff;font-size:16px;cursor:pointer;padding:0 6px}
+.switch .lb{font-size:12.5px;min-width:250px;text-align:center}
+</style>
+</head>
+<body>
+<div class="proto-banner">PROTOTYPE — 丢弃式原型 · 视觉对齐现有客户端（暗色）· 数据虚构</div>
+
+<!-- ═════ P1 · 节点详情（上下分栏：流程图在上 + 四区分栏在下） ═════ -->
+<div class="panel on" id="p1">
+<div class="detailtop">
+  <span class="back">← 返回看板</span><span class="title">交易对账明细导出</span>
+  <span class="chip">对账运营</span><span class="chip pri">P1</span><span class="chip st">进行中</span><button>编辑</button>
+  <span style="margin-left:auto;display:flex;gap:8px">
+    <button class="sbtn on" onclick="setScope('full')">scope=full</button>
+    <button class="sbtn" onclick="setScope('rd')">scope=rd</button>
+    <button class="sbtn" onclick="setScope('fe')">scope=fe</button>
+  </span>
+</div>
+<div class="flowwrap">
+  <div class="flowhead"><b style="font-size:13px">业务需求流程</b><span class="hint">v3 渲染矩阵演示：切 scope 看节点动态渲染（rd|full / fe|full / full 表达式）</span></div>
+  <svg id="flow" width="1832" height="170" viewBox="0 0 1832 170" style="display:block">
+    <path d="M128,78 H164" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M282,78 H318" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M436,78 H472" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M590,78 H626" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M744,78 H780" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M898,78 H934" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M1052,78 H1088" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M1206,78 H1224 V31 H1242" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M1206,78 H1224 V125 H1242" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M1360,31 H1378 V78 H1396" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M1360,125 H1378 V78 H1396" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M1514,78 H1550" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <path d="M1668,78 H1704" stroke="#3a4356" stroke-width="1.6" fill="none"/>
+    <text x="1301" y="8" text-anchor="middle" font-size="10.5" font-weight="600" fill="#7ab8ff">RD</text>
+    <text x="1301" y="166" text-anchor="middle" font-size="10.5" font-weight="600" fill="#58c07a">FE</text>
+    <!-- 节点（rd|full / fe|full / full / '' 由 scope 演示控制显隐） -->
+    <g class="nd" data-s="any"><rect x="10" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="22" cy="78" r="4" fill="#58c07a"/><text x="79" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">0 待启动</text></g>
+    <g class="nd" data-s="any"><rect x="164" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="176" cy="78" r="4" fill="#58c07a"/><text x="233" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">1 需求对齐</text></g>
+    <g class="nd" data-s="any"><rect x="318" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="330" cy="78" r="4" fill="#58c07a"/><text x="387" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">2 产品设计</text></g>
+    <g class="nd" data-s="any"><rect x="472" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="484" cy="78" r="4" fill="#58c07a"/><text x="541" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">3 产品设计评审</text></g>
+    <g class="nd" data-s="rd|full"><rect x="626" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="638" cy="78" r="4" fill="#58c07a"/><text x="695" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">4 RD 技术设计</text></g>
+    <g class="nd" data-s="rd|full"><rect x="780" y="59" width="118" height="38" rx="7" fill="rgba(232,179,74,0.10)" stroke="#e8b34a" stroke-width="2.4"/><circle cx="792" cy="78" r="4" fill="#e8b34a"/><text x="849" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">5 RD 技术评审</text><text x="887" y="97" text-anchor="end" font-size="9.5" fill="#d98080">↩1</text><rect x="790" y="101" width="62" height="15" rx="4" fill="rgba(179,157,255,.15)"/><text x="821" y="112" text-anchor="middle" font-size="9.5" fill="#b39dff">clarifying</text></g>
+    <g class="nd" data-s="fe|full"><rect x="934" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="946" cy="78" r="4" fill="#4a4f60"/><text x="1003" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">6 FE 技术设计</text></g>
+    <g class="nd" data-s="fe|full"><rect x="1088" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="1100" cy="78" r="4" fill="#4a4f60"/><text x="1157" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">7 FE 设计评审</text></g>
+    <g class="nd" data-s="rd|full"><rect x="1242" y="12" width="118" height="38" rx="7" fill="#1b1e27" stroke="#7ab8ff"/><circle cx="1254" cy="31" r="4" fill="#4a4f60"/><text x="1311" y="35" text-anchor="middle" font-size="11.5" fill="#e6e8ef">8 RD 开发</text></g>
+    <g class="nd" data-s="fe|full"><rect x="1242" y="106" width="118" height="38" rx="7" fill="#1b1e27" stroke="#58c07a"/><circle cx="1254" cy="125" r="4" fill="#4a4f60"/><text x="1311" y="129" text-anchor="middle" font-size="11.5" fill="#e6e8ef">9 FE 开发</text></g>
+    <g class="nd" data-s="full"><rect x="1396" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="1408" cy="78" r="4" fill="#4a4f60"/><text x="1465" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">10 QA 验收</text><rect x="1484" y="38" width="30" height="15" rx="4" fill="rgba(138,144,163,.15)"/><text x="1499" y="49" text-anchor="middle" font-size="9.5" fill="#8a90a3">full</text></g>
+    <g class="nd" data-s="any"><rect x="1550" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="1562" cy="78" r="4" fill="#4a4f60"/><text x="1619" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">11 用户验收</text></g>
+    <g class="nd" data-s="any"><rect x="1704" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="1716" cy="78" r="4" fill="#4a4f60"/><text x="1773" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">12 完成</text></g>
+  </svg>
+  <div class="hint">选中节点 5：双属性状态卡（下）· v3 相位角标 clarifying · 并行泳道 RD/FE · 节点 10 标 full（仅全量渲染）</div>
+</div>
+<div class="grid4">
+  <div class="card statecard">
+    <h3>① 状态卡（双属性 · 取代旧单状态圆点）</h3>
+    <div class="row"><span class="k">执行行</span><span class="badge b-wait">— 无 exec（审批类）</span><span class="who">—</span></div>
+    <div class="row"><span class="k">审批行</span><span class="badge b-cla">clarifying · 澄清中</span><span class="who">rd · backend-design.clarify · 第 1 轮 ↩1</span></div>
+  </div>
+  <div class="card">
+    <h3>② 评审状态行 · 角色药丸（verdict 语义）</h3>
+    <div class="pills">
+      <div class="pill"><span class="r">Arch</span><span class="v clar">💬 澄清中</span><span class="n">2 open</span></div>
+      <div class="pill"><span class="r">FE</span><span class="v pass">✅ pass</span><span class="n">0</span></div>
+      <div class="pill hl"><span class="r">QA</span><span class="v block">⛔ block</span><span class="n">1 open</span></div>
+      <div class="pill"><span class="r">PM</span><span class="v pass">✅ pass</span><span class="n">0</span></div>
+      <div class="pill"><span class="r">User</span><span class="v wait">⏳ 终审</span><span class="n">user_gate</span></div>
+    </div>
+    <div class="hint">表态看药丸（reviewers[].verdict）、讨论点进去（评论操作矩阵不变）</div>
+  </div>
+  <div class="card">
+    <h3>③ 意见 thread（点 QA 药丸展开）</h3>
+    <div class="thread">
+      <div class="thd-head"><b>QA</b><span class="meta">锚点：接口设计 › 分页约定</span><span class="tag t-esc">escalate ⚠</span></div>
+      <div>分页默认值与前端约定不一致，建议统一 cursor 方案；涉及接口契约变更。</div>
+      <div class="btns"><button>回复</button><button class="pri">resolve（修复关闭）</button></div>
+    </div>
+    <div class="thread">
+      <div class="thd-head"><b>QA</b><span class="meta">锚点：数据与存储</span></div>
+      <div>对账周期字段建议显式声明时区。</div>
+      <div class="btns"><button>回复</button><button class="pri">resolve（修复关闭）</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>④ 门禁 / 拍板卡（agreed 前 = 只读进度）</h3>
+    <div class="sumrow"><span class="k">表态</span><span>pass 2 · block 1 · 未表态 0（barrier 达成）</span></div>
+    <div class="sumrow"><span class="k">意见</span><span>open 3 · pending-confirm 0 · resolved 2</span></div>
+    <div class="sumrow"><span class="k">拍板</span><button disabled>通过（待全 resolved + User 终审）</button></div>
+    <div class="hint">tabs：产物 ｜ <b>会话（2）</b>——节点关联 subagent 对话（D6）</div>
+  </div>
+</div>
+</div>
+
+<!-- ═════ P2 · 时间线备选 ═════ -->
+<div class="panel" id="p2">
+<h1>P2 · 状态卡备选形态：相位时间线</h1>
+<div class="desc">若双行徽标不够直观，状态卡可切换为时间线形态（同数据）。</div>
+<div class="card">
+  <div class="phase">
+    <div class="pstep"><div class="pdot pdone">✓</div><div class="pbody"><div class="t">collecting — 表态收集</div><div class="m">arch/fe/qa/pm.review · barrier 4/4 达成</div></div></div>
+    <div class="pstep"><div class="pdot pcur">●</div><div class="pbody"><div class="t">clarifying — owner 批量澄清中</div><div class="m">rd · backend-design.clarify · open 3</div></div></div>
+    <div class="pstep"><div class="pdot ptodo">○</div><div class="pbody"><div class="t">confirming — 评审者复核</div><div class="m">confirm / reopen（reopen → 回 clarifying）</div></div></div>
+    <div class="pstep"><div class="pdot ptodo">○</div><div class="pbody"><div class="t">agree → approve</div><div class="m">残留判定 → User 终审（user_gate）</div></div></div>
+  </div>
+</div>
+</div>
+
+<!-- ═════ P3 · 药丸三态 ═════ -->
+<div class="panel" id="p3">
+<h1>P3 · 角色药丸 v3（三轮期对照）</h1>
+<div class="card"><h3>① collecting</h3>
+  <div class="pills">
+    <div class="pill"><span class="r">Arch</span><span class="v pass">✅ pass</span><span class="n">1 open</span></div>
+    <div class="pill"><span class="r">FE</span><span class="v wait">⏳ 未表态</span><span class="n">—</span></div>
+    <div class="pill"><span class="r">QA</span><span class="v wait">⏳ 未表态</span><span class="n">—</span></div>
+    <div class="pill"><span class="r">PM</span><span class="v block">⛔ block</span><span class="n">2 open</span></div>
+  </div><div class="hint">进度 1/4 · barrier 未达成</div>
+</div>
+<div class="card"><h3>② clarifying</h3>
+  <div class="pills">
+    <div class="pill"><span class="r">Arch</span><span class="v clar">💬 澄清中</span><span class="n">1 open</span></div>
+    <div class="pill"><span class="r">FE</span><span class="v pass">✅ pass</span><span class="n">0</span></div>
+    <div class="pill"><span class="r">QA</span><span class="v clar">💬 澄清中</span><span class="n">1 open</span></div>
+    <div class="pill"><span class="r">PM</span><span class="v clar">💬 澄清中</span><span class="n">2 open</span></div>
+  </div>
+</div>
+<div class="card"><h3>③ confirming</h3>
+  <div class="pills">
+    <div class="pill"><span class="r">Arch</span><span class="v conf">🔍 复核中</span><span class="n">pc 1</span></div>
+    <div class="pill"><span class="r">FE</span><span class="v pass">✅ pass</span><span class="n">0</span></div>
+    <div class="pill"><span class="r">QA</span><span class="v conf">🔍 复核中</span><span class="n">pc 1</span></div>
+    <div class="pill"><span class="r">PM</span><span class="v pass">✅ pass</span><span class="n">0</span></div>
+  </div><div class="hint">confirm → agreed；reopen → 回 clarifying</div>
+</div>
+</div>
+
+<!-- ═════ P4 · 拍板卡 ═════ -->
+<div class="panel" id="p4">
+<h1>P4 · user_gate 拍板卡（agreed 后迎宾呈现态）</h1>
+<div class="lead">📬 收件箱同步：「节点 5 RD 技术评审 · 待你拍板」（点此跳转）</div>
+<div class="card">
+  <div class="lead">👤 责任人（rd）已为你准备本轮评审汇总 ↓</div>
+  <div class="sumrow"><span class="k">结论</span><span class="ok">全票 agreed · 无残留 open</span></div>
+  <div class="sumrow"><span class="k">表态</span><span>Arch ✅ · FE ✅ · QA ✅ · PM ✅（第 1 轮）</span></div>
+  <div class="sumrow"><span class="k">意见</span><span>6 条全部 resolved（点击展开 resolve 记录）</span></div>
+  <div class="sumrow"><span class="k">产物</span><span><u>《RD 技术设计》req-014/rd/design.md</u></span></div>
+  <div class="sumrow"><span class="k">建议</span><span>分页/时区两项修正完成，建议通过</span></div>
+  <div class="btns">
+    <button class="pri">通过（迁移 FE 技术设计）</button>
+    <button class="dgr">打回（必填理由 → exec 重入 revise）</button>
+    <button>会话找 rd</button>
+  </div>
+</div>
+</div>
+
+<!-- ═════ P5 · 冲突卡 ═════ -->
+<div class="panel" id="p5">
+<h1>P5 · 冲突卡与上升裁决（取代 override 强权）</h1>
+<div class="conflict">
+  <div class="head"><span class="tag t-esc">escalate</span> 冲突：分页方案分歧（issue cm-3341 · 第 3 轮 reopen）<button style="margin-left:auto" class="pri">上升裁决</button></div>
+  <div class="versus">
+    <div class="side"><h5>正方 · QA</h5>cursor 分页：对账明细量大，offset 深翻页性能劣化；并发写入漏记/重记，违反资金域正确性。</div>
+    <div class="side"><h5>反方 · RD</h5>offset 分页：下游批量拉取依赖页码重试语义；cursor 需改导出链路协议，本期改动面大。</div>
+  </div>
+  <div style="padding:8px 12px;font-size:12px;color:var(--sub)">issue 引用：cm-3341（anchor: 接口设计 › 分页约定）· 结论由 reviewer 回填此 issue</div>
+</div>
+<div class="card" style="margin-top:12px">
+  <h3>裁决 session（reviewer 主持 · 双方结陈已附）</h3>
+  <div class="chat">
+    <div class="msg ai">双方最终立场如上。请 User 裁决：① cursor（导出协议改造 +2d）② offset（加深翻页保护）③ 其他。</div>
+    <div class="msg me">采用 cursor，导出链路本期一起改。</div>
+    <div class="msg ai">结论已回填 issue cm-3341：「User 裁决：采用 cursor」→ rd 重新表态（confirm）→ 轮次恢复。</div>
+  </div>
+  <div class="hint">评论区可见回填（数据层留痕）→ reviewer 重新表态 → 正常判据链恢复</div>
+</div>
+</div>
+
+<!-- ═════ P6 · 对齐节点 ═════ -->
+<div class="panel" id="p6">
+<h1>P6 · 对齐节点（entry hold · 会话为主 + 两步完成）</h1>
+<div class="entrybar"><span class="badge b-wait">entry · 等待你的输入</span>响应者：PM · 可用：/wayfinder · grill-me · 或一句话说明</div>
+<div class="chat">
+  <div class="msg ai">项目：对账平台 v1.0｜需求：<u>交易对账明细导出</u><br>目标：完成需求对齐。可用 /wayfinder 和 grill-me 同我沟通，或一句话说明需求。</div>
+  <div class="msg me">对账明细支持按日期范围导出 CSV，财务月底要用。</div>
+  <div class="msg ai">确认几点：① 默认当月？② 是否区分币种？③ 权限范围？</div>
+  <div class="msg me">默认当月；区分币种；财务+对账运营可导。</div>
+</div>
+<div class="btns" style="margin:12px 0"><button class="pri">完成对齐（生成 BRD）</button></div>
+<div class="card">
+  <h3>第二步 · BRD 预览</h3>
+  <div class="brd">
+    <h4>brd · req-014/brd/brd.md</h4>
+    目标：对账明细按日范围 CSV 导出<br>范围：默认当月；按币种拆列；财务+对账运营可导<br>价值：月底结算人工整理 2h → 分钟级<br>非范围：导出异步化（v1.1）
+  </div>
+  <div class="btns"><button class="pri">确认（approve → 迁移产品设计）</button><button>继续对齐</button></div>
+</div>
+</div>
+
+<div class="switch">
+  <button onclick="mv(-1)">←</button><span class="lb" id="lb"></span><button onclick="mv(1)">→</button>
+</div>
+<script>
+const panels=[
+ ['p1','P1/6 · 节点详情（上下分栏：流程图+四区分栏）'],
+ ['p2','P2/6 · 状态卡备选：相位时间线'],
+ ['p3','P3/6 · 角色药丸 v3（三轮期）'],
+ ['p4','P4/6 · user_gate 拍板卡'],
+ ['p5','P5/6 · 冲突卡与上升裁决'],
+ ['p6','P6/6 · 对齐节点（会话+两步完成）'],
+];
+let cur=0;
+function show(){panels.forEach(([id],i)=>document.getElementById(id).classList.toggle('on',i===cur));document.getElementById('lb').textContent=panels[cur][1];scrollTo(0,0)}
+function mv(d){cur=(cur+d+panels.length)%panels.length;show();history.replaceState(null,'','#'+panels[cur][0])}
+document.addEventListener('keydown',e=>{if(/input|textarea/i.test(document.activeElement.tagName))return;if(e.key==='ArrowRight')mv(1);if(e.key==='ArrowLeft')mv(-1)});
+function setScope(sc){
+  document.querySelectorAll('#flow .nd').forEach(g=>{
+    const expr=g.dataset.s;
+    let show=true;
+    if(sc==='rd') show = expr==='any'||expr.includes('rd');
+    else if(sc==='fe') show = expr==='any'||expr.includes('fe');
+    else show = true;
+    g.style.display=show?'':'none';
+  });
+  document.querySelectorAll('.flowhead .sbtn').forEach(b=>b.classList.remove('on'));
+  event.target.classList.add('on');
+}
+const h=location.hash.replace('#','');const hi=panels.findIndex(([id])=>id===h);if(hi>=0)cur=hi;
+show();
+</script>
+</body>
+</html>
