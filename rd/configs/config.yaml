@@ -28,3 +28,7 @@ auth:
 # 读取路径 resolve（含 symlink 展开）后越出该目录一律拒绝（路径穿越防护）。
 artifacts:
   docs_root: docs
+# 冲突上升（T12）：reopen 计数（澄清期 loop_count 读法）达阈值自动标 escalate
+# 并写 notification 通知行（spec §2 reopen≥5 口径）；≤0 视为关闭自动上升。
+escalate:
+  loop_threshold: 5

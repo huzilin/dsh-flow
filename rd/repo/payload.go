@@ -212,8 +212,11 @@ type TaskContextAction struct {
 	Inline string `json:"inline,omitempty"`
 }
 
-// IssueReply issues.replies 条目：不可变追加（回复 / reopen 理由 / 裁决回填同通道；
-// spec §0.2 JSON 载荷 Go struct 单一口径，arch_design §Issue 示例同构）。
+// IssueReply issues.replies 条目：不可变追加（回复 / reopen 理由 / 上升与裁决回填
+// 同通道；spec §0.2 JSON 载荷 Go struct 单一口径，arch_design §Issue 示例同构）。
+// T12 扩展：kind 区分普通回复与上升/裁决条目（空=普通回复，既有条目不受影响）；
+// escalation/adjudication 条目经 verdict/sessionId 承载裁决 session 关联
+// （sessions 表无 issue 外键列，replies 条目即 issue↔session 关联单一载体）。
 type IssueReply struct {
 	// ReplyID 回复业务 id（线程内序 r-<n>）
 	ReplyID string `json:"replyId"`
@@ -221,10 +224,18 @@ type IssueReply struct {
 	By string `json:"by"`
 	// RoleID 回复者角色
 	RoleID string `json:"roleId"`
-	// Text 回复内容（误发 reply 标注作废也走本字段）
+	// Text 回复内容（误发 reply 标注作废 / 上升理由 / 裁决结论同走本字段）
 	Text string `json:"text"`
 	// Voided 作废标注；true=误发作废
 	Voided bool `json:"voided,omitempty"`
 	// At 回复时间，unix 毫秒
 	At int64 `json:"at"`
+	// Kind 条目类型（T12）：空=普通回复 / escalation=冲突上升条目 /
+	// adjudication=User 仲裁裁决条目
+	Kind string `json:"kind,omitempty"`
+	// Verdict 仲裁结论（仅 kind=adjudication）：uphold | override
+	Verdict string `json:"verdict,omitempty"`
+	// SessionID 关联裁决 session 业务 id（kind=escalation/adjudication 携带；
+	// sessions 表按 node 关联，issue 级关联经本字段定位）
+	SessionID string `json:"sessionId,omitempty"`
 }
