@@ -1,4 +1,6 @@
 > ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：currentTrigger 决策树（trigger 词汇）、subagent 返回契约（完成/新反馈/阻塞/异常四类）——被 v3 相位判据表（§0.6）+ 完成上报 event:'complete' + reviewState 轮转取代。
+
+> **追加废弃指针（2026-09-08）**：本文件之外，最新模型已迭代为 v3.1+（两层属性状态机 node.state 4 相位 + **per-agent 评审轮** reviewing/agree/unagree + collect 内置聚合 + review_results 单字段 + 评审能力对象化 {role}.{object}-review + 技术设计无内嵌 CR + task 无 QA 节点 + scope 渲染集合表达式 rd|full/fe|full/full/rd|fe + QA 验收仅 full 渲染）——任何与本文件一致的旧记忆引用，一律以 `docs-tmp/capability-model-final.md` v3.1 现行版为准。
 **仍有效**：schedule 包+端点兜底载体、最小返回集、three-way 身份校验、wb_assign_task/wb_task_update 心跳（均已并入 data-tools-final）。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
 
 

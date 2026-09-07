@@ -1,8 +1,8 @@
 ---
 type: grilling
 blocked_by: [03, 07]
-claimed_by:
-claimed_at:
+claimed_by: agent session (2026-09-07)
+claimed_at: 2026-09-07
 ---
 
 # MVP 交互层定稿（插件页面/四模块 UI）
@@ -18,3 +18,5 @@ claimed_at:
 5. **UI 与数据层的对应**：每页面/组件消费哪些 wb_* 工具/数据（与工单 07 工具清单对齐）。
 
 依据：docs/v1.0/01~03-module（既有 UI 设计基线）、docs-tmp/plugin-agent-subagent-chain.md（D6）、how-spec-v2.md、skill-usage-implementation.md（交互模式）。
+
+> **2026-09-07 推演进度**：基线核查（三模块 PRD + workbench-plugin/client.js 829 行：上下分栏/SVG 横向泳道/四级锚点/评论操作矩阵均已实现）；交互原型 `docs-tmp/diagrams/ui-prototype-v3.html` 六面板（节点详情上下分栏吸收四区分栏/SVG 并行泳道+scope 动态渲染重排/药丸 verdict/user_gate 拍板卡/冲突卡上升/对齐会话+完成对齐）——用户逐面板 review 中；结论收敛后产出「模块 II v3 交互增补稿」并推进模块 I/III。**reviewState v5（per-agent 三态 reviewing/agree/unagree + collect 内置聚合 + review_results 单字段）已确认达成一致**。

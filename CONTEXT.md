@@ -13,16 +13,16 @@ _Avoid_: 票、卡片、事项
 _Avoid_: 技能、任务、插件（这是别的概念）
 
 **动作（Action）**:
-能力内的可独立调度单元（如 backend-dev.dev / backend-dev.respond_to_cr）；触发器决定何时激活。**Capability → actions → 其中 how 配置了 skills**（skill 是 how 内执行要素引用的产出/执行技能，≠ 能力）。
-_Avoid_: 步骤、子任务
+能力内的可独立调度单元（如 backend-dev.dev / arch.prd-review.review），以 `on` 挂相位（entry/exec/review/respond）、可挂 skill 或一句话内联；节点以激活清单（node_actions）声明启用哪些动作。**Capability → inputs + actions**（capability 是 role 归属与数据可见性的结构壳，行为在 action/skill）。
+_Avoid_: 步骤、子任务；respond_to_cr / respond_to_qa（退役动作名）
 
-**触发器（trigger，统一词）**:
-程序契约枚举（node_enter / dev_complete / reviewer_feedback(open) / reject_rolled_back / decide / node_review_pending / issue_replied），程序据此选动作；一个分支一个 trigger。旧词"when"统一归入 trigger，不再单独使用。
-_Avoid_: when、时机（自然语言表述）
+**相位（phase，on）**:
+node.state 的可配动作相位，4 值：entry（进入/重入迎宾）/ exec（执行：首次主产出、重入返工）/ review（评审表态）/ respond（owner 响应：澄清或修复）。动作以 `on` 字段挂相位；旧 trigger 枚举（node_enter/dev_complete/…）与 trigger 词表已废弃，被相位+评审轮取代。
+_Avoid_: trigger、时机、when、hook（编排层废弃，仅通知类扩展位）
 
-**how（执行文档）**:
-写给 subagent 的执行说明，四要素：**exec（执行：怎么做）** / 依赖（动态看 mytask 返回）/ 自检（达成目标+按执行要求+质量达标）/ 目标（产出+可量化标准）；其中 exec 环节配置 skills（产出型走 to-xxx 产出 skill、开发型走 tdd/implement 等）。how 只给 subagent 看，程序状态推进是另一层。
-_Avoid_: 行为说明、behaviors（旧名）
+**how（已降级为 skill 写作参考）**:
+动作不携带 how 四要素（框架不强制）——复杂动作直接挂一个 skill（内部按需编排其他 skill，自带目标/自检/门禁），短动作一句话内联；依赖注入由 my_task 上下文承担。how-spec-v2 降级为 skill 作者的写作参考，运行时不再引用。
+_Avoid_: how 四要素作为框架强制；behaviors（旧名）
 
 **技能（skill）**:
 DSH 技能（含 mp-* 与自建 to-xxx 产出 skill 家族）；≠ 能力（Capability）——能力是领域行为单元，skill 是 how 的 exec 环节引用的执行/产出技能。
@@ -61,8 +61,8 @@ _Avoid_: implement-spec（旧名，原生 spec 概念废弃）
 _Avoid_: 当前推演期/插件实现期（旧判定词，已废弃）
 
 **qa 职责（联调/验收/缺陷）**:
-AI agent 业态下 qa 聚焦：联调约束 + 验收 + 缺陷判定（respond_to_qa）；用例设计归开发侧自产；qa 评审保留（以领域模型 skill 减少上下文）。
-_Avoid_: qa 产用例（旧职责）
+qa 聚焦：联调 + 验收 + 缺陷判定（验收节点仅 full 渲染；exec=accept / 重入=retest 复验重测；缺陷响应链=rd/fe clarify 确认归属 + 修复 diagnosing-bugs）；用例设计归 qa 的 accept 内含（不再独立节点）；qa 评审以对象化评审 skill 减少上下文。
+_Avoid_: qa 产用例（旧职责）；respond_to_qa（退役动作名）
 
 **subagent 会话（挂载到 flow 节点）**:
 每个 subagent 有独立稳定 sessionId，持久化跨重启；UI 经插件页面从 flow 节点查看历史/进行中的 subagent 对话（不经 Leader 中转）。

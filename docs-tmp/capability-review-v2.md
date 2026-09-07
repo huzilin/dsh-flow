@@ -1,4 +1,6 @@
 > ⚠️ **结论时效（2026-09-05 v3 编排模型定稿后标注）**：本文为历史推演层——**已取代**：19 能力总览（含 case-design-cap、final-approve、decide-cap.decide、respond_to_cr/respond_to_qa/retest）、how 四要素字段、trigger 枚举、「自评+评审」位——分别被 case-design-cap/final-approve 退役、decide 退役、clarify/fix_on_review/revise/diagnosing-bugs 轨道分立、skill 挂载制、可配相位+reviewState、自审禁令与评审对象化取代。
+
+> **追加废弃指针（2026-09-08）**：本文件之外，最新模型已迭代为 v3.1+（两层属性状态机 node.state 4 相位 + **per-agent 评审轮** reviewing/agree/unagree + collect 内置聚合 + review_results 单字段 + 评审能力对象化 {role}.{object}-review + 技术设计无内嵌 CR + task 无 QA 节点 + scope 渲染集合表达式 rd|full/fe|full/full/rd|fe + QA 验收仅 full 渲染）——任何与本文件一致的旧记忆引用，一律以 `docs-tmp/capability-model-final.md` v3.1 现行版为准。
 **仍有效**：inputs 声明格式（ProductType 化）、各产物 AC 对照思路。 现行权威：`capability-model-final.md` v3（两层属性状态机）+ `business-flow-derivation.md` / `flow-derivation-tech-task-plan.md` v3.1 + `capability-actions-final.md` + `data-tools-final.md`。
 
 
