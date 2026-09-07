@@ -21,11 +21,28 @@ import (
 // TaskService 任务总线 service（wb_assign_task / wb_task_update）。
 type TaskService struct {
 	repo *repo.Repo
+	// notifier 通知收敛写入口（T11：事务外派发，失败不阻断业务）
+	notifier *Notifier
 }
 
 // NewTaskService 构造任务总线 service。
 func NewTaskService(r *repo.Repo) *TaskService {
-	return &TaskService{repo: r}
+	return &TaskService{repo: r, notifier: NewNotifier(r)}
+}
+
+// dispatchReReviewNotifications 重新表态请求派发（事务提交后调用，事务外落库）：
+// 澄清闭环重入新轮后，被复位为 reviewing 的评审位逐角色收 re_review 通知
+// （§6.8「重新表态请求」——reviewer followup/复用通道；跳转=节点详情）。
+func (s *TaskService) dispatchReReviewNotifications(ctx context.Context, requirementID string, nodeID string, roles []string) {
+	for _, role := range roles {
+		Dispatch(s.notifier, NotificationSpec{
+			Kind:          NotificationKindReReview,
+			RequirementID: requirementID,
+			NodeID:        nodeID,
+			RecipientRole: role,
+			Text:          fmt.Sprintf("节点 %s 澄清已回应，请重新表态（新评审轮）", nodeID),
+		})
+	}
 }
 
 // Assign wb_assign_task：幂等派发——幂等键 requirement_id+node_id+action_id+
@@ -251,8 +268,12 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 	}
 
 	var (
-		nooped     *repo.Task
-		blockedErr error
+		nooped        *repo.Task
+		blockedErr    error
+		reReviewRoles []string
+		reviewReqID   string
+		reviewNodeID  string
+		respondDone   bool
 	)
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		row, err := repo.GetTaskByIDTx(ctx, tx, req.TaskId)
@@ -331,9 +352,15 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 			if row.TaskType == repo.TaskTypeRespond {
 				// T8 澄清循环接缝：owner respond 完成判据通过（open issue 清零）即
 				// review 重入新轮——同事务（flow_nodes 行锁）内推进，读写原子
-				if err := NewReviewService(s.repo).ReenterReviewRoundTx(ctx, tx, row.RequirementID, row.NodeID); err != nil {
-					return err
+				roles, reErr := NewReviewService(s.repo).ReenterReviewRoundTx(ctx, tx, row.RequirementID, row.NodeID)
+				if reErr != nil {
+					return reErr
 				}
+				// T11 re_review 通知收件人（事务提交后派发，事务外落库）
+				reReviewRoles = roles
+				reviewReqID = row.RequirementID
+				reviewNodeID = row.NodeID
+				respondDone = true
 			}
 		}
 
@@ -341,6 +368,11 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 	})
 	if txErr != nil {
 		return nil, txErr
+	}
+	// 通知派发（事务外，spec §1.3——失败不阻断业务）：澄清闭环 → review 重入新轮，
+	// 重新表态请求（re_review）逐收件角色派发（§6.8 reviewer followup/复用通道）
+	if respondDone {
+		s.dispatchReReviewNotifications(ctx, reviewReqID, reviewNodeID, reReviewRoles)
 	}
 	if nooped != nil {
 		return &api.TaskUpdateResp{

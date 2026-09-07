@@ -519,7 +519,7 @@ func (s *EscalationService) reenterIssueNodeRoundTx(ctx context.Context, tx *gor
 	if node.State != repo.PhaseReview && node.State != repo.PhaseRespond {
 		return false, currentRound, nil
 	}
-	if err := NewReviewService(s.repo).reenterReviewRoundLocked(ctx, tx, node); err != nil {
+	if _, err := NewReviewService(s.repo).reenterReviewRoundLocked(ctx, tx, node); err != nil {
 		return false, 0, err
 	}
 	return true, currentRound + 1, nil

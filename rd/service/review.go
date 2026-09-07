@@ -16,6 +16,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	gormio "gorm.io/gorm"
 
@@ -35,11 +36,13 @@ const (
 // ReviewService 评审表态与门禁推进 service（wb_review / wb_decision / 澄清重入接缝）。
 type ReviewService struct {
 	repo *repo.Repo
+	// notifier 通知收敛写入口（T11：事务外派发，失败不阻断业务）
+	notifier *Notifier
 }
 
 // NewReviewService 构造评审门禁 service。
 func NewReviewService(r *repo.Repo) *ReviewService {
-	return &ReviewService{repo: r}
+	return &ReviewService{repo: r, notifier: NewNotifier(r)}
 }
 
 // Review wb_review：agent 自判 agree/unagree 上报，写 review_results（单字段承载
@@ -86,6 +89,7 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 	}
 
 	resp := &api.ReviewResp{}
+	outcome := domain.CollectPending
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		node, err := repo.GetFlowNodeByRequirementAndNodeIDLockTx(ctx, tx, req.RequirementId, req.NodeId)
 		if err != nil {
@@ -122,9 +126,10 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 		updates := map[string]any{"review_results": resultsJSON}
 		audits := []repo.AuditLog{reviewAudit(node, "reviewResults", node.ReviewResults, resultsJSON, req.Role)}
 
-		outcome, err := domain.CollectVerdict(node.Reviewers, resultsJSON)
-		if err != nil {
-			return errs.Trace(err)
+		var collectErr error
+		outcome, collectErr = domain.CollectVerdict(node.Reviewers, resultsJSON)
+		if collectErr != nil {
+			return errs.Trace(collectErr)
 		}
 		resp.Ok = true
 		resp.NodeId = node.NodeID
@@ -182,7 +187,48 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 	if txErr != nil {
 		return nil, txErr
 	}
+	// 通知派发（事务外，spec §1.3——失败不阻断业务）：门禁 agreed（user_gate=1）
+	// 唤醒 owner 拍板 / collect=clarify 转 owner 澄清循环（§6.8 双通道收件箱侧）
+	s.dispatchReviewNotifications(ctx, req.RequirementId, req.NodeId, outcome, resp.GateState)
 	return resp, nil
+}
+
+// dispatchReviewNotifications 评审写路径通知派发（事务提交后调用，事务外落库）：
+//   - gate_state=agreed：待你拍板（gate_pending）——收件 owner（被评审方：节点 exec
+//     能力归属角色优先，回落 requirements.owner），跳转=节点详情；
+//   - collect=clarify：澄清任务（clarify_task）——收件 owner，跳转=节点详情
+//     （respond 相位，澄清 issue 清单经 my_task 呈现）。
+//
+// owner 推导失败仅记日志跳过（通知为非关键路径）。
+func (s *ReviewService) dispatchReviewNotifications(ctx context.Context, requirementID string, nodeID string, outcome domain.CollectOutcome, gateState string) {
+	switch {
+	case gateState == domain.GateStateAgreed:
+	case outcome == domain.CollectClarify:
+	default:
+		return
+	}
+	owner, err := DeriveOwnerRole(ctx, s.repo, requirementID, nodeID)
+	if err != nil {
+		log.Printf("[notifier] owner 角色推导失败，跳过派发: req=%s node=%s err=%v", requirementID, nodeID, err)
+		return
+	}
+	if owner == "" {
+		return
+	}
+	spec := NotificationSpec{
+		RequirementID: requirementID,
+		NodeID:        nodeID,
+		RecipientRole: owner,
+	}
+	switch {
+	case gateState == domain.GateStateAgreed:
+		spec.Kind = NotificationKindGatePending
+		spec.Text = fmt.Sprintf("节点 %s 评审全数 agree，待你拍板", nodeID)
+	default:
+		spec.Kind = NotificationKindClarifyTask
+		spec.Text = fmt.Sprintf("节点 %s 评审存在 unagree，请澄清回应", nodeID)
+	}
+	Dispatch(s.notifier, spec)
 }
 
 // Decide wb_decision：User 终审拍板专用路由（spec §1.2 移出清单——wb_decide 收编）。
@@ -302,14 +348,17 @@ func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.
 // 恢复」）；其余相位幂等 no-op（重复 complete/失配无害）。
 // 通知派发移出事务——T11 接线。
 //
+// 出参：被复位为 reviewing 的评审位角色清单（T11 re_review 通知收件人——事务
+// 提交后由调用方派发；空切片=未重入/no-op）。
+//
 // 错误集：ErrOptimisticLock（基线冲突）；底层 IO/JSON 错误经 Trace 上抛。
-func (s *ReviewService) ReenterReviewRoundTx(ctx context.Context, tx *gormio.DB, requirementID string, nodeID string) error {
+func (s *ReviewService) ReenterReviewRoundTx(ctx context.Context, tx *gormio.DB, requirementID string, nodeID string) ([]string, error) {
 	node, err := repo.GetFlowNodeByRequirementAndNodeIDLockTx(ctx, tx, requirementID, nodeID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if node == nil || (node.State != repo.PhaseRespond && node.State != repo.PhaseReview) {
-		return nil
+		return nil, nil
 	}
 	return s.reenterReviewRoundLocked(ctx, tx, node)
 }
@@ -318,20 +367,23 @@ func (s *ReviewService) ReenterReviewRoundTx(ctx context.Context, tx *gormio.DB,
 // respond/review 双相位，T5 澄清循环与 T12 裁决链共用）：review_results 全量
 // 替换为新轮快照（round+1）+ 节点 state=review + 编排审计。
 //
+// 出参：被复位为 reviewing 的评审位角色清单（T11 re_review 通知收件人；
+// 裁决链调用方无需消费可弃）。
+//
 // 错误集：ErrOptimisticLock（基线冲突）；底层 IO/JSON 错误经 Trace 上抛。
-func (s *ReviewService) reenterReviewRoundLocked(ctx context.Context, tx *gormio.DB, node *repo.FlowNode) error {
+func (s *ReviewService) reenterReviewRoundLocked(ctx context.Context, tx *gormio.DB, node *repo.FlowNode) ([]string, error) {
 	var entries []repo.ReviewResult
 	if err := utils.UnmarshalJSONText(node.ReviewResults, &entries); err != nil {
-		return errs.Trace(err)
+		return nil, errs.Trace(err)
 	}
 	nextRound := domain.CurrentRound(entries) + 1
 	reentered, err := domain.ReenterRoundEntries(node.Reviewers, node.ReviewResults, nextRound, repo.NowMillis())
 	if err != nil {
-		return errs.Trace(err)
+		return nil, errs.Trace(err)
 	}
 	resultsJSON, err := utils.MarshalJSONText(reentered)
 	if err != nil {
-		return errs.Trace(err)
+		return nil, errs.Trace(err)
 	}
 	updates := map[string]any{
 		"state":          repo.PhaseReview,
@@ -341,7 +393,16 @@ func (s *ReviewService) reenterReviewRoundLocked(ctx context.Context, tx *gormio
 		reviewAudit(node, "state", node.State, repo.PhaseReview, auditByWhoPlugin),
 		reviewAudit(node, "reviewResults", node.ReviewResults, resultsJSON, auditByWhoPlugin),
 	}
-	return s.applyNodeUpdates(ctx, tx, node, updates, audits)
+	if err := s.applyNodeUpdates(ctx, tx, node, updates, audits); err != nil {
+		return nil, err
+	}
+	resetRoles := make([]string, 0, len(reentered))
+	for _, entry := range reentered {
+		if entry.Round == nextRound && entry.State == repo.ReviewStateReviewing {
+			resetRoles = append(resetRoles, entry.Role)
+		}
+	}
+	return resetRoles, nil
 }
 
 // advanceApprovedNode 门禁 approved 节点推进（当前节点 gate 落定后调用）：

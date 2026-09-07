@@ -89,6 +89,7 @@ func openScratchWithThreshold(t *testing.T, escalateLoopThreshold int64) (*gin.E
 		Comments:    service.NewIssueService(r, escalateLoopThreshold),
 		Reviews:     service.NewReviewService(r),
 		Escalations: service.NewEscalationService(r),
+		Inbox:       service.NewInboxService(r),
 	})
 	return router, handles
 }

@@ -34,6 +34,8 @@ type Deps struct {
 	// Escalations 冲突上升裁决链端点（wb_escalate / wb_adjudicate）service；
 	// nil=不注册对应路由
 	Escalations EscalationAPI
+	// Inbox 收件箱端点（wb_list_inbox）service；nil=不注册对应路由
+	Inbox InboxAPI
 }
 
 // NewRouter 注册全部路由（含全局中间件）。
@@ -69,6 +71,9 @@ func NewRouter(deps *Deps) *gin.Engine {
 	}
 	if deps.Escalations != nil {
 		RegisterEscalationRoutes(api.Group("/comments"), deps.Escalations)
+	}
+	if deps.Inbox != nil {
+		RegisterInboxRoutes(api, deps.Inbox)
 	}
 	return r
 }

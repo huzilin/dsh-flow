@@ -165,13 +165,22 @@ func (s *Scanner) notifyVerdict(ctx context.Context, task *repo.Task, verdict do
 	if verdict.Action == domain.NotifKindIntervene {
 		assignee = scanAssigneeUser
 	}
-	_, err := s.notifier.Notify(ctx, NotificationInput{
+	// 归一写入口（T11 七类 Notify）：扫描器 kind 落 stall_followup/need_intervene
+	// 枚举（anchor_kind=类别）；派发者/角色保持扫描器 system 口径（T10 行为不变，
+	// 文本前缀幂等查重不变）；task 类目标 id 落 anchor_artifact_id（收件箱跳转）。
+	kind := NotificationKindStallFollowup
+	if verdict.Action == domain.NotifKindIntervene {
+		kind = NotificationKindNeedIntervene
+	}
+	_, err := s.notifier.Notify(ctx, NotificationSpec{
+		Kind:          kind,
 		RequirementID: task.RequirementID,
 		NodeID:        task.NodeID,
-		RoleID:        auditByWhoSystem,
-		Assignee:      assignee,
+		TargetID:      task.TaskID,
+		RecipientRole: assignee,
+		Sender:        auditByWhoSystem,
+		SenderRole:    auditByWhoSystem,
 		Text:          domain.ScannerNotificationText(verdict.Action, task.TaskID, verdict.IdleMillis),
-		ByWho:         auditByWhoSystem,
 	})
 	return err
 }

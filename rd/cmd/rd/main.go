@@ -66,6 +66,7 @@ func main() {
 	var taskSvc *service.TaskService
 	var issueSvc *service.IssueService
 	var escalateSvc *service.EscalationService
+	var inboxSvc *service.InboxService
 	var repoHandle *repo.Repo
 	if db.Gorm != nil {
 		repoHandle = repo.NewRepo(db.Gorm)
@@ -76,6 +77,7 @@ func main() {
 		taskSvc = service.NewTaskService(repoHandle)
 		issueSvc = service.NewIssueService(repoHandle, cfg.Escalate.LoopThreshold)
 		escalateSvc = service.NewEscalationService(repoHandle)
+		inboxSvc = service.NewInboxService(repoHandle)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
@@ -90,6 +92,7 @@ func main() {
 		Tasks:       taskSvc,
 		Comments:    issueSvc,
 		Escalations: escalateSvc,
+		Inbox:       inboxSvc,
 	})
 	srv := &http.Server{
 		Addr:    ":" + strconv.FormatInt(cfg.HTTP.Port, 10),
