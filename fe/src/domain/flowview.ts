@@ -40,6 +40,12 @@ export interface IssueReply {
   text: string;
   voided?: boolean;
   at: number;
+  /** T12 条目类型：空=普通回复 / escalation=冲突上升条目 / adjudication=仲裁裁决条目 */
+  kind?: string;
+  /** 仲裁结论（仅 kind=adjudication）：uphold | override */
+  verdict?: string;
+  /** 关联裁决 session 业务 id（kind=escalation/adjudication 携带） */
+  sessionId?: string;
 }
 
 export interface LastDecision {
@@ -197,4 +203,37 @@ export function selectionLabel(
 /** 提评者口径（confirm/reopen 操作者约束：reviewerRole 优先，缺省 author）。 */
 export function issueReviewerOf(issue: IssueItem): string {
   return issue.reviewerRole !== "" ? issue.reviewerRole : issue.author;
+}
+
+/** 反对表态的评审位（正反对照「正方」数据源：该位最新表态=unagree）。 */
+export interface UnagreeSeat {
+  role: string;
+  capabilityId: string;
+  round: number;
+  at: number;
+}
+
+/** 节点内反对中的评审位清单（同位多轮取最新一条 unagree）。 */
+export function unagreeSeatsOf(node: FlowNodeItem): UnagreeSeat[] {
+  const latest = new Map<string, UnagreeSeat>();
+  for (const r of parseReviewResults(node.reviewResults)) {
+    if (r.state !== "unagree") continue;
+    const key = `${r.role}:${r.capabilityId}`;
+    const prev = latest.get(key);
+    if (!prev || r.round > prev.round || (r.round === prev.round && r.at >= prev.at)) {
+      latest.set(key, { role: r.role, capabilityId: r.capabilityId, round: r.round, at: r.at });
+    }
+  }
+  return [...latest.values()];
+}
+
+/**
+ * rejected 拍板后的重入提示（T9 重入语义呈现——重入 UI 状态从快照相位读取）：
+ * 节点仍在 review/respond 等非 exec 相位=「已打回，等待 exec 重入」；
+ * 相位已回 exec=「已打回重入：exec 返工执行中」。
+ */
+export function rejectedReentryHint(node: FlowNodeItem): string {
+  return node.state === "exec"
+    ? "已打回重入：exec 返工执行中"
+    : "已打回，等待 exec 重入";
 }
