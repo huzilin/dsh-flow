@@ -1052,3 +1052,92 @@ message DecisionResp {
   // next_node_id approved 后前移到的节点 id（未推进/重复拍板为空串）
   string next_node_id = 6;
 }
+
+// ---------------------------------------------------------------------------
+// inbox / todo（T11：wb_list_inbox 收件箱 + TODO 投影，通知规程 v3 七类）
+// ---------------------------------------------------------------------------
+
+// ListInboxReq GET /api/inbox 入参（query 绑定）。
+message ListInboxReq {
+  // role 收件角色过滤：通知按 issues.assignee、TODO 按 tasks.role_id；空=不过滤
+  string role = 1;
+  // read_filter 已读过滤：空=全部 / unread=未读（state=open）/ read=已读，越集 400
+  string read_filter = 2;
+  // kind 通知类别筛选（七类枚举单值，见 InboxItem.kind）；空=全部
+  string kind = 3;
+  // requirement_id 按需求过滤；空=跨需求全量
+  string requirement_id = 4;
+  // page 页码，1 起；0=按 1 处理
+  int64 page = 5;
+  // page_size 页大小；0=默认 20，负值按默认处理
+  int64 page_size = 6;
+}
+
+// InboxItem 通知条目（载体=issues 行 issue_type=notification，列复用口径：
+// anchor_kind=通知类别、anchor_artifact_id=跳转目标 id、assignee=收件角色、
+// state=open 未读 / resolved 已读——设计权威 docs-tmp/ui-interaction-final.md
+// §3.1 + capability-model-final §6.8 通知规程）。
+message InboxItem {
+  // issue_id 通知行业务 id（cm-<ts>，issues 载体主键）
+  string issue_id = 1;
+  // kind 通知类别（七类枚举）：gate_pending=待你拍板 / clarify_task=澄清任务 /
+  // re_review=重新表态请求 / stall_followup=悬置催办（扫描器，触发点 T10 预留）/
+  // need_intervene=需你介入（扫描器，触发点 T10 预留）/
+  // escalation=冲突上升裁决 / session_message=会话消息（会话通道，预留枚举位）
+  string kind = 2;
+  // requirement_id 需求 id（跳转一级定位）
+  string requirement_id = 3;
+  // node_id 节点 id（跳转二级定位；空=无节点上下文）
+  string node_id = 4;
+  // target_type 跳转目标类型（由 kind 确定性映射）：node / task / issue / session
+  string target_type = 5;
+  // target_id 跳转目标业务 id（target_type 对应行 id；target_type=node 时空串，
+  // 定位取 node_id 列）
+  string target_id = 6;
+  // text 通知文案（人类可读）
+  string text = 7;
+  // sender 派发者（触发动作执行者/系统标识）
+  string sender = 8;
+  // sender_role 派发者角色；plugin 系统投递固定 plugin
+  string sender_role = 9;
+  // recipient_role 收件角色（issues.assignee 复用列）
+  string recipient_role = 10;
+  // state open=未读 / resolved=已读（已读/未读读标记口径）
+  string state = 11;
+  // created_at 派发时间，unix 毫秒
+  int64 created_at = 12;
+}
+
+// TodoItem TODO 投影条目（数据源=tasks 表该角色在途任务同源投影——
+// status NOT IN (completed/rejected/closed)，终态不残留；不双写、无独立投影表）。
+message TodoItem {
+  // task_id 任务业务 id（跳转定位）
+  string task_id = 1;
+  // requirement_id 需求 id（跳转定位）
+  string requirement_id = 2;
+  // node_id 节点 id（跳转定位）
+  string node_id = 3;
+  // action_id 动作定位
+  string action_id = 4;
+  // task_type 任务族：produce/dev/review/respond/accept/create_reqs
+  string task_type = 5;
+  // status 在途状态：todo / in-progress / awaiting-reply
+  string status = 6;
+  // goal 任务目标
+  string goal = 7;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 8;
+}
+
+// ListInboxResp GET /api/inbox 出参：通知列表 + TODO 投影同响应双通道
+// （ui-interaction-final §3「收件箱/TODO = 通知枚举 + tasks 投影」）。
+message ListInboxResp {
+  // ok 恒 true
+  bool ok = 1;
+  // notifications 通知条目（未读优先，同组内新→旧）
+  repeated InboxItem notifications = 2;
+  // total 通知筛选后总数（分页口径）
+  int64 total = 3;
+  // todos TODO 投影（该角色全部在途任务，不参与通知分页）
+  repeated TodoItem todos = 4;
+}

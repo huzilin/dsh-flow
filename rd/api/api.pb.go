@@ -5575,6 +5575,433 @@ func (x *DecisionResp) GetNextNodeId() string {
 	return ""
 }
 
+// ListInboxReq GET /api/inbox 入参（query 绑定）。
+type ListInboxReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// role 收件角色过滤：通知按 issues.assignee、TODO 按 tasks.role_id；空=不过滤
+	Role string `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
+	// read_filter 已读过滤：空=全部 / unread=未读（state=open）/ read=已读，越集 400
+	ReadFilter string `protobuf:"bytes,2,opt,name=read_filter,json=readFilter,proto3" json:"read_filter,omitempty"`
+	// kind 通知类别筛选（七类枚举单值，见 InboxItem.kind）；空=全部
+	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	// requirement_id 按需求过滤；空=跨需求全量
+	RequirementId string `protobuf:"bytes,4,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// page 页码，1 起；0=按 1 处理
+	Page int64 `protobuf:"varint,5,opt,name=page,proto3" json:"page,omitempty"`
+	// page_size 页大小；0=默认 20，负值按默认处理
+	PageSize      int64 `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInboxReq) Reset() {
+	*x = ListInboxReq{}
+	mi := &file_api_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInboxReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInboxReq) ProtoMessage() {}
+
+func (x *ListInboxReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInboxReq.ProtoReflect.Descriptor instead.
+func (*ListInboxReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *ListInboxReq) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *ListInboxReq) GetReadFilter() string {
+	if x != nil {
+		return x.ReadFilter
+	}
+	return ""
+}
+
+func (x *ListInboxReq) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ListInboxReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *ListInboxReq) GetPage() int64 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListInboxReq) GetPageSize() int64 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+// InboxItem 通知条目（载体=issues 行 issue_type=notification，列复用口径：
+// anchor_kind=通知类别、anchor_artifact_id=跳转目标 id、assignee=收件角色、
+// state=open 未读 / resolved 已读——设计权威 docs-tmp/ui-interaction-final.md
+// §3.1 + capability-model-final §6.8 通知规程）。
+type InboxItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// issue_id 通知行业务 id（cm-<ts>，issues 载体主键）
+	IssueId string `protobuf:"bytes,1,opt,name=issue_id,json=issueId,proto3" json:"issue_id,omitempty"`
+	// kind 通知类别（七类枚举）：gate_pending=待你拍板 / clarify_task=澄清任务 /
+	// re_review=重新表态请求 / stall_followup=悬置催办（扫描器，触发点 T10 预留）/
+	// need_intervene=需你介入（扫描器，触发点 T10 预留）/
+	// escalation=冲突上升裁决 / session_message=会话消息（会话通道，预留枚举位）
+	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	// requirement_id 需求 id（跳转一级定位）
+	RequirementId string `protobuf:"bytes,3,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 节点 id（跳转二级定位；空=无节点上下文）
+	NodeId string `protobuf:"bytes,4,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// target_type 跳转目标类型（由 kind 确定性映射）：node / task / issue / session
+	TargetType string `protobuf:"bytes,5,opt,name=target_type,json=targetType,proto3" json:"target_type,omitempty"`
+	// target_id 跳转目标业务 id（target_type 对应行 id；target_type=node 时空串，
+	// 定位取 node_id 列）
+	TargetId string `protobuf:"bytes,6,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
+	// text 通知文案（人类可读）
+	Text string `protobuf:"bytes,7,opt,name=text,proto3" json:"text,omitempty"`
+	// sender 派发者（触发动作执行者/系统标识）
+	Sender string `protobuf:"bytes,8,opt,name=sender,proto3" json:"sender,omitempty"`
+	// sender_role 派发者角色；plugin 系统投递固定 plugin
+	SenderRole string `protobuf:"bytes,9,opt,name=sender_role,json=senderRole,proto3" json:"sender_role,omitempty"`
+	// recipient_role 收件角色（issues.assignee 复用列）
+	RecipientRole string `protobuf:"bytes,10,opt,name=recipient_role,json=recipientRole,proto3" json:"recipient_role,omitempty"`
+	// state open=未读 / resolved=已读（已读/未读读标记口径）
+	State string `protobuf:"bytes,11,opt,name=state,proto3" json:"state,omitempty"`
+	// created_at 派发时间，unix 毫秒
+	CreatedAt     int64 `protobuf:"varint,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InboxItem) Reset() {
+	*x = InboxItem{}
+	mi := &file_api_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InboxItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InboxItem) ProtoMessage() {}
+
+func (x *InboxItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InboxItem.ProtoReflect.Descriptor instead.
+func (*InboxItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *InboxItem) GetIssueId() string {
+	if x != nil {
+		return x.IssueId
+	}
+	return ""
+}
+
+func (x *InboxItem) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *InboxItem) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *InboxItem) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *InboxItem) GetTargetType() string {
+	if x != nil {
+		return x.TargetType
+	}
+	return ""
+}
+
+func (x *InboxItem) GetTargetId() string {
+	if x != nil {
+		return x.TargetId
+	}
+	return ""
+}
+
+func (x *InboxItem) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *InboxItem) GetSender() string {
+	if x != nil {
+		return x.Sender
+	}
+	return ""
+}
+
+func (x *InboxItem) GetSenderRole() string {
+	if x != nil {
+		return x.SenderRole
+	}
+	return ""
+}
+
+func (x *InboxItem) GetRecipientRole() string {
+	if x != nil {
+		return x.RecipientRole
+	}
+	return ""
+}
+
+func (x *InboxItem) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *InboxItem) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+// TodoItem TODO 投影条目（数据源=tasks 表该角色在途任务同源投影——
+// status NOT IN (completed/rejected/closed)，终态不残留；不双写、无独立投影表）。
+type TodoItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// task_id 任务业务 id（跳转定位）
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// requirement_id 需求 id（跳转定位）
+	RequirementId string `protobuf:"bytes,2,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 节点 id（跳转定位）
+	NodeId string `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// action_id 动作定位
+	ActionId string `protobuf:"bytes,4,opt,name=action_id,json=actionId,proto3" json:"action_id,omitempty"`
+	// task_type 任务族：produce/dev/review/respond/accept/create_reqs
+	TaskType string `protobuf:"bytes,5,opt,name=task_type,json=taskType,proto3" json:"task_type,omitempty"`
+	// status 在途状态：todo / in-progress / awaiting-reply
+	Status string `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	// goal 任务目标
+	Goal string `protobuf:"bytes,7,opt,name=goal,proto3" json:"goal,omitempty"`
+	// created_at 创建时间，unix 毫秒
+	CreatedAt     int64 `protobuf:"varint,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TodoItem) Reset() {
+	*x = TodoItem{}
+	mi := &file_api_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TodoItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TodoItem) ProtoMessage() {}
+
+func (x *TodoItem) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TodoItem.ProtoReflect.Descriptor instead.
+func (*TodoItem) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *TodoItem) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TodoItem) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *TodoItem) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *TodoItem) GetActionId() string {
+	if x != nil {
+		return x.ActionId
+	}
+	return ""
+}
+
+func (x *TodoItem) GetTaskType() string {
+	if x != nil {
+		return x.TaskType
+	}
+	return ""
+}
+
+func (x *TodoItem) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TodoItem) GetGoal() string {
+	if x != nil {
+		return x.Goal
+	}
+	return ""
+}
+
+func (x *TodoItem) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+// ListInboxResp GET /api/inbox 出参：通知列表 + TODO 投影同响应双通道
+// （ui-interaction-final §3「收件箱/TODO = 通知枚举 + tasks 投影」）。
+type ListInboxResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// notifications 通知条目（未读优先，同组内新→旧）
+	Notifications []*InboxItem `protobuf:"bytes,2,rep,name=notifications,proto3" json:"notifications,omitempty"`
+	// total 通知筛选后总数（分页口径）
+	Total int64 `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	// todos TODO 投影（该角色全部在途任务，不参与通知分页）
+	Todos         []*TodoItem `protobuf:"bytes,4,rep,name=todos,proto3" json:"todos,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInboxResp) Reset() {
+	*x = ListInboxResp{}
+	mi := &file_api_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInboxResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInboxResp) ProtoMessage() {}
+
+func (x *ListInboxResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInboxResp.ProtoReflect.Descriptor instead.
+func (*ListInboxResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *ListInboxResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *ListInboxResp) GetNotifications() []*InboxItem {
+	if x != nil {
+		return x.Notifications
+	}
+	return nil
+}
+
+func (x *ListInboxResp) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListInboxResp) GetTodos() []*TodoItem {
+	if x != nil {
+		return x.Todos
+	}
+	return nil
+}
+
 var File_api_proto protoreflect.FileDescriptor
 
 const file_api_proto_rawDesc = "" +
@@ -6065,7 +6492,47 @@ const file_api_proto_rawDesc = "" +
 	"\x04noop\x18\x04 \x01(\bR\x04noop\x12#\n" +
 	"\rlast_decision\x18\x05 \x01(\tR\flastDecision\x12 \n" +
 	"\fnext_node_id\x18\x06 \x01(\tR\n" +
-	"nextNodeIdB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
+	"nextNodeId\"\xaf\x01\n" +
+	"\fListInboxReq\x12\x12\n" +
+	"\x04role\x18\x01 \x01(\tR\x04role\x12\x1f\n" +
+	"\vread_filter\x18\x02 \x01(\tR\n" +
+	"readFilter\x12\x12\n" +
+	"\x04kind\x18\x03 \x01(\tR\x04kind\x12%\n" +
+	"\x0erequirement_id\x18\x04 \x01(\tR\rrequirementId\x12\x12\n" +
+	"\x04page\x18\x05 \x01(\x03R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x06 \x01(\x03R\bpageSize\"\xe1\x02\n" +
+	"\tInboxItem\x12\x19\n" +
+	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12%\n" +
+	"\x0erequirement_id\x18\x03 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x04 \x01(\tR\x06nodeId\x12\x1f\n" +
+	"\vtarget_type\x18\x05 \x01(\tR\n" +
+	"targetType\x12\x1b\n" +
+	"\ttarget_id\x18\x06 \x01(\tR\btargetId\x12\x12\n" +
+	"\x04text\x18\a \x01(\tR\x04text\x12\x16\n" +
+	"\x06sender\x18\b \x01(\tR\x06sender\x12\x1f\n" +
+	"\vsender_role\x18\t \x01(\tR\n" +
+	"senderRole\x12%\n" +
+	"\x0erecipient_role\x18\n" +
+	" \x01(\tR\rrecipientRole\x12\x14\n" +
+	"\x05state\x18\v \x01(\tR\x05state\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\f \x01(\x03R\tcreatedAt\"\xe8\x01\n" +
+	"\bTodoItem\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12%\n" +
+	"\x0erequirement_id\x18\x02 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x03 \x01(\tR\x06nodeId\x12\x1b\n" +
+	"\taction_id\x18\x04 \x01(\tR\bactionId\x12\x1b\n" +
+	"\ttask_type\x18\x05 \x01(\tR\btaskType\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x12\n" +
+	"\x04goal\x18\a \x01(\tR\x04goal\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\b \x01(\x03R\tcreatedAt\"\xa4\x01\n" +
+	"\rListInboxResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12>\n" +
+	"\rnotifications\x18\x02 \x03(\v2\x18.wbflow.api.v1.InboxItemR\rnotifications\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x03R\x05total\x12-\n" +
+	"\x05todos\x18\x04 \x03(\v2\x17.wbflow.api.v1.TodoItemR\x05todosB&Z$github.com/huzilin/wbflow/rd/api;apib\x06proto3"
 
 var (
 	file_api_proto_rawDescOnce sync.Once
@@ -6079,7 +6546,7 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 65)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_api_proto_goTypes = []any{
 	(*ErrorResp)(nil),              // 0: wbflow.api.v1.ErrorResp
 	(*ListRequirementsReq)(nil),    // 1: wbflow.api.v1.ListRequirementsReq
@@ -6146,6 +6613,10 @@ var file_api_proto_goTypes = []any{
 	(*ReviewResp)(nil),             // 62: wbflow.api.v1.ReviewResp
 	(*DecisionReq)(nil),            // 63: wbflow.api.v1.DecisionReq
 	(*DecisionResp)(nil),           // 64: wbflow.api.v1.DecisionResp
+	(*ListInboxReq)(nil),           // 65: wbflow.api.v1.ListInboxReq
+	(*InboxItem)(nil),              // 66: wbflow.api.v1.InboxItem
+	(*TodoItem)(nil),               // 67: wbflow.api.v1.TodoItem
+	(*ListInboxResp)(nil),          // 68: wbflow.api.v1.ListInboxResp
 }
 var file_api_proto_depIdxs = []int32{
 	2,  // 0: wbflow.api.v1.ListRequirementsResp.items:type_name -> wbflow.api.v1.RequirementItem
@@ -6182,11 +6653,13 @@ var file_api_proto_depIdxs = []int32{
 	7,  // 31: wbflow.api.v1.AddArtifactResp.artifact:type_name -> wbflow.api.v1.ArtifactItem
 	56, // 32: wbflow.api.v1.AssignTaskResp.task:type_name -> wbflow.api.v1.TaskItem
 	56, // 33: wbflow.api.v1.TaskUpdateResp.task:type_name -> wbflow.api.v1.TaskItem
-	34, // [34:34] is the sub-list for method output_type
-	34, // [34:34] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	66, // 34: wbflow.api.v1.ListInboxResp.notifications:type_name -> wbflow.api.v1.InboxItem
+	67, // 35: wbflow.api.v1.ListInboxResp.todos:type_name -> wbflow.api.v1.TodoItem
+	36, // [36:36] is the sub-list for method output_type
+	36, // [36:36] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -6200,7 +6673,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   65,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
