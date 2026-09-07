@@ -64,6 +64,7 @@ func main() {
 	var artSvc *service.ArtifactService
 	var taskSvc *service.TaskService
 	var issueSvc *service.IssueService
+	var escalateSvc *service.EscalationService
 	if db.Gorm != nil {
 		r := repo.NewRepo(db.Gorm)
 		reqSvc = service.NewRequirementService(r)
@@ -71,20 +72,22 @@ func main() {
 		flowSvc = service.NewFlowService(r)
 		artSvc = service.NewArtifactService(r, cfg.Artifacts.DocsRoot)
 		taskSvc = service.NewTaskService(r)
-		issueSvc = service.NewIssueService(r)
+		issueSvc = service.NewIssueService(r, cfg.Escalate.LoopThreshold)
+		escalateSvc = service.NewEscalationService(r)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
 	router := handler.NewRouter(&handler.Deps{
-		Logger:    lg,
-		Health:    service.NewHealth(db),
-		Token:     cfg.Auth.Token,
-		Reqs:      reqSvc,
-		Vers:      verSvc,
-		Flows:     flowSvc,
-		Artifacts: artSvc,
-		Tasks:     taskSvc,
-		Comments:  issueSvc,
+		Logger:      lg,
+		Health:      service.NewHealth(db),
+		Token:       cfg.Auth.Token,
+		Reqs:        reqSvc,
+		Vers:        verSvc,
+		Flows:       flowSvc,
+		Artifacts:   artSvc,
+		Tasks:       taskSvc,
+		Comments:    issueSvc,
+		Escalations: escalateSvc,
 	})
 	srv := &http.Server{
 		Addr:    ":" + strconv.FormatInt(cfg.HTTP.Port, 10),

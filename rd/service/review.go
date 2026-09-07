@@ -297,7 +297,10 @@ func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.
 // owner 澄清完成（该角色该节点 open issue 清零）→ review 重入新轮（collect 三段③
 // 再收票）——节点 state=respond → review，review_results 全量替换为新轮快照
 // （agree 携结论进新轮、unagree 复位 reviewing，domain.ReenterRoundEntries）。
-// 非 respond 相位幂等 no-op（重复 complete/失配无害）。通知派发移出事务——T11 接线。
+// T12 扩展：review 相位同构放行（冲突上升裁决后 wb_adjudicate 直触 reviewer
+// 重表态，不经 owner complete 判据——capability-model-final §6 rule6「正常判据链
+// 恢复」）；其余相位幂等 no-op（重复 complete/失配无害）。
+// 通知派发移出事务——T11 接线。
 //
 // 错误集：ErrOptimisticLock（基线冲突）；底层 IO/JSON 错误经 Trace 上抛。
 func (s *ReviewService) ReenterReviewRoundTx(ctx context.Context, tx *gormio.DB, requirementID string, nodeID string) error {
@@ -305,9 +308,18 @@ func (s *ReviewService) ReenterReviewRoundTx(ctx context.Context, tx *gormio.DB,
 	if err != nil {
 		return err
 	}
-	if node == nil || node.State != repo.PhaseRespond {
+	if node == nil || (node.State != repo.PhaseRespond && node.State != repo.PhaseReview) {
 		return nil
 	}
+	return s.reenterReviewRoundLocked(ctx, tx, node)
+}
+
+// reenterReviewRoundLocked 评审轮重入核（调用方持有节点行锁与相位守卫——
+// respond/review 双相位，T5 澄清循环与 T12 裁决链共用）：review_results 全量
+// 替换为新轮快照（round+1）+ 节点 state=review + 编排审计。
+//
+// 错误集：ErrOptimisticLock（基线冲突）；底层 IO/JSON 错误经 Trace 上抛。
+func (s *ReviewService) reenterReviewRoundLocked(ctx context.Context, tx *gormio.DB, node *repo.FlowNode) error {
 	var entries []repo.ReviewResult
 	if err := utils.UnmarshalJSONText(node.ReviewResults, &entries); err != nil {
 		return errs.Trace(err)
