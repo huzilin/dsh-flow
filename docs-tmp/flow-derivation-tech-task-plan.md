@@ -173,15 +173,13 @@ node_type: gate | gate: 1 | user_gate: 1 | reviewers: []
 
 ---
 
-## 2. task 任务流程（8 节点）
+## 2. task 任务流程（7 节点，无 QA 验收）
 
 ```
-C0 待启动 → C1 需求对齐 → C2 技术设计 → C3 技术评审 → C4 开发 → C5 QA验收 → C6 用户验收 → C7 完成
+C0 待启动 → C1 需求对齐 → C2 技术设计 → C3 技术评审 → C4 开发 → C6 用户验收 → C7 完成
 ```
 
-> **task scope：三值 {full, rd, fe}**（2026-09-07 用户二次裁决：修 bug 类 task 可能双侧+联调——**统一三开发流程逻辑：QA 验收节点都按 scope 动态渲染联调**，scope_options={full, rd, fe}；上轮「C5 不渲染」推演撤销）。
-> - **full**：C4 双执行者（backend-dev + frontend-dev 都激活，各修各侧缺陷）；C5 渲染（联调+QA 验收）；C6 会话绑定 qa
-> - **rd / fe 单侧**：C4 单执行者；C5 不渲染（无联调）；C6 会话绑定对应开发执行者（报障直连）
+> **task scope：二值 {rd, fe}——无 full、无 QA 节点**（2026-09-07 用户最终裁决：保持指定单个开发者的诉求，task 无联调场景 → **去掉测试节点**——C5 删除，流程 8→7 节点：C0→C1→C2→C3→C4→C6→C7；报障经 C6 会话通道直连开发执行者）。【历史留痕：中间曾有 full 双执行者+C5 联调方案，用户回滚】
 
 ### C0 待启动
 
@@ -242,54 +240,36 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {arch: arch.rd-design-
 ### C4 开发（内嵌 CR——节点内评审异化）
 
 ```yaml
-node_type: produce | gate: 1 | user_gate: 0 | reviewers: [ {cr: code-review} ]   # 单节点无并行组；full=双执行者（backend-dev+frontend-dev 各修各侧）
+node_type: produce | gate: 1 | user_gate: 0 | reviewers: [ {cr: code-review} ]   # 单分支单执行者（by scope）
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry | ——跳过 | —— | —— | —— |
-| exec 首次 | backend-dev.dev / frontend-dev.dev（单侧=by scope；**full=双执行者各修各侧缺陷**） | implement-techdesign | 执行者 | 完成上报+判据（提评登记内联）→ plugin 轮转 → review |
-| exec 重入 | backend-dev / frontend-dev.diagnosing-bugs | diagnosing-bugs | 执行者 | 完成上报+校验（按 C5 rejected 返工）→ 重新提评 |
+| exec 首次 | backend-dev.dev 或 frontend-dev.dev（by scope） | implement-techdesign | 执行者 | 完成上报+判据（提评登记内联）→ plugin 轮转 → review |
+| exec 重入 | backend-dev / frontend-dev.diagnosing-bugs | diagnosing-bugs | 执行者 | 完成上报+校验（按 C6 rejected 报障返工）→ 重新提评 |
 | review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill | cr | barrier（单位立即）→ 有 open → clarifying；无 → agreed |
 | respond | backend-dev / frontend-dev.fix_on_review（**只响应 CR，不做澄清**） | inline | 执行者 | 全 resolve → confirming |
 
 **reviewState 轮转**：collecting → clarifying → confirming → [循环] → agreed → 裁决。
-**裁决（机械）**：**无 rejected 出口**——agreed → approved → C5。
-**回退进入**：C5 rejected → plugin 回退本节点 → exec 重入。
+**裁决（机械）**：**无 rejected 出口**——agreed → approved → C6 用户验收。
+**回退进入**：C6 rejected（报障）→ plugin 回退本节点 → exec 重入。
 **产物**：dev_notes, code_mr。
-
-### C5 QA 验收
-
-```yaml
-node_type: produce | gate: 1 | user_gate: 0 | reviewers: []   # qa 不自审
-```
-
-| state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
-|---|---|---|---|---|
-| entry | ——跳过 | —— | —— | —— |
-| exec 首次 | acceptance-test.accept | qa-acceptance | qa | 完成上报+判据 → respond |
-| exec 重入 | acceptance-test.retest（复验重测） | inline：「针对重新提测的代码重新执行测试→核对是否修复→更新 defect 文档（已解决标记/新增缺陷登记并分派）」 | qa | 完成上报+校验 → respond 重开 |
-| review | ——跳过（无评审位） | —— | —— | —— |
-| respond | backend-dev.clarify / frontend-dev.clarify（执行者 缺陷确认/归属争议——跨节点路由，按 assignee 分派；修复在 C4 exec 重入） | inline | 执行者 | 全 resolve → confirming（qa 复核）→ agreed |
-
-**reviewState 轮转**：'-' → clarifying → confirming → agreed → 裁决。
-**裁决（机械）**：无 reject 争议残留 → approved（迁移 C6）；真缺陷残留 → rejected → 回退 C4 exec 重入。
-**产物**：test_result, defect。
 
 ### C6 用户验收
 
 ```yaml
 node_type: gate | gate: 1 | user_gate: 1 | reviewers: []
-# 会话通道绑定按 scope 动态：full=qa / 单侧（fe-only=fe、rd-only=rd）（同 business 节点 11）
+# 会话通道绑定=开发执行者（by scope：rd-only=rd / fe-only=fe）——报障直连，无 QA 中转
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
-| entry | 会话通道迎宾呈现（绑定角色按 scope 动态） | 开场白模板 | 响应者=绑定角色 | User 终拍板 |
+| entry | 会话通道迎宾呈现（绑定开发执行者） | 开场白模板（绑定配置） | 响应者=执行者 | User 终拍板 |
 | exec / review / respond | ——跳过（门禁类） | —— | —— | —— |
 
 **reviewState**: 恒 '-'。
-**裁决**：approve → C7；rejected 路由按 scope：full → C5 exec 重入（retest）/ 单侧 → C4 exec 重入（diagnosing-bugs）。
+**裁决**：approve → C7；rejected（报障经执行者澄清确认）→ plugin 回退 C4 exec 重入（diagnosing-bugs）。
 
 ### C7 完成：DONE 占位。
 
@@ -441,7 +421,7 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 | research-review-arch | — | — | — | D4 |
 | architecture-review-pm | — | — | — | D6 |
 | code-review | 节点 8/9 | B8a/B8b | C4 | — |
-| acceptance-test | 节点 10 | B9 | C5 | — |
+| acceptance-test | 节点 10 | B9 | —（task 无 QA 节点） | — |
 | decide-cap | ——（join=plugin） | —— | — | D7(create_reqs, leader 直执行) |
 | ~~final-approve~~ | 退役（user_gate 取代） | | | |
 
@@ -464,8 +444,8 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 **结论：无结构性缺漏；一项待拍板遗留。**
 
 1. **全动作覆盖**：16 能力 × 3 流程逐一落位（§4 矩阵）。
-2. **正反成对**：三流程全部评审轮 rejected→回退路径落位（B3→B2、B5→B4、C3→C2、D2→D1、D4→D3、D6→D5、B9→B8a/B8b、C5→C4）；escalate 全局规则兜底轮内不收敛。
-3. **自审禁令全量核验（零残留）**：B3（无 rd ✓）、C3（arch 评 executor 的 plan ✓）、D2（pm 评 arch 的 alignment ✓）、D4（arch 评 inv 的 research ✓）、B9/C5（无 qa 位 ✓）。
+2. **正反成对**：全部评审轮 rejected→回退路径落位（B3→B2、B5→B4、C3→C2、D2→D1、D4→D3、D6→D5、B9→B8a/B8b；task 无 QA 节点——C6 报障→C4 exec 重入）；escalate 全局规则兜底轮内不收敛。
+3. **自审禁令全量核验（零残留）**：B3（无 rd ✓）、D2（pm 评 arch 的 alignment ✓）、D4（arch 评 inv 的 research ✓）、B9（无 qa 位 ✓）；task 无 QA 节点（C5 已删）。
 4. **机械/拍板分工跨流程一致**：单专业评审位（B5 qa、D4 arch）→机械；多评审位含方向确认（B3、C3、D2、D6）→User 拍板。
 5. **state 单列完整性**：每节点 4 相位逐一列出（含跳过标注）；reviewState 轮转逐节点标注（恒 '-' 或完整链）。
 6. **已知取舍落盘**：tech brd 无评审；task C1 无产物（C2 基础=简单描述）；D7 leader 直执行完成判据=数据落库。
