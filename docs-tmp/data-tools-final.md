@@ -1,8 +1,8 @@
 # MVP 数据层 + 工具清单定稿（data-tools-final）
 
 > **状态**：2026-09-05 工单 07 产出定稿。模型权威=`capability-model-final.md` v3（两层属性状态机）；节点配置=business-flow-derivation.md v3；动作挂载=capability-actions-final.md。
-> **本文回答工单 07 三问**：①sqlite schema 调整清单（v0.29 增量，对照现 11 表）；②wb_* 工具清单终稿（22→**23**）；③seed.json 演进路径（直接重写）。
-> **全量结论输入**：工单 03 v3 模型（相位 4 值/reviewState 7 值/双轨评审/推进契约）+ 缺漏审查 8 项裁决（#2 decide 退役、#5 扫描器参数、#6 幂等、#8 gate 语义）。
+> **本文回答工单 07 三问**：①sqlite schema 调整清单（v0.29 增量，对照现 11 表）；②wb_* 工具清单终稿（22→**22**）；③seed.json 演进路径（直接重写）。
+> **全量结论输入**：工单 03 v3 模型（相位 4 值/per-agent 评审轮 reviewState 三态/双轨评审/推进契约）+ 缺漏审查 8 项裁决（#2 decide 退役、#5 扫描器参数、#6 幂等、#8 gate 语义）。
 
 ---
 
@@ -24,7 +24,7 @@
 - 新增：`inputs` TEXT NOT NULL DEFAULT '[]'（JSON: [{productType, use_threads}]，use_threads 默认 true）
 - 新增：`actions` TEXT NOT NULL DEFAULT '[]'（JSON: [{action_id, name, on, skill?, inline?, outputProductTypes}]）
 - `products` 保留（模板外置真相源）
-- 能力集合：**17**（19 − case-design-cap − final-approve；decide-cap 保留收缩为 create_reqs 单动作）
+- 能力集合：**21 活跃**（原 24：−case-design-cap/plan-cap/alignment-cap/final-approve + **对象化评审能力 11**：prd-review×3、rd-design-review×4、fe-design-review×2、plan/alignment/research/architecture-review×4 中存活 2……明细见 capability-actions-final §2；decide-cap 收缩为 create_reqs 单动作）
 
 **roles**：不变。
 
@@ -39,7 +39,7 @@
   `{kind:'capability', capability_id, actions:[action_id…]}` = 节点动作激活清单；
   `{kind:'node', action_id, on, executor:'program'|'subagent', executor_role?, skill?|inline?}` = node action（开场白/to-brd））
 - `scope` = **渲染集合表达式**（2026-09-07 用户裁定，取代单值枚举）：''=any（任何 scope 渲染）｜'rd|full'=rd 侧节点（full 与 rd 需求渲染）｜'fe|full'=fe 侧节点｜'full'=仅 full（QA 验收=联调职责）｜'rd|fe'=task 全渲染（task 无 full）。需求 scope 三值 {full, rd, fe}（术语统一 be→rd）；实例化时按表达式 ∩ requirement.scope 判定渲染。scope_options：business/tech={full, rd, fe}（QA 验收=联调职责，动态渲染）、task={rd, fe}（单执行者无联调，无 QA 节点）、plan=无 scope
-- `reviewers` 保留 [{role, capability_id, scope?}]（审批 skills map 派生源）；**运行时实例（flow_nodes.reviewers）条目扩展表态字段**：`verdict: {round, result: 'agree'|'unagree', at, note?}`（2026-09-07 表态三值：未表态/unagree/agree——pass/reject 不作为表态值，具体问题用 open 工单表达）——collect = 纯 全表态（实时判据） 等待（无状态机）：全表态即推进；历史轮表态由 audit_log 回放（wb_review 全落审计），不加新表；表态与意见分离（意见=issues 线程，表态=结构化 verdict）
+- `reviewers` 保留 [{role, capability_id, scope?}]（审批 skills map 派生源，静态声明）；**运行时表态结果统一落 `flow_nodes.review_results` 单 JSON 字段**（见下）——collect 反复更新与读取；表态与意见分离（意见=issues 线程，表态=结构化结果）；历史轮表态由 audit_log 回放
 - 删除：用例设计/用例设计评审两行（qa 职责重定义）；修正旧残留（plan 拆分拓扑 gate 值、tech/task 需求对齐 gate 统一为 1——有 User 判定即 gate=1）
 - `expected_outputs` 保留
 
@@ -50,7 +50,7 @@
 
 **flow_nodes（实例节点）**：
 - 新增：**`def_node_id`** TEXT NOT NULL（引用 flow_def_nodes.template_node_id——工单 02 裁决的「定义节点关联」，随更名定名）
-- 新增：**`review_results`** TEXT NOT NULL DEFAULT '[]'（**单一 JSON 字段记录全部 review agent 的结果**：[{role, capability_id, state: 'reviewing'|'agree'|'unagree', round, at}]）——collect 反复更新（agent 上报时写入）与读取（实时判推进：全非 reviewing 且全 agree → approved）；**取代节点级 review_state 列与 per-entry verdict 散存**（静态声明仍在 flow_def_nodes.reviewers）
+- 新增：**`review_results`** TEXT NOT NULL DEFAULT '[]'（**单一 JSON 字段记录全部 review agent 的结果**：[{role, capability_id, state: 'reviewing'|'agree'|'unagree', round, at}]）——collect 反复更新（agent 上报 agree/unagree 时写入）与读取（实时判推进：全非 reviewing 且全 agree → approved）；**取代节点级 review_state 列**（per-agent 态即此字段，静态声明仍在 flow_def_nodes.reviewers）
 - 门禁状态（2026-09-07）：approved / rejected = **gate 裁决结果**，由既有 `last_decision` 承载（''=未判定）；reviewState 不含裁决
 - 新增：**`reopen_source`** TEXT NOT NULL DEFAULT ''（'' / upstream-reject / downstream-reject / rework-return——plugin 回退时写入，重入配置与上下文注入依据）
 - `state` 白名单收窄：''（未进入编排，无占位）/ entry / exec / review / respond（可配动作相位 4 值）
@@ -116,18 +116,18 @@ CREATE TABLE sessions (
 
 ---
 
-## 2. wb_* 工具契约（22 → 23）
+## 2. wb_* 工具契约（22 → 22）
 
 **变更总览**：+wb_assign_task、+wb_task_update；−wb_decide（裁决=plugin 内置轮转 + User 拍板 UI→service，agent 无调用场景；pass/reject/targetBranch 语义保留在 service 层）；升级 wb_my_task；参数扩展 wb_add_artifact / wb_resolve / wb_reopen。
 
-### 2.1 清单（23）
+### 2.1 清单（22）
 
 | 组 | 工具 | 变更 |
 |---|---|---|
 | 读（5） | wb_list_requirements / wb_list_versions / wb_get_requirement / wb_get_artifact_content / **wb_my_task** | my_task 升级（见 2.2） |
 | 需求（3） | wb_create_requirement / wb_update_requirement / wb_delete_requirement⚠️ | 不变（create_reqs 由 leader 直执行逐条调用） |
 | 版本（4） | wb_create_version / wb_update_version / wb_advance_version / wb_deprecate_version⚠️ | 不变 |
-| 评论/评审（4） | wb_comment / wb_reply / **wb_resolve(+escalate?)** / wb_override⚠️ | escalate 参数新增；**wb_decide 移出 agent 清单**（service 层保留语义） |
+| 评论/评审（3） | wb_comment / wb_reply / **wb_resolve(+escalate?)** | escalate 参数新增；**wb_decide / wb_override 移出 agent 清单**（decide=plugin 内置+User 拍板 UI；override=escalate 冲突响应取代；语义均保留 service 层） |
 | 评审表态（3） | **wb_review / wb_confirm_review / wb_reopen(+escalate?)** | wb_review 契约见 2.2；reopen 增 escalate |
 | 产物（1） | **wb_add_artifact(+product_type)** | 枚举校验 |
 | 任务（2，新增） | **wb_assign_task / wb_task_update** | 见 2.2 |
@@ -140,7 +140,7 @@ CREATE TABLE sessions (
 - 返回：
 ```jsonc
 {
-  requirement: {…摘要}, node: {node_id, node_type, state, review_state},
+  requirement: {…摘要}, node: {node_id, node_type, state, review_results 摘要},
   currentPhase,                     // 当前相位（=state）
   activeActions: [                  // 按节点激活清单 + 当前相位过滤
     { action_id, name, on, skill|inline, 上下文: {产物引用, 意见清单, 打回清单} }
@@ -162,10 +162,10 @@ CREATE TABLE sessions (
 - 幂等：重复 complete 无害（判据幂等）。
 
 **wb_review（表态落库——collect 全表态（实时判据） 数据源）**
-- 入参：`{reqId, nodeId, verdict: 'pass'|'block'}`
-- 语义：写当前轮 `flow_nodes.reviewers[].verdict`（`{round, result, at, note?}`）。
+- 入参：`{reqId, nodeId, verdict: 'agree'|'unagree'}`
+- 语义：agent 自判上报 agree/unagree（plugin 不判 open 工单），写入 `flow_nodes.review_results`（`{role, capability_id, state, round, at}`）。
 - 幂等：同轮同角色覆写取最后。
-- 全表态（实时判据） 判据：全部评审位 `verdict.round == rolled_back_count` 且非空 → reviewState reviewing 迁移（有 open 意见 → clarifying；无 → agreed）。
+- collect 读取（实时判据）：全部评审位 `state != reviewing` 且 `round == rolled_back_count` → 判定（全 agree → approved / 有 unagree → owner 澄清循环）。
 - **表态与意见分离**：意见=issues 线程（wb_comment）；表态=reviewers[].verdict（结构化判定）；历史轮表态由 audit_log 回放（不加新表）。
 
 **wb_resolve / wb_reopen（参数扩展）**
@@ -179,8 +179,8 @@ CREATE TABLE sessions (
 
 理由：v3 为结构性变更（表更名+列语义替换+拓扑修正），demo 数据量小，增量迁移脚本成本高于重写。
 
-1. **capabilities**：17 能力按 `{inputs, actions}` 重写（挂载映射见 capability-actions-final §1/§2；decide-cap=create_reqs 单动作；final-approve 移除）。
-2. **flow_defs / flow_def_nodes**：4 流程按 business v3 配置 + flow-derivation-tech-task-plan（tech 11 / task 8 / plan 9）逐节点全配（node_type/gate/user_gate/reviewers/node_actions/def_node_id）；修正旧残留：用例两节点删除、plan 拆分拓扑 gate 修正、tech/task 对齐 gate=1 统一。
+1. **capabilities**：21 活跃能力按 `{inputs, actions}` 重写（挂载映射见 capability-actions-final §1/§2；decide-cap=create_reqs 单动作；final-approve 移除）。
+2. **flow_defs / flow_def_nodes**：4 流程按 business v3 配置 + flow-derivation-tech-task-plan（tech 11 / task 7 / plan 9）逐节点全配（node_type/gate/user_gate/reviewers/node_actions/def_node_id）；修正旧残留：用例两节点删除、plan 拆分拓扑 gate 修正、tech/task 对齐 gate=1 统一。
 3. **flow_nodes / tasks / artifacts / issues**：按新列语义重生成 demo 数据。
 4. **gen_flow_rows.py**：按 v3 配置重写（保持脚本化恢复产物原则；旧版归档）。
 5. **seed.sql / workbench.db**：v0.29 建库 + 重新导入。
@@ -190,7 +190,7 @@ CREATE TABLE sessions (
 ## 4. 工单 07 关口核对
 
 - [x] schema 调整清单（对照 11 表逐表 delta + sessions 新表 + project registry 边界）
-- [x] wb_* 工具清单终稿（23 个，含 my_task 升级契约与幂等声明）
+- [x] wb_* 工具清单终稿（22 个：+assign_task/task_update，−decide/override；含 my_task 升级契约与幂等声明）
 - [x] seed.json 演进路径（直接重写 + 生成脚本改造）
 - [x] 扫描器参数表（#5：5min 催办 / 10min user 介入）
 - [ ] 关闭动作：地图更新 + semantica 溯源 → 解锁工单 08（交互层）
