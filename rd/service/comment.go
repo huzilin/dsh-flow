@@ -23,11 +23,13 @@ import (
 // IssueService 评论/issue 五端点 service。
 type IssueService struct {
 	repo *repo.Repo
+	// notifier 通知收敛写入口（T11：事务外派发，失败不阻断业务）
+	notifier *Notifier
 }
 
 // NewIssueService 构造评论/issue service。
 func NewIssueService(r *repo.Repo) *IssueService {
-	return &IssueService{repo: r}
+	return &IssueService{repo: r, notifier: NewNotifier(r)}
 }
 
 // Comment wb_comment：四级锚点评论建行（issues.state=open）。
@@ -165,9 +167,34 @@ func (s *IssueService) Comment(ctx context.Context, req *api.CommentReq) (*api.C
 			}
 			return nil, err
 		}
+		// 通知派发（事务外，spec §1.3——失败不阻断业务）：评论携 escalate 置位
+		// → 冲突上升裁决通知（§6.8 reviewer 主持；收件=评审归属角色，回落 User）
+		if escalate == 1 {
+			s.dispatchEscalationNotification(ctx, row)
+		}
 		return &api.CommentResp{Ok: true, Issue: issueItem(row)}, nil
 	}
 	return nil, errs.Trace(errs.ErrIdempotentConflict)
+}
+
+// dispatchEscalationNotification 冲突上升裁决通知派发（escalate 置位后调用，
+// 事务外落库）：收件角色=issue 评审归属角色（reviewer 主持，§6.8），非评审上下文
+// （reviewer_role 空）回落 User 仲裁（spec §2 澄清不收敛口径）；跳转=冲突 issue。
+func (s *IssueService) dispatchEscalationNotification(ctx context.Context, row *repo.Issue) {
+	recipient := derefString(row.ReviewerRole)
+	if recipient == "" {
+		recipient = auditByWhoUser
+	}
+	Dispatch(s.notifier, NotificationSpec{
+		Kind:          NotificationKindEscalation,
+		RequirementID: row.RequirementID,
+		NodeID:        row.NodeID,
+		TargetID:      row.IssueID,
+		RecipientRole: recipient,
+		Sender:        row.Author,
+		SenderRole:    row.RoleID,
+		Text:          fmt.Sprintf("冲突上升裁决：评论 %s（节点 %s）待裁决", row.IssueID, row.NodeID),
+	})
 }
 
 // commentOnce 单次建行尝试（事务：cm-<ts> 取号 → 插入 → INSERT 审计）；
@@ -372,6 +399,7 @@ type transitionInput struct {
 // replies JSON 非法（数据损坏）；底层 IO 错误经 Trace 上抛。
 func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) (*repo.Issue, error) {
 	row := &repo.Issue{}
+	escalateSet := false
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		locked, err := s.repo.GetIssueByIssueIDLockTx(ctx, tx, in.issueID)
 		if err != nil {
@@ -416,6 +444,7 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 			if in.action == domain.IssueActionReopen && domain.AutoEscalateNeeded(row.LoopCount, domain.DefaultEscalateLoopThreshold) && row.Escalate == 0 {
 				updates["escalate"] = domain.MarkEscalate()
 				row.Escalate = 1
+				escalateSet = true
 				audits = append(audits, issueAudit(row.IssueID, "escalate", "0", "1", in.operator))
 			}
 		}
@@ -461,6 +490,9 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 			row.ResolvedAt = &now
 		}
 		if in.escalate {
+			if row.Escalate == 0 {
+				escalateSet = true
+			}
 			updates["escalate"] = domain.MarkEscalate()
 			row.Escalate = 1
 		}
@@ -478,6 +510,11 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 	})
 	if txErr != nil {
 		return nil, txErr
+	}
+	// 通知派发（事务外，spec §1.3——失败不阻断业务）：本次迁移新置 escalate
+	// → 冲突上升裁决通知（§6.8；重复置位/已上升幂等不重发）
+	if escalateSet {
+		s.dispatchEscalationNotification(ctx, row)
 	}
 	return row, nil
 }

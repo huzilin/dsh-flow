@@ -68,6 +68,7 @@ func (r *Repo) GetIssueByIssueIDLockTx(ctx context.Context, tx *gorm.DB, issueID
 
 // ListOpenIssuesByNode 读需求下指定节点的未闭合评论（my_task relatedIssues 数据源，
 // state NOT IN (resolved, overridden)）；nodeID 为空返回空集。
+// 通知行（issue_type=notification，T11 收件箱载体）不属于评论流，排除。
 func (r *Repo) ListOpenIssuesByNode(ctx context.Context, requirementID string, nodeID string) ([]*Issue, error) {
 	if nodeID == "" {
 		return make([]*Issue, 0), nil
@@ -75,6 +76,7 @@ func (r *Repo) ListOpenIssuesByNode(ctx context.Context, requirementID string, n
 	items := make([]*Issue, 0)
 	err := r.g.WithContext(ctx).
 		Where("requirement_id = ? AND node_id = ? AND state NOT IN ?", requirementID, nodeID, issueOpenStates).
+		Where("issue_type <> ?", IssueTypeNotification).
 		Order("id").
 		Find(&items).Error
 	if err != nil {

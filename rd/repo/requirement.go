@@ -123,10 +123,13 @@ func (r *Repo) ListArtifactsByRequirement(ctx context.Context, requirementID str
 }
 
 // ListIssuesByRequirement 读需求全部评论；T7 前为空集。
+// 通知行（issue_type=notification，T11 收件箱载体）不属于评论流——聚合快照/
+// 澄清判据等通用消费方一律排除，收件箱经 ListNotifications 专读。
 func (r *Repo) ListIssuesByRequirement(ctx context.Context, requirementID string) ([]*Issue, error) {
 	items := make([]*Issue, 0)
 	err := r.g.WithContext(ctx).
 		Where("requirement_id = ?", requirementID).
+		Where("issue_type <> ?", IssueTypeNotification).
 		Order("id").
 		Find(&items).Error
 	if err != nil {
