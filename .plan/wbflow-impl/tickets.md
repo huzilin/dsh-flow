@@ -124,9 +124,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 5, 7, 8
 
-- [ ] 七类通知各自触发条件有 httptest 断言，跳转定位字段正确（spec §4.1 AC）
-- [ ] TODO 投影一致性：任务状态迁移后投影同步（completed/rejected 不残留）
-- [ ] 收件箱按角色/已读过滤分页可用
+- [x] 七类通知各自触发条件有 httptest 断言，跳转定位字段正确（spec §4.1 AC）（stall_followup/need_intervene 触发动作在 T10 扫描器已接线，session_message 为 T15+ 预留枚举位）
+- [x] TODO 投影一致性：任务状态迁移后投影同步（completed/rejected 不残留）
+- [x] 收件箱按角色/已读过滤分页可用
 
 ## 12. 冲突上升裁决链
 
