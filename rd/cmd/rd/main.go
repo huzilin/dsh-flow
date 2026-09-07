@@ -63,6 +63,7 @@ func main() {
 	var flowSvc *service.FlowService
 	var artSvc *service.ArtifactService
 	var taskSvc *service.TaskService
+	var issueSvc *service.IssueService
 	if db.Gorm != nil {
 		r := repo.NewRepo(db.Gorm)
 		reqSvc = service.NewRequirementService(r)
@@ -70,6 +71,7 @@ func main() {
 		flowSvc = service.NewFlowService(r)
 		artSvc = service.NewArtifactService(r, cfg.Artifacts.DocsRoot)
 		taskSvc = service.NewTaskService(r)
+		issueSvc = service.NewIssueService(r)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
@@ -82,6 +84,7 @@ func main() {
 		Flows:     flowSvc,
 		Artifacts: artSvc,
 		Tasks:     taskSvc,
+		Comments:  issueSvc,
 	})
 	srv := &http.Server{
 		Addr:    ":" + strconv.FormatInt(cfg.HTTP.Port, 10),

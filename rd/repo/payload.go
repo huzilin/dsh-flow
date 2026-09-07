@@ -211,3 +211,20 @@ type TaskContextAction struct {
 	// Inline 一句话内联定义；空=无
 	Inline string `json:"inline,omitempty"`
 }
+
+// IssueReply issues.replies 条目：不可变追加（回复 / reopen 理由 / 裁决回填同通道；
+// spec §0.2 JSON 载荷 Go struct 单一口径，arch_design §Issue 示例同构）。
+type IssueReply struct {
+	// ReplyID 回复业务 id（线程内序 r-<n>）
+	ReplyID string `json:"replyId"`
+	// By 回复者
+	By string `json:"by"`
+	// RoleID 回复者角色
+	RoleID string `json:"roleId"`
+	// Text 回复内容（误发 reply 标注作废也走本字段）
+	Text string `json:"text"`
+	// Voided 作废标注；true=误发作废
+	Voided bool `json:"voided,omitempty"`
+	// At 回复时间，unix 毫秒
+	At int64 `json:"at"`
+}

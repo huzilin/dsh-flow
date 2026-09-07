@@ -33,7 +33,8 @@ func NewFlowService(r *repo.Repo) *FlowService {
 // 相位 on × 角色归属过滤）、review_summary（per-agent 聚合计数与明细）、
 // related_nodes（该角色相关节点最小集：评审位 / node action 响应者 / 能力归属）、
 // related_artifacts（目标节点已登记产物摘要，T6 产物侧注入；无目标节点=空集）、
-// related_tasks（该需求该节点在途任务 task_id/action/status 摘要，T5 任务侧注入）。
+// related_tasks（该需求该节点在途任务 task_id/action/status 摘要，T5 任务侧注入）、
+// related_issues（目标节点未闭合 issue 摘要：issueId/state/issueType/assignee/anchor，T7）。
 //
 // 错误集：ErrInvalidArgument（requirement_id/role 缺失）；ErrNotFound（需求 /
 // 流程实例 / 节点未命中）。
@@ -195,6 +196,12 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 	if err := s.appendRelatedTasks(ctx, resp, req.RequirementId, node.NodeID); err != nil {
 		return nil, err
 	}
+
+	// relatedIssues（意见侧上下文注入，T7）：目标节点未闭合 issue 摘要
+	// （state 非 resolved/overridden），集中独立函数。
+	if err := s.injectRelatedIssues(ctx, resp, req.RequirementId, node.NodeID); err != nil {
+		return nil, errs.Trace(err)
+	}
 	return resp, nil
 }
 
@@ -217,6 +224,40 @@ func (s *FlowService) appendRelatedTasks(ctx context.Context, resp *api.MyTaskRe
 		})
 	}
 	resp.RelatedTasks = items
+	return nil
+}
+
+// injectRelatedIssues my_task 意见侧上下文注入：读目标节点未闭合评论
+// （state NOT IN (resolved, overridden)），投影 RelatedIssueItem 最小摘要
+// （issueId/state/issueType/assignee/anchor 锚点摘要）。查询失败仅阻断本次
+// my_task（与主链路同错误口径，不降级吞错）。
+//
+// 错误集：底层 IO 错误经 Trace 上抛。
+func (s *FlowService) injectRelatedIssues(ctx context.Context, resp *api.MyTaskResp, requirementID string, nodeID string) error {
+	rows, err := s.repo.ListOpenIssuesByNode(ctx, requirementID, nodeID)
+	if err != nil {
+		return errs.Trace(err)
+	}
+	items := make([]*api.RelatedIssueItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, &api.RelatedIssueItem{
+			IssueId:   row.IssueID,
+			State:     row.State,
+			IssueType: row.IssueType,
+			Assignee:  derefString(row.Assignee),
+			Anchor: domain.SummarizeIssueAnchor(
+				row.AnchorKind,
+				derefString(row.AnchorArtifactID),
+				derefInt64(row.AnchorLine),
+				derefInt64(row.AnchorStartLine),
+				derefInt64(row.AnchorEndLine),
+				derefInt64(row.AnchorBlockStart),
+				derefInt64(row.AnchorBlockEnd),
+				derefString(row.AnchorLang),
+			),
+		})
+	}
+	resp.RelatedIssues = items
 	return nil
 }
 

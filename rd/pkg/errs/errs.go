@@ -34,6 +34,9 @@ var (
 	// （如 product_type 越集）。HTTP 语义 = 400 + blocked:true（拒绝执行 +
 	// 拦截标记，工单 T6 AC「blocked + reason」口径）。
 	ErrPolicyRejected = perr.New("wbflow: 受控词表越集拦截")
+	// ErrInvalidTransition 非法状态迁移：issue 状态机 v2 拒绝该操作（当前态 ×
+	// 动作 × 操作者约束任一不成立，T7）。
+	ErrInvalidTransition = perr.New("wbflow: 非法状态迁移")
 )
 
 // Trace 统一错误包裹入口：内部错误链路层层包裹，保留堆栈。
@@ -58,6 +61,7 @@ const (
 	CodeNotFound           Code = "NOT_FOUND"
 	CodeDependencyCycle    Code = "DEPENDENCY_CYCLE"
 	CodePolicyRejected     Code = "POLICY_REJECTED"
+	CodeInvalidTransition  Code = "INVALID_TRANSITION"
 	CodeUnauthorized       Code = "UNAUTHORIZED"
 	CodeInternal           Code = "INTERNAL"
 )
@@ -91,6 +95,8 @@ func MapToHTTP(err error) HTTPMapping {
 	case Is(err, ErrPolicyRejected):
 		// 受控词表越集：拒绝执行（400 保持入参非法语义）+ 拦截标记 blocked:true
 		return HTTPMapping{HTTPStatus: http.StatusBadRequest, Code: CodePolicyRejected, Blocked: true}
+	case Is(err, ErrInvalidTransition):
+		return HTTPMapping{HTTPStatus: http.StatusConflict, Code: CodeInvalidTransition}
 	case Is(err, ErrNotFound):
 		return HTTPMapping{HTTPStatus: http.StatusNotFound, Code: CodeNotFound}
 	case Is(err, ErrDependencyCycle):

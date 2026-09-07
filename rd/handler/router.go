@@ -27,6 +27,8 @@ type Deps struct {
 	Artifacts ArtifactAPI
 	// Tasks 任务总线端点（wb_assign_task / wb_task_update）service；nil=不注册对应路由
 	Tasks TaskAPI
+	// Comments 评论/issue 五端点 service；nil=不注册对应路由
+	Comments CommentAPI
 }
 
 // NewRouter 注册全部路由（含全局中间件）。
@@ -53,6 +55,9 @@ func NewRouter(deps *Deps) *gin.Engine {
 	}
 	if deps.Tasks != nil {
 		RegisterTaskRoutes(api, deps.Tasks)
+	}
+	if deps.Comments != nil {
+		RegisterIssueRoutes(api.Group("/requirements"), api.Group("/comments"), deps.Comments)
 	}
 	return r
 }

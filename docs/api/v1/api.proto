@@ -180,9 +180,10 @@ message ArtifactItem {
   int64 created_at = 9;
 }
 
-// IssueItem 评论/问题行（T7 前为空集）。
+// IssueItem 评论/问题行（issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved/
+// overridden；快照与五端点出参共用——T7 起详情字段齐备，追加字段向后兼容）。
 message IssueItem {
-  // issue_id 评论业务 id
+  // issue_id 评论业务 id，如 cm-1730000000000
   string issue_id = 1;
   // node_id 节点 id
   string node_id = 2;
@@ -198,12 +199,201 @@ message IssueItem {
   string state = 7;
   // escalate 冲突上升标记：1=已上升
   int64 escalate = 8;
-  // loop_count 回退计数
+  // loop_count 回退计数：澄清期读=reopen 次数，修复期读=revise 次数
   int64 loop_count = 9;
   // round_count 对话轮数
   int64 round_count = 10;
   // created_at 创建时间，unix 毫秒
   int64 created_at = 11;
+  // issue_type issue/notification/discussion
+  string issue_type = 12;
+  // reviewer_role 评审归属角色；空=未推导/非评审
+  string reviewer_role = 13;
+  // assignee 解决责任人；空=未指派
+  string assignee = 14;
+  // anchor_artifact_id 锚定产物 id；空=document 级（DB 侧 NULL）
+  string anchor_artifact_id = 15;
+  // anchor_line 单行号（kind=line）；0=未设
+  int64 anchor_line = 16;
+  // anchor_start_line 范围起行（kind=range）；0=未设
+  int64 anchor_start_line = 17;
+  // anchor_end_line 范围终行（kind=range）；0=未设
+  int64 anchor_end_line = 18;
+  // anchor_block_start 代码块起行（kind=block）；0=未设
+  int64 anchor_block_start = 19;
+  // anchor_block_end 代码块终行（kind=block）；0=未设
+  int64 anchor_block_end = 20;
+  // anchor_lang 代码块语言（kind=block）；空=未设
+  string anchor_lang = 21;
+  // replies 回复与裁决回填 JSON 文本（TEXT 列同构，不可变追加）
+  string replies = 22;
+  // last_reply_at 最近回复时间，unix 毫秒；0=无回复
+  int64 last_reply_at = 23;
+  // resolve_path resolve 路径：fix=修复关闭 / agree=协商一致关闭；空=未解决
+  string resolve_path = 24;
+  // resolve_by resolve 责任人；空=未解决
+  string resolve_by = 25;
+  // resolve_at resolve 时间，unix 毫秒；0=未解决
+  int64 resolve_at = 26;
+  // resolve_note resolve 说明；空=未解决
+  string resolve_note = 27;
+  // resolve_reviewer_confirmed 评审者复核确认：0/1
+  int64 resolve_reviewer_confirmed = 28;
+  // resolved_by 最终确认人；空=未闭环
+  string resolved_by = 29;
+  // resolved_at 最终确认时间，unix 毫秒；0=未闭环
+  int64 resolved_at = 30;
+  // updated_at 更新时间，unix 毫秒（乐观锁基线）
+  int64 updated_at = 31;
+}
+
+// CommentAnchor 评论锚点（四级：document/line/range/block——spec §0 issues 锚点族）。
+// 行号 1 起；0=未设（proto3 无可选标量）。一致性校验在 domain.ValidateIssueAnchor：
+// kind=line 必填 line；kind=range 必填 start≤end；kind=block 必填 block_start≤block_end
+// 且 lang 非空；line/range/block 必锚产物（artifact_id），document 不带行号族字段。
+message CommentAnchor {
+  // kind 锚点级别：document/line/range/block
+  string kind = 1;
+  // artifact_id 锚定产物 id（line/range/block 必填；document 空）
+  string artifact_id = 2;
+  // line 单行号（kind=line）
+  int64 line = 3;
+  // start_line 范围起行（kind=range）
+  int64 start_line = 4;
+  // end_line 范围终行（kind=range）
+  int64 end_line = 5;
+  // block_start 代码块起行（kind=block）
+  int64 block_start = 6;
+  // block_end 代码块终行（kind=block）
+  int64 block_end = 7;
+  // lang 代码块语言（kind=block 必填）
+  string lang = 8;
+}
+
+// ---------------------------------------------------------------------------
+// comments（T7：wb_comment / wb_reply / wb_resolve / wb_confirm_review / wb_reopen）
+// ---------------------------------------------------------------------------
+
+// CommentReq POST /api/requirements/:reqId/comments 入参（wb_comment）。
+// reviewer_role 程序推导（发表者 ∈ 节点评审位）；assignee 缺省按 L1（锚点产物登记人）
+// → L2（节点 exec 能力归属）推导，显式传值优先。
+message CommentReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 节点 id（必填，须为该需求实例节点）
+  string node_id = 2;
+  // anchor 四级锚点；未填充=kind=document 级评论
+  CommentAnchor anchor = 3;
+  // author 发表者（必填）
+  string author = 4;
+  // role_id 发表者角色（必填）
+  string role_id = 5;
+  // issue_type issue/notification/discussion；空=issue
+  string issue_type = 6;
+  // assignee 显式指派解决责任人；空=程序推导（L1→L2）
+  string assignee = 7;
+  // text 根评论内容（必填）
+  string text = 8;
+  // escalate 冲突上升标记（可选置位，T12 裁决链消费）
+  bool escalate = 9;
+}
+
+// CommentResp POST /api/requirements/:reqId/comments 出参。
+message CommentResp {
+  // ok 恒 true
+  bool ok = 1;
+  // issue 建行后的评论行
+  IssueItem issue = 2;
+}
+
+// ReplyReq POST /api/comments/:commentId/replies 入参（wb_reply）。
+// replies 不可变追加（只增不改）；open→pending-confirm / to-fix→fixed 由状态机判定，
+// 非法迁移 409。
+message ReplyReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // by 回复者（必填）
+  string by = 2;
+  // role_id 回复者角色（必填）
+  string role_id = 3;
+  // text 回复内容（必填）
+  string text = 4;
+  // voided 作废标注（误发 reply 标注作废——ui-interaction-final §3）
+  bool voided = 5;
+}
+
+// ReplyResp POST /api/comments/:commentId/replies 出参。
+message ReplyResp {
+  // ok 恒 true
+  bool ok = 1;
+  // round_count 追加后对话轮数
+  int64 round_count = 2;
+  // issue 追加后的评论行（replies JSON 全量）
+  IssueItem issue = 3;
+}
+
+// ResolveReq POST /api/comments/:commentId/resolve 入参（wb_resolve）。
+// 操作者须=assignee（arch_design 缺陷闭环口径）；path=fix 修复路径（open/pending-confirm
+// 定性 to-fix，to-fix/fixed 修复关闭申报）；path=agree 协商一致关闭（直落 resolved）。
+message ResolveReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // path 解决路径：fix | agree（必填）
+  string path = 2;
+  // operator 操作者角色（必填，须=assignee）
+  string operator = 3;
+  // note resolve 说明
+  string note = 4;
+  // escalate 冲突上升标记（可选置位）
+  bool escalate = 5;
+}
+
+// ResolveResp POST /api/comments/:commentId/resolve 出参。
+message ResolveResp {
+  // ok 恒 true
+  bool ok = 1;
+  // issue resolve 后的评论行
+  IssueItem issue = 2;
+}
+
+// ConfirmReviewReq POST /api/comments/:commentId/confirm 入参（wb_confirm_review）。
+// 提评者复核确认：pending-confirm/fixed→resolved，落 resolve_reviewer_confirmed=1 +
+// resolved_by/at。操作者须=提评者（reviewer_role 优先，缺省 author）。
+message ConfirmReviewReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // operator 操作者角色（必填，须=提评者）
+  string operator = 2;
+}
+
+// ConfirmReviewResp POST /api/comments/:commentId/confirm 出参。
+message ConfirmReviewResp {
+  // ok 恒 true
+  bool ok = 1;
+  // issue 确认后的评论行
+  IssueItem issue = 2;
+}
+
+// ReopenReq POST /api/comments/:commentId/reopen 入参（wb_reopen）。
+// 澄清 reopen：pending-confirm→open；修复 revise：fixed→to-fix；均 loop_count++。
+// text 非空时以 reopen 理由追加 replies（不可变追加，裁决回填同通道）。
+message ReopenReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // operator 操作者角色（必填，须=提评者）
+  string operator = 2;
+  // text reopen 理由（可选，追加进 replies）
+  string text = 3;
+}
+
+// ReopenResp POST /api/comments/:commentId/reopen 出参。
+message ReopenResp {
+  // ok 恒 true
+  bool ok = 1;
+  // loop_count 追加后回退计数
+  int64 loop_count = 2;
+  // issue reopen 后的评论行
+  IssueItem issue = 3;
 }
 
 // GetRequirementResp 聚合快照出参（基础版：需求 + 版本信息 + 实例集合字段先立住）。
@@ -533,7 +723,23 @@ message MyTaskResp {
   repeated RelatedArtifactItem related_artifacts = 9;
   // related_tasks 该需求该节点在途任务摘要（status 非 completed/rejected/closed）
   repeated RelatedTaskItem related_tasks = 10;
+  // related_issues 目标节点未闭合 issue 摘要（意见侧上下文注入，T7；resolved/overridden 不返回）
+  repeated RelatedIssueItem related_issues = 11;
+}
 
+// RelatedIssueItem 目标节点未闭合 issue 摘要（my_task relatedIssues；
+// 未闭合=state 非 resolved/overridden）。
+message RelatedIssueItem {
+  // issue_id 评论业务 id
+  string issue_id = 1;
+  // state issue 状态机 v2 状态
+  string state = 2;
+  // issue_type issue/notification/discussion
+  string issue_type = 3;
+  // assignee 解决责任人；空=未指派
+  string assignee = 4;
+  // anchor 锚点摘要（如 "art-1 line 42" / "art-2 block 42-58(sql)" / "document"）
+  string anchor = 5;
 }
 
 // DependencyNodeItem 依赖树节点（GET /api/requirements/:reqId/dependencies/tree；
