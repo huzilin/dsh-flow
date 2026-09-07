@@ -80,7 +80,7 @@ reviewers: [ {arch(rd|full): arch.rd-design-review}, {fe(fe): fe.rd-design-revie
 | review | arch.rd-design-review.review / fe.rd-design-review.review（scope=fe 按需）/ qa.rd-design-review.review（评上一节点 rd_design） | 各自对象化评审 skill（rd-design-review-{arch,fe,qa}-skill） | arch / fe / qa | 全表态（实时判据） → 有 open → clarifying；无 → agreed |
 | respond | backend-design.clarify（单动作；修复=B2 exec 重入 revise） | inline | rd | 全 resolve → confirming；reopen → rejected → B2 exec 重入 |
 
-**reviewState 轮转**：reviewing → clarifying → confirming → [reopen 循环] → agreed → 裁决。
+**reviewState 轮转**：reviewing → 判定 → unagreed → clarifying → confirming（复审表态）→ 判定 → [reopen 循环] → agreed → 裁决。
 **裁决**：无 reject → User 终审 → 门禁 approved（迁移 B4）；含 reject → 门禁 rejected → 回退 B2 exec 重入；本节点维持 agreed。
 
 ### B4 FE 技术设计（按需）
@@ -112,7 +112,7 @@ reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 | review | qa.fe-design-review.review（评上一节点 fe_design） | fe-design-review-qa-skill | qa | 实时判据（单评审位立即成立）→ 有 open → clarifying；无 → agreed |
 | respond | frontend-design.clarify（单动作；修复=B4 exec 重入 revise） | inline | fe | 全 resolve → confirming；reopen → rejected → B4 exec 重入 |
 
-**reviewState 轮转**：reviewing → clarifying → confirming → [循环] → agreed → 门禁机械 approved；含 reject → 门禁 rejected（放行 B8a∥B8b）；含 reject → 门禁 rejected → 回退 B4 exec 重入；本节点维持 agreed。
+**reviewState 轮转**：reviewing → 判定 → unagreed → clarifying → confirming（复审表态）→ 判定 → [循环] → agreed → 门禁机械 approved；含 reject → 门禁 rejected（放行 B8a∥B8b）；含 reject → 门禁 rejected → 回退 B4 exec 重入；本节点维持 agreed。
 
 ### B8a / B8b 并行开发（内嵌 CR——节点内评审异化）
 
@@ -233,7 +233,7 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {arch: arch.rd-design-
 | review | arch.rd-design-review.review / arch.fe-design-review.review（by scope，评上一节点 rd/fe_design） | rd-design-review-arch-skill / fe-design-review-arch-skill | arch | 实时判据（单评审位立即成立）→ 有 open → clarifying；无 → agreed |
 | respond | backend-design.clarify / frontend-design.clarify（by scope，单动作；修复=C2 exec 重入 revise） | inline | 执行者 | 全 resolve → confirming；reopen → rejected → C2 exec 重入 |
 
-**reviewState 轮转**：reviewing → clarifying → confirming → [循环] → agreed → 裁决。
+**reviewState 轮转**：reviewing → 判定 → unagreed → clarifying → confirming（复审表态）→ 判定 → agreed / unagreed（循环）→ 门禁判定。
 **裁决**：无 reject → User 终审 → 门禁 approved（迁移 C4）；含 reject → 门禁 rejected → 回退 C2 exec 重入；本节点维持 agreed。
 
 ### C4 开发（内嵌 CR——节点内评审异化）
@@ -250,7 +250,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: rd|fe | reviewers: [ {cr: c
 | review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill | cr | 实时判据（单评审位立即成立）→ 有 open → clarifying；无 → agreed |
 | respond | backend-dev / frontend-dev.fix_on_review（**只响应 CR，不做澄清**） | inline | 执行者 | 全 resolve → confirming |
 
-**reviewState 轮转**：reviewing → clarifying → confirming → [循环] → agreed → 裁决。
+**reviewState 轮转**：reviewing → 判定 → unagreed → clarifying → confirming（复审表态）→ 判定 → agreed / unagreed（循环）→ 门禁判定。
 **裁决（机械）**：**无 rejected 出口**——agreed → approved → C6 用户验收。
 **回退进入**：C6 rejected（报障）→ plugin 回退本节点 → exec 重入。
 **产物**：dev_notes, code_mr。
@@ -346,7 +346,7 @@ node_type: review | gate: 1 | user_gate: 0 | reviewers: [ {arch: arch.research-r
 | review | arch.research-review.review（评上一节点 research） | research-review-arch-skill | arch | 实时判据（单评审位立即成立）→ 有 open → clarifying；无 → agreed |
 | respond | research-cap.clarify（单动作；修复=D3 exec 重入 revise） | inline | inv | 全 resolve → confirming；reopen → rejected → D3 exec 重入 |
 
-**reviewState 轮转**：reviewing → clarifying → confirming → [循环] → agreed → 门禁机械 approved；含 reject → 门禁 rejected（迁移 D5）；含 reject → 门禁 rejected → 回退 D3 exec 重入；本节点维持 agreed。
+**reviewState 轮转**：reviewing → 判定 → unagreed → clarifying → confirming（复审表态）→ 判定 → [循环] → agreed → 门禁机械 approved；含 reject → 门禁 rejected（迁移 D5）；含 reject → 门禁 rejected → 回退 D3 exec 重入；本节点维持 agreed。
 
 ### D5 架构规划
 
@@ -375,7 +375,7 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {pm: pm.alignment-revi
 | review | pm.architecture-review.review（评上一节点 architecture） | architecture-review-pm-skill | pm | 实时判据（单评审位立即成立）→ 有 open → clarifying；无 → agreed |
 | respond | arch-cap.clarify（单动作；修复=D5 exec 重入 revise） | inline | arch | 全 resolve → confirming；reopen → rejected → D5 exec 重入 |
 
-**reviewState 轮转**：reviewing → clarifying → confirming → [循环] → agreed → 裁决。
+**reviewState 轮转**：reviewing → 判定 → unagreed → clarifying → confirming（复审表态）→ 判定 → agreed / unagreed（循环）→ 门禁判定。
 **裁决**：无 reject → User 终审 → 门禁 approved（迁移 D7）；含 reject → 门禁 rejected → 回退 D5 exec 重入；本节点维持 agreed。
 
 ### D7 创建需求·启动版本

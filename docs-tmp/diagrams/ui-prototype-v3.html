@@ -173,44 +173,50 @@ button:disabled{opacity:.4;cursor:not-allowed}
 
 <!-- ═════ P2 · 时间线备选 ═════ -->
 <div class="panel" id="p2">
-<h1>P2 · 相位时间线（评审轮 · issue 状态机 v2）</h1>
-<div class="desc">① collect 无状态机——纯 barrier 等待（表态三值：未表态/unagree/agree）；② 澄清与修复的 issue 状态机分开，回退用单计数器（澄清期=reopen 次数，修复期=revise 次数）。</div>
+<h1>P2 · 相位时间线（评审轮循环 v4）</h1>
+<div class="desc">reviewing（评审+表态）→ collect 判定（agreed / unagreed）→ unagreed → clarifying → confirming（复审表态 = reviewing 复用）→ 再判定，循环至 agreed；reopen/revise 计数随循环递增。</div>
 <div class="card">
-  <h3>① reviewing · 表态收集中 <span class="tag" style="background:rgba(138,144,163,.12);color:var(--sub)">无状态机 · 纯等待（全表态=实时判据，不存储）</span></h3>
+  <h3>① reviewing · 评审+表态进行中</h3>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">Arch</span>
-    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">FE</span>
-    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">QA</span>
-    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">PM</span>
-    <span class="tag t-pc">表态三值：⏳ 未表态 / ⛔ unagree / ✅ agree</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">Arch ✅ agree</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">PM ✅ agree</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">QA ⛔ unagree</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">FE ⏳ reviewing</span>
+    <span class="tag t-pc">挂载：各评审位 .review（表态陆续上报）</span>
   </div>
-  <div class="sumrow"><span class="k">表态</span><span>Arch ✅ agree · PM ✅ agree · QA ⛔ unagree · FE ⏳ 未表态（2/4）</span></div>
-  <div class="sumrow"><span class="k">推进</span><span>全表态 → barrier 达成；具体问题用 <b>open 工单</b>表达（pass/reject 不作为表态值）</span></div>
-  <div class="hint">出口：有 open 工单 → clarifying；无 open 工单 → agreed</div>
+  <div class="sumrow"><span class="k">推进</span><span>全表态（实时判据）→ collect 判定</span></div>
+</div>
+<div class="card">
+  <h3>② collect 判定（瞬时，不存储）</h3>
+  <div class="sumrow"><span class="k">判定</span><span>无 open 工单 → <b class="ok">agreed</b>（收口→门禁）；有 open 工单 → <b style="color:var(--red)">unagreed</b> → clarifying</span></div>
 </div>
 <div style="height:1px;background:var(--line);margin:12px 0"></div>
 <div class="card">
-  <h3>② clarifying · 澄清阶段 <span class="tag" style="background:rgba(179,157,255,.12);color:var(--purple)">issue 状态机：open → pending-confirm → resolved / to-fix / open（reopen 计数）</span></h3>
+  <h3>③ unagreed → clarifying · owner 澄清</h3>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
     <span class="tag" style="background:var(--panel);border:1px solid var(--line)">owner: rd</span>
     <span class="tag t-pc">挂载：backend-design.clarify</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">reopen 计数 ×N</span>
   </div>
-  <div class="sumrow"><span class="k">issue#3341</span><span class="tag t-open">open 待澄清</span><span class="meta">分页方案 · Arch 提 · reopen×0</span></div>
-  <div class="sumrow"><span class="k">issue#3342</span><span class="tag t-pc">pending-confirm 已澄清待复核</span><span class="meta">时区声明 · rd resolve(note) → 等 QA 复核</span></div>
-  <div class="sumrow"><span class="k">出口</span><span>① resolved（澄清解释了疑问）② <b>to-fix 待修复</b>（确定是真问题）③ open（未解释清楚，reopen 计数 +1）</span></div>
-  <div class="hint">全 open 清完（resolved 或 to-fix）→ 澄清阶段结束；resolved → 朝 agree；to-fix → 触发打回</div>
+  <div class="sumrow"><span class="k">issue#3341</span><span class="tag t-open">open 待澄清</span><span class="meta">分页方案 · Arch 提</span></div>
+  <div class="sumrow"><span class="k">issue#3345</span><span class="tag t-pc">已澄清 → 待复核</span><span class="meta">时区声明 · rd resolve(note)</span></div>
+  <div class="hint">出口：全 open 清完（澄清解/resolved、或确认真问题 to-fix→打回）→ confirming</div>
 </div>
 <div style="height:1px;background:var(--line);margin:12px 0"></div>
 <div class="card">
-  <h3>③ 修复阶段（跨节点：产出节点 exec 重入 revise） <span class="tag" style="background:rgba(232,179,74,.12);color:var(--amber)">issue 状态机：to-fix → fixed → 复核 → resolved / to-fix（revise 计数）</span></h3>
-  <div class="sumrow"><span class="k">issue#3341</span><span class="tag" style="background:rgba(232,179,74,.14);color:var(--amber)">to-fix 待修复</span><span class="meta">分页方案（确认真问题）· revise×0 · 打回 rd 节点</span></div>
-  <div class="sumrow"><span class="k">流转</span><span>rd exec 重入修复 → <b>fixed 已修复</b> → 重新提测 review → 修复成功 resolved / 修复失败回 to-fix（revise 计数 +1）</span></div>
-  <div class="hint">计数器：澄清阶段读 = reopen 次数；修复阶段读 = revise 次数（同一字段，阶段语义）</div>
+  <h3>④ confirming · 复审表态（reviewing 复用）</h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">Arch ✅ agree</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">QA ⛔ unagree</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">PM ✅ agree</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">FE ⏳ reviewing</span>
+  </div>
+  <div class="sumrow"><span class="k">推进</span><span>全表态 → collect 判定 → agreed / unagreed（循环，reopen 计数 +1）</span></div>
+  <div class="hint">④ 与 ① 同一挂载（.review 复用）——exec/re-exec 同构关系</div>
 </div>
-<div style="height:1px;background:var(--line);margin:12px 0"></div>
 <div class="card">
-  <h3>④ agree · 收口</h3>
-  <div class="sumrow"><span class="k">判定</span><span>open 0 · to-fix 0 → agreed → plugin 判定 approve（user_gate 唤醒 User）/ 有 to-fix → rejected</span></div>
+  <h3>⑤ agreed · 收口 → 门禁</h3>
+  <div class="sumrow"><span class="k">判定</span><span>collect → agreed → 门禁判定（approved / rejected，last_decision 承载）</span></div>
 </div>
 </div>
 

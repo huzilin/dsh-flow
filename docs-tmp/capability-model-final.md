@@ -23,10 +23,16 @@
 | reviewState | 语义 | 迁移 |
 |---|---|---|
 | **'-'** | 无评审轮（exec 期/无评审节点） | exec 完成上报+判据校验 → reviewing |
-| **reviewing** | 表态收集中（评审位表态为**位级实时派生**：verdict 空=reviewing、非空=agree/unagree） | 全表态（实时查询 verdict 全非空，**不存储瞬时态**）→ 有 open 工单 → clarifying；无 → agreed |
+| **reviewing** | 评审+表态进行中（位级实时派生：verdict 空=reviewing 中、非空=agree/unagree） | 全表态（实时查询）→ **collect 判定**：无 open 工单 → **agreed**；有 open 工单 → **unagreed** |
+| **unagreed** | 未达成一致（collect 判定结果，有 open 工单/真问题） | → clarifying（owner 澄清） |
 | **clarifying** | owner 澄清中（respond 相位激活） | 全部工单 pending-confirm（或 resolved）→ confirming |
-| **confirming** | 复核中（confirm/reopen；reopen → clarifying 循环） | 全部确定 → agreed |
-| **agreed** | 轮内收口（无 open、无 to-fix） | 门禁判定（见下） |
+| **confirming** | 复核+重新表态（**reviewing 的复用**——exec/re-exec 同构关系） | 全表态 → collect 判定 → agreed / unagreed（循环，reopen/revise 计数随循环递增） |
+| **agreed** | 达成一致（轮内收口） | 门禁判定（approved / rejected，见下） |
+
+**collect 判定**（2026-09-07 用户重构）：全表态后的瞬时判定——一致性看 open 工单（无 → agreed；有 → unagreed）；pass/reject 不作为表态值。**门禁状态**（2026-09-07 裁决）：approved / rejected 是门禁（gate）的裁决状态，不属于 reviewState——由 `last_decision` 承载（''=未判定）：user_gate=1 → User 拍板；=0 → 机械判定。gate=0 节点：agreed 即编排完成。
+
+**barrier 移除说明**（2026-09-07 用户裁决）：全表态是**瞬时判据**（实时查询），达成即推进 collect 判定，不作为存储态/事件——与「状态是派生的，不落存储」原则一致。
+
 
 **门禁状态**（2026-09-07 裁决）：**approved / rejected 是门禁（gate）的裁决状态，不属于 reviewState**——由 `last_decision` 承载（''=未判定）：
 - gate=1 且 user_gate=1：agreed → 唤醒 User 拍板 → approved / rejected
@@ -36,7 +42,7 @@
 **barrier 移除说明**（2026-09-07 用户裁决）：全表态是**瞬时判据**（实时查询），达成即推进下一相位，不作为存储态/事件——与「状态是派生的，不落存储」原则一致。
 
 
-**正交关系**：state 与 reviewState 两列独立——exec 期 reviewState 恒 '-'；review 相位内 reviewState 循环 reviewing→clarifying→confirming→agreed。UI 分开显示「当前执行动作」与「当前审批状态」（GitHub state+reviewDecision 同构）。
+**正交关系**：state 与 reviewState 两列独立——exec 期 reviewState 恒 '-'；review 相位内 reviewState 循环 reviewing→(unagreed)→clarifying→confirming→判定→agreed/unagreed。UI 分开显示「当前执行动作」与「当前审批状态」（GitHub state+reviewDecision 同构）。
 
 ### 1.3 裁决规则（agree 收口，plugin 判定）
 
