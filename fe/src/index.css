@@ -919,3 +919,210 @@ input.invalid {
   cursor: pointer;
   margin: 8px 0;
 }
+
+/* --- T16 模块 III/IV：收件箱 / TODO / 拍板卡三态 / 冲突卡 --- */
+
+.button-link {
+  color: var(--link, #1a56db);
+  text-decoration: none;
+}
+.button-link:hover {
+  text-decoration: underline;
+}
+
+.inbox-badge-slot {
+  display: inline-block;
+  min-width: 0;
+}
+.badge.inbox-badge {
+  margin-left: 6px;
+  background: #d92d20;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.inbox-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.inbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f1f3;
+}
+.inbox-row:last-child {
+  border-bottom: none;
+}
+.inbox-row.is-unread {
+  background: #f8faff;
+}
+.inbox-kind {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-unread {
+  background: #eef4ff;
+  color: #1a56db;
+  border: 1px solid #b2ccff;
+}
+.inbox-text {
+  flex: 1 1 240px;
+}
+.inbox-meta {
+  font-size: 12px;
+}
+.inbox-jump {
+  white-space: nowrap;
+}
+.inbox-empty {
+  padding: 12px;
+}
+
+.conflict-entry {
+  border: 1px solid #f4c7c3;
+  background: #fdf3f2;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.conflict-entry h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: #b42318;
+}
+.conflict-entry ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.todo-section {
+  margin-top: 20px;
+}
+.todo-section h3 {
+  font-size: 15px;
+}
+.todo-table td,
+.todo-table th {
+  font-size: 13px;
+}
+.todo-goal {
+  max-width: 320px;
+  overflow-wrap: anywhere;
+}
+.badge-todo {
+  background: #eff8ff;
+  color: #175cd3;
+  border: 1px solid #b2ddff;
+}
+.badge-todo-in-progress {
+  background: #fffaeb;
+  color: #b54708;
+  border: 1px solid #fedf89;
+}
+
+/* 收件箱跳转锚点高亮（focus=issue/task） */
+.focus-flash {
+  outline: 2px solid #f79009;
+  border-radius: 6px;
+  animation: focus-flash-fade 2.4s ease-out forwards;
+}
+@keyframes focus-flash-fade {
+  from {
+    background-color: #fffaeb;
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* 拍板卡三态 */
+.decision-summary {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+.decision-summary h5 {
+  margin: 4px 0;
+  font-size: 13px;
+}
+.decision-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.decision-form textarea,
+.decision-form input {
+  flex: 1 1 220px;
+}
+.decision-form .field-hint {
+  flex-basis: 100%;
+}
+
+/* 冲突卡 */
+.conflict-card {
+  border: 1px solid #f4c7c3;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #fdf9f9;
+}
+.conflict-card h5 {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #b42318;
+}
+.conflict-versus {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 8px 0;
+}
+.conflict-side {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px;
+  background: #fff;
+}
+.conflict-side h6 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #475467;
+}
+.conflict-side ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 13px;
+}
+.conflict-adjudication {
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.conflict-adjudication .adjudicate-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+.conflict-adjudication .adjudicate-form textarea {
+  flex: 1 1 220px;
+}
+@media (max-width: 900px) {
+  .conflict-versus {
+    grid-template-columns: 1fr;
+  }
+}

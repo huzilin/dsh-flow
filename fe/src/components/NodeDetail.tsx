@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
   ArtifactItem,
   FlowNodeItem,
@@ -35,6 +35,8 @@ export function NodeDetail({
   artifacts,
   issues,
   requirementId,
+  focusIssueId = "",
+  focusTaskId = "",
 }: {
   nodeId: string | null;
   node: FlowNodeItem | undefined;
@@ -43,8 +45,19 @@ export function NodeDetail({
   artifacts: ArtifactItem[];
   issues: IssueItem[];
   requirementId: string;
+  /** 收件箱跳转定位（T16）：focus=issue 意见区锚点高亮 */
+  focusIssueId?: string;
+  /** 收件箱跳转定位（T16）：focus=task 任务区锚点高亮 */
+  focusTaskId?: string;
 }) {
   const [readerArtifactId, setReaderArtifactId] = useState<string | null>(null);
+
+  // 跳转锚点：滚动到首个高亮目标（意见区评论卡 / 在途任务行）
+  useEffect(() => {
+    if (focusIssueId === "" && focusTaskId === "") return;
+    const el = document.querySelector('[data-focus-flash="1"]');
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focusIssueId, focusTaskId, nodeId]);
 
   if (!nodeId || !node) {
     return (
@@ -167,9 +180,13 @@ export function NodeDetail({
               本节点暂无评论。打开文档产物可选取行/区间发起锚点评论。
             </div>
           ) : (
-            <CommentThread issues={nodeIssues} requirementId={requirementId} />
+            <CommentThread
+              issues={nodeIssues}
+              requirementId={requirementId}
+              highlightIssueId={focusIssueId}
+            />
           )}
-          <InFlightTasks myTask={myTask} />
+          <InFlightTasks myTask={myTask} focusTaskId={focusTaskId} />
         </PanelCard>
 
         <DecisionCard node={node} issues={nodeIssues} />
@@ -270,7 +287,7 @@ function latestStateOf(node: FlowNodeItem, role: string, capabilityId: string): 
 }
 
 /** 在途任务摘要（my_task relatedTasks；任务区并入意见区下方，避免第六栏）。 */
-function InFlightTasks({ myTask }: { myTask: MyTaskResp | undefined }) {
+function InFlightTasks({ myTask, focusTaskId }: { myTask: MyTaskResp | undefined; focusTaskId: string }) {
   const tasks = myTask?.relatedTasks ?? [];
   if (tasks.length === 0) return null;
   return (
@@ -278,7 +295,11 @@ function InFlightTasks({ myTask }: { myTask: MyTaskResp | undefined }) {
       <div className="muted small">在途任务（任务总线投影）：</div>
       <ul>
         {tasks.map((t) => (
-          <li key={t.taskId} className="muted small">
+          <li
+            key={t.taskId}
+            className={`muted small${focusTaskId === t.taskId ? " focus-flash" : ""}`}
+            data-focus-flash={focusTaskId === t.taskId ? "1" : undefined}
+          >
             {t.taskId} · {t.actionId} · {t.status}
           </li>
         ))}

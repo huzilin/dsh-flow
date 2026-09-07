@@ -11,6 +11,9 @@ import {
   postReply,
   postResolve,
 } from "../api/comments";
+import { listInbox, postAdjudicate, postEscalate } from "../api/inbox";
+import type { ListInboxParams } from "../api/inbox";
+import { postDecision } from "../api/reviews";
 import { api } from "../api/client";
 import type { CommentAnchor, IssueItem } from "../api/proto/api";
 import { WEB_USER_ROLE } from "../api/constants";
@@ -132,5 +135,97 @@ export function useReopenMutation(requirementId: string) {
         text: input.text ?? "",
       }),
     onSuccess: () => invalidate(requirementId),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 模块 III/IV（T16）：收件箱轮询 / 拍板 / 冲突上升裁决
+// ---------------------------------------------------------------------------
+
+/** MVP 轮询口径：30s，可经 VITE_INBOX_POLL_MS 覆盖（0/负值=关轮询）。 */
+export const INBOX_POLL_INTERVAL_MS = (() => {
+  const raw = Number(import.meta.env.VITE_INBOX_POLL_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 30_000;
+})();
+
+export type InboxFilter = ListInboxParams;
+
+/** 收件箱查询（列表页消费完整出参；refetchInterval 由调用方传入实现轮询失效）。 */
+export function useInboxQuery(filter: InboxFilter, refetchIntervalMs?: number) {
+  return useQuery({
+    queryKey: ["inbox", filter],
+    queryFn: () => listInbox(api, filter),
+    refetchInterval: refetchIntervalMs,
+  });
+}
+
+/** 顶栏未读 badge：独立轻量查询（unread page_size=1 只取 total），与收件箱页同频率轮询。 */
+export function useInboxUnreadBadge(refetchIntervalMs: number = INBOX_POLL_INTERVAL_MS) {
+  return useQuery({
+    queryKey: ["inbox", { unreadBadge: true }],
+    queryFn: () => listInbox(api, { readFilter: "unread", pageSize: 1 }),
+    refetchInterval: refetchIntervalMs,
+    select: (resp) => Number(resp.total),
+  });
+}
+
+/** 失效收件箱族（列表 + badge + 冲突聚合区同族 key 前缀）。 */
+export function useInvalidateInbox() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: ["inbox"] });
+}
+
+/** wb_decision：User 终审拍板（成功/失败均失效聚合快照——409 改判冲突时刷新已裁决态）。 */
+export function useDecisionMutation(requirementId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { nodeId: string; verdict: "approved" | "rejected"; reason: string; branch?: string }) =>
+      postDecision(api, requirementId, input.nodeId, {
+        verdict: input.verdict,
+        reason: input.reason,
+        branch: input.branch ?? "",
+      }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["requirement", requirementId] }),
+  });
+}
+
+/** wb_escalate：手动上升裁决（失效快照 + 收件箱——escalation 通知位随之落库）。 */
+export function useEscalateMutation(requirementId: string) {
+  const invalidateInbox = useInvalidateInbox();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { issue: IssueItem; reason?: string }) =>
+      postEscalate(api, input.issue.issueId, {
+        operator: WEB_USER_ROLE,
+        reason: input.reason ?? "",
+      }),
+    onSettled: () => {
+      invalidateInbox();
+      queryClient.invalidateQueries({ queryKey: ["requirement", requirementId] });
+    },
+  });
+}
+
+export interface AdjudicateInput {
+  issue: IssueItem;
+  verdict: "uphold" | "override";
+  conclusion: string;
+}
+
+/** wb_adjudicate：User 仲裁结论回填（失效快照 + 收件箱；reviewer 重表态由后端联动）。 */
+export function useAdjudicateMutation(requirementId: string) {
+  const invalidateInbox = useInvalidateInbox();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AdjudicateInput) =>
+      postAdjudicate(api, input.issue.issueId, {
+        verdict: input.verdict,
+        conclusion: input.conclusion,
+        decidedBy: WEB_USER_ROLE,
+      }),
+    onSettled: () => {
+      invalidateInbox();
+      queryClient.invalidateQueries({ queryKey: ["requirement", requirementId] });
+    },
   });
 }
