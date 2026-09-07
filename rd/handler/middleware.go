@@ -42,6 +42,6 @@ func Recovery(lg *zap.Logger) gin.HandlerFunc {
 			zap.Any("panic", recovered),
 			zap.String("path", c.Request.URL.Path),
 		)
-		writeErrJSON(c, http.StatusInternalServerError, errs.CodeInternal, "internal server error", false)
+		writeErrJSON(c, http.StatusInternalServerError, errs.CodeInternal, "internal server error", false, nil)
 	})
 }

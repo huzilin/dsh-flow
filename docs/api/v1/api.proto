@@ -528,6 +528,8 @@ message MyTaskResp {
   ReviewSummary review_summary = 7;
   // related_nodes 该角色相关节点集（最小返回集）
   repeated RelatedNodeItem related_nodes = 8;
+  // related_tasks 该需求该节点在途任务摘要（status 非 completed/rejected/closed）
+  repeated RelatedTaskItem related_tasks = 9;
 }
 
 // DependencyNodeItem 依赖树节点（GET /api/requirements/:reqId/dependencies/tree；
@@ -560,4 +562,121 @@ message DependencyTreeResp {
   bool ok = 1;
   // root 根节点（当前需求）子树
   DependencyNodeItem root = 2;
+}
+
+// ---------------------------------------------------------------------------
+// tasks（T5：wb_assign_task 幂等派发 + wb_task_update 上报）
+// ---------------------------------------------------------------------------
+
+// AssignTaskReq POST /api/tasks 入参。
+// 幂等键 = requirement_id + node_id + action_id + assignee（Further Notes 口径）：
+// 同键存在未终态任务（status 非 completed/rejected/closed）时返回既有任务，
+// 不重复建（幂等 no-op，resp.reused=true）；终态后同键可再派（重开语义）。
+message AssignTaskReq {
+  // requirement_id 需求业务 id（必填，幂等键成员）
+  string requirement_id = 1;
+  // node_id 实例节点 id（必填，幂等键成员）
+  string node_id = 2;
+  // action_id 动作定位（必填，幂等键成员）：kind=capability 为
+  // "<capabilityId>.<actionId>"（如 backend-dev.dev）；kind=node 为 node action id
+  string action_id = 3;
+  // assignee 执行角色（必填，幂等键成员）；capability 动作须与 capabilities.role_id 一致
+  string assignee = 4;
+  // goal 任务目标；空=按节点×动作确定性装配缺省目标
+  string goal = 5;
+  // context 补充上下文 JSON 文本（TEXT 列同构）；须为合法 JSON 对象，
+  // 原样透传至 tasks.context 的 supplement 字段（产物引用/意见清单等
+  // 由 T6/T7 注入点同级），非合法 JSON → 400
+  string context = 6;
+}
+
+// TaskItem 任务行（任务总线出参同构，断点恢复字段齐备）。
+message TaskItem {
+  // task_id 任务业务 id，如 t-<ts>-<seq>
+  string task_id = 1;
+  // requirement_id 需求 id
+  string requirement_id = 2;
+  // node_id 节点 id
+  string node_id = 3;
+  // action_id 能力×动作定位
+  string action_id = 4;
+  // branch 泳道：rd/fe/空（按需求 scope 派生）
+  string branch = 5;
+  // role_id 执行角色
+  string role_id = 6;
+  // task_type 任务族：produce/dev/review/respond/accept/create_reqs
+  string task_type = 7;
+  // goal 任务目标
+  string goal = 8;
+  // context 确定性上下文 JSON 文本（TEXT 列同构）
+  string context = 9;
+  // status todo/in-progress/awaiting-reply/completed/rejected/closed
+  string status = 10;
+  // dispatch_at 派发时间，unix 毫秒；0=未派发（DB 侧 NULL，ack 时落值）
+  int64 dispatch_at = 11;
+  // last_ack 最近确认时刻，unix 毫秒；0=未送达（断点恢复关键）
+  int64 last_ack = 12;
+  // last_progress 执行进度；空=未开始
+  string last_progress = 13;
+  // resume_hint 断点续接提示；空=无
+  string resume_hint = 14;
+  // reply_count 回复数
+  int64 reply_count = 15;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 16;
+  // updated_at 更新时间，unix 毫秒（乐观锁基线）
+  int64 updated_at = 17;
+  // done_at 完成时间，unix 毫秒；0=未完成
+  int64 done_at = 18;
+}
+
+// AssignTaskResp POST /api/tasks 出参。
+message AssignTaskResp {
+  // ok 恒 true
+  bool ok = 1;
+  // task 任务行（幂等命中时=既有任务行）
+  TaskItem task = 2;
+  // reused true=幂等命中既有任务（no-op，未新建）；false=新建
+  bool reused = 3;
+}
+
+// TaskUpdateReq PATCH /api/tasks/:taskId 入参（taskId 取路径）。
+// event 三值状态机：ack（dispatch_at/last_ack 落值，todo→in-progress；重复 ack 幂等
+// no-op）｜progress（last_progress 覆写）｜complete（判据校验框架：不满足 409
+// GATE_BLOCKED + blocked:true + missing，任务回 in-progress；满足 completed + done_at；
+// 未 ack 先 complete → 409 STALE_REPORT）。已终态任务再上报幂等 no-op。
+message TaskUpdateReq {
+  // task_id 任务业务 id（taskId 取路径）
+  string task_id = 1;
+  // event 上报事件：ack | progress | complete
+  string event = 2;
+  // progress 执行进度文本（event=progress 必填，覆写 last_progress）
+  string progress = 3;
+  // updated_at 读取基线，unix 毫秒（乐观锁）；0=以当前库值为基线（宽松模式）
+  int64 updated_at = 4;
+}
+
+// TaskUpdateResp PATCH /api/tasks/:taskId 出参。
+message TaskUpdateResp {
+  // ok 恒 true（complete 判据不满足走 ErrorResp 失败出参，不入本消息）
+  bool ok = 1;
+  // task_id 任务业务 id（回显）
+  string task_id = 2;
+  // status 更新后状态
+  string status = 3;
+  // noop true=幂等 no-op（重复 ack / 已终态再上报），库未变更
+  bool noop = 4;
+  // task 更新后的任务行（新 updated_at 基线）
+  TaskItem task = 5;
+}
+
+// RelatedTaskItem 在途任务摘要（wb_my_task relatedTasks 条目：该需求该节点
+// 未终态任务最小集）。
+message RelatedTaskItem {
+  // task_id 任务业务 id
+  string task_id = 1;
+  // action_id 动作定位
+  string action_id = 2;
+  // status 任务状态
+  string status = 3;
 }
