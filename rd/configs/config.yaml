@@ -24,3 +24,7 @@ log:
 # 未设置（空串）时 API 路由全部 401（fail closed），/healthz 豁免。
 auth:
   token: ${WBFLOW_AUTH_TOKEN}
+# 产物（T6）：document 类产物 href 的解析根目录（相对路径按服务进程工作目录解析）。
+# 读取路径 resolve（含 symlink 展开）后越出该目录一律拒绝（路径穿越防护）。
+artifacts:
+  docs_root: docs

@@ -30,6 +30,10 @@ var (
 	ErrNotFound = perr.New("wbflow: 资源不存在")
 	// ErrDependencyCycle 依赖环：flows.dependencies 依赖图成环，树不可构建（T4）。
 	ErrDependencyCycle = perr.New("wbflow: 依赖环")
+	// ErrPolicyRejected 受控词表越集拦截（T6）：入参值不在受控枚举/词表内
+	// （如 product_type 越集）。HTTP 语义 = 400 + blocked:true（拒绝执行 +
+	// 拦截标记，工单 T6 AC「blocked + reason」口径）。
+	ErrPolicyRejected = perr.New("wbflow: 受控词表越集拦截")
 )
 
 // Trace 统一错误包裹入口：内部错误链路层层包裹，保留堆栈。
@@ -53,6 +57,7 @@ const (
 	CodeInvalidArgument    Code = "INVALID_ARGUMENT"
 	CodeNotFound           Code = "NOT_FOUND"
 	CodeDependencyCycle    Code = "DEPENDENCY_CYCLE"
+	CodePolicyRejected     Code = "POLICY_REJECTED"
 	CodeUnauthorized       Code = "UNAUTHORIZED"
 	CodeInternal           Code = "INTERNAL"
 )
@@ -83,6 +88,9 @@ func MapToHTTP(err error) HTTPMapping {
 		return HTTPMapping{HTTPStatus: http.StatusConflict, Code: CodeStaleReport}
 	case Is(err, ErrInvalidArgument):
 		return HTTPMapping{HTTPStatus: http.StatusBadRequest, Code: CodeInvalidArgument}
+	case Is(err, ErrPolicyRejected):
+		// 受控词表越集：拒绝执行（400 保持入参非法语义）+ 拦截标记 blocked:true
+		return HTTPMapping{HTTPStatus: http.StatusBadRequest, Code: CodePolicyRejected, Blocked: true}
 	case Is(err, ErrNotFound):
 		return HTTPMapping{HTTPStatus: http.StatusNotFound, Code: CodeNotFound}
 	case Is(err, ErrDependencyCycle):
