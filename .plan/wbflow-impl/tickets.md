@@ -113,10 +113,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 5, 8
 
-- [ ] 注入时钟模拟：5min/10min 按时触发（spec §4.1 P2 AC）
-- [ ] 阈值参数化：配置改小即可加速演练
-- [ ] 会话绑定读写 + status 迁移正确
-- [ ] 扫描器恢复续跑（MySQL 不可用恢复后不丢扫）
+- [x] 注入时钟模拟：5min/10min 按时触发（spec §4.1 P2 AC）
+- [x] 阈值参数化：配置改小即可加速演练
+- [x] 会话绑定读写 + status 迁移正确
+- [x] 扫描器恢复续跑（MySQL 不可用恢复后不丢扫）
 
 ## 11. 收件箱 + TODO 投影（通知七类）
 
