@@ -2,3 +2,5 @@ rd/rd
 rd/trade/.superpowers/
 *.pid
 *.log
+.worktrees/
+config.local.yaml
