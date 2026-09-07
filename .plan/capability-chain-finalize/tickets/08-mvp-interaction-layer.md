@@ -21,3 +21,15 @@ claimed_at: 2026-09-07
 
 > **2026-09-07 推演进度**：基线核查（三模块 PRD + workbench-plugin/client.js 829 行：上下分栏/SVG 横向泳道/四级锚点/评论操作矩阵均已实现）；交互原型 `docs-tmp/diagrams/ui-prototype-v3.html` 六面板（节点详情上下分栏吸收四区分栏/SVG 并行泳道+scope 动态渲染重排/药丸 verdict/user_gate 拍板卡/冲突卡上升/对齐会话+完成对齐）——用户逐面板 review 中；结论收敛后产出「模块 II v3 交互增补稿」并推进模块 I/III。**reviewState v5（per-agent 三态 reviewing/agree/unagree + collect 内置聚合 + review_results 单字段）已确认达成一致**。
 > **2026-09-08 原型 review 结论（用户批注）**：P1 节点详情（上下分栏+四区分栏+scope 动态渲染重排）✅、P6 对齐会话（完成对齐单按钮）✅、P5 冲突卡 ✅+**补跳转当前 flow 节点详情入口**；**P2 评审轮视图/P3 进度面板=暂缓开发**（复杂度高、需求不强烈——设计保留，实现靠后；reviewState per-agent 数据结构不变，仅 UI 视图后置）。原型=docs-tmp/diagrams/ui-prototype-v3.html。
+
+## Answer（2026-09-08 产出，待 review）
+
+产出 = `docs-tmp/ui-interaction-final.md`（交互层 v3 增补稿，diff 层）+ `docs-tmp/diagrams/ui-prototype-v3.html`（原型六面板，已 review）：
+
+1. **模块 II**：流程树 scope 动态渲染重排（表达式∩需求 scope，重编号不占位，单侧不保留泳道）；节点详情四区→**五区分栏**（状态卡双属性/药丸 per-agent/产物不变/意见+escalate/拍板卡三态）+ 会话 tab（D6）；拍板卡三态规格（进度只读→agreed 迎宾呈现→按钮组+跳转）；冲突卡上升（取代 override）；会话通道按钮（绑定角色动态）；对齐节点会话主视图+完成对齐单按钮。
+2. **模块 I**：scope 徽标、dependencies 角标、依赖树视图（动态加载）、并发度配置入口（长期预留展示）。
+3. **模块 III/IV**：收件箱条目 v3（七类映射基线六类：待拍板/澄清任务/重表态请求/悬置催办 5min/需你介入 10min/冲突上升/会话消息）；TODO=投影不变。
+4. **§4 UI↔数据对应表**：每组件消费字段与工具。
+5. **暂缓项**：P2/P3 视图、对峙增强、依赖调度器。
+
+**遗留**：无（P2/P3 暂缓为优先级裁决非遗留）。**review 通过后工单 08 关闭**，前沿=工单 09（范围确认+定稿收尾）。
