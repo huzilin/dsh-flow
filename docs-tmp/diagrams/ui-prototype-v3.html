@@ -173,48 +173,82 @@ button:disabled{opacity:.4;cursor:not-allowed}
 
 <!-- ═════ P2 · 时间线备选 ═════ -->
 <div class="panel" id="p2">
-<h1>P2 · 状态卡备选形态：相位时间线</h1>
-<div class="desc">若双行徽标不够直观，状态卡可切换为时间线形态（同数据）。</div>
+<h1>P2 · 相位时间线（评审轮 · 含 state 内小状态机）</h1>
+<div class="desc">每相位独立分割；角色/动作用标签；⚠ 药丸只在 collecting 表达表态——澄清/复核阶段看「问题视角」（见 P3 关联面板）。</div>
 <div class="card">
-  <div class="phase">
-    <div class="pstep"><div class="pdot pdone">✓</div><div class="pbody"><div class="t">collecting — 表态收集</div><div class="m">arch/fe/qa/pm.review · barrier 4/4 达成</div></div></div>
-    <div class="pstep"><div class="pdot pcur">●</div><div class="pbody"><div class="t">clarifying — owner 批量澄清中</div><div class="m">rd · backend-design.clarify · open 3</div></div></div>
-    <div class="pstep"><div class="pdot ptodo">○</div><div class="pbody"><div class="t">confirming — 评审者复核</div><div class="m">confirm / reopen（reopen → 回 clarifying）</div></div></div>
-    <div class="pstep"><div class="pdot ptodo">○</div><div class="pbody"><div class="t">agree → approve</div><div class="m">残留判定 → User 终审（user_gate）</div></div></div>
+  <h3>exec —（审批类：无 exec）</h3>
+</div>
+<div class="card">
+  <h3>① collecting · 表态收集 <span class="tag" style="background:rgba(122,184,255,.12);color:var(--blue)">小状态机：⏳未表态 → pass / reject</span></h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">Arch</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">FE</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">QA</span>
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">PM</span>
+    <span class="tag t-pc">挂载：各评审位 .review → review-protocol-skill</span>
   </div>
+  <div class="sumrow"><span class="k">表态</span><span>Arch ✅ pass · PM ⛔ reject · FE/QA ⏳ 未表态</span></div>
+  <div class="sumrow"><span class="k">barrier</span><span>已表态 2/4（verdict 非空即已表态；全表态 → 相位完成）</span></div>
+  <div class="hint">出口：有 open 意见 → clarifying；无 open → agreed（跳过澄清/复核）</div>
+</div>
+<div style="height:1px;background:var(--line);margin:12px 0"></div>
+<div class="card">
+  <h3>② clarifying · owner 澄清 <span class="tag" style="background:rgba(179,157,255,.12);color:var(--purple)">小状态机：open 待澄清 → pending-confirm 已澄清</span></h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">owner: rd</span>
+    <span class="tag t-pc">挂载：backend-design.clarify</span>
+    <span class="tag t-pc">视角：问题（issue），非角色</span>
+  </div>
+  <div class="sumrow"><span class="k">issue#3341</span><span class="tag t-open">open 待澄清</span><span class="meta">分页方案 · Arch 提 · 最后回复 rd 10:32</span></div>
+  <div class="sumrow"><span class="k">issue#3342</span><span class="tag t-open">open 待澄清</span><span class="meta">时区声明 · QA 提 · 未回复</span></div>
+  <div class="sumrow"><span class="k">issue#3345</span><span class="tag t-pc">已澄清 → 待复核</span><span class="meta">分页默认值 · PM 提 · rd resolve(note)</span></div>
+  <div class="hint">出口：全部 open → pending-confirm（或 resolved）→ 相位完成</div>
+</div>
+<div style="height:1px;background:var(--line);margin:12px 0"></div>
+<div class="card">
+  <h3>③ confirming · 复核 <span class="tag" style="background:rgba(88,192,122,.12);color:var(--green)">小状态机：pending-confirm → confirmed / reopen（→回 ②）</span></h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <span class="tag" style="background:var(--panel);border:1px solid var(--line)">复核者：各提意见的评审位</span>
+    <span class="tag t-pc">挂载：.confirm</span>
+  </div>
+  <div class="sumrow"><span class="k">issue#3345</span><span class="tag t-pc">待复核</span><span>Arch 核对 resolve(note) → confirm / reopen</span></div>
+  <div class="hint">出口：全部确定（无 reopen）→ agreed</div>
+</div>
+<div style="height:1px;background:var(--line);margin:12px 0"></div>
+<div class="card">
+  <h3>④ agree · 收口判定</h3>
+  <div class="sumrow"><span class="k">判定</span><span>残留 open=无 → approve 候选（user_gate 唤醒 User）/ 有 → rejected → 产出节点 exec 重入</span></div>
 </div>
 </div>
 
-<!-- ═════ P3 · 药丸三态 ═════ -->
 <div class="panel" id="p3">
-<h1>P3 · 角色药丸 v3（三轮期对照）</h1>
-<div class="card"><h3>① collecting</h3>
-  <div class="pills">
-    <div class="pill"><span class="r">Arch</span><span class="v pass">✅ pass</span><span class="n">1 open</span></div>
-    <div class="pill"><span class="r">FE</span><span class="v wait">⏳ 未表态</span><span class="n">—</span></div>
-    <div class="pill"><span class="r">QA</span><span class="v wait">⏳ 未表态</span><span class="n">—</span></div>
-    <div class="pill"><span class="r">PM</span><span class="v block">⛔ block</span><span class="n">2 open</span></div>
-  </div><div class="hint">进度 1/4 · barrier 未达成</div>
-</div>
-<div class="card"><h3>② clarifying</h3>
-  <div class="pills">
-    <div class="pill"><span class="r">Arch</span><span class="v clar">💬 澄清中</span><span class="n">1 open</span></div>
-    <div class="pill"><span class="r">FE</span><span class="v pass">✅ pass</span><span class="n">0</span></div>
-    <div class="pill"><span class="r">QA</span><span class="v clar">💬 澄清中</span><span class="n">1 open</span></div>
-    <div class="pill"><span class="r">PM</span><span class="v clar">💬 澄清中</span><span class="n">2 open</span></div>
+<h1>P3 · 评审轮进度面板（与 P2 相位关联：一相位一视图）</h1>
+<div class="desc">表态看标签矩阵（collect）；澄清/复核看<b>问题视角</b>（每条 open 意见的子状态，非角色状态栏）；block 统一展示 <b>reject</b>。</div>
+<div class="card">
+  <h3>① collecting · 表态矩阵（角色标签 × verdict）</h3>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px"><span class="tag" style="background:var(--panel);border:1px solid var(--line)">Arch</span><div style="margin-top:5px" class="ok">✅ pass（已表态）</div></div>
+    <div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px"><span class="tag" style="background:var(--panel);border:1px solid var(--line)">FE</span><div style="margin-top:5px;color:var(--sub)">⏳ 未表态</div></div>
+    <div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px"><span class="tag" style="background:var(--panel);border:1px solid var(--line)">QA</span><div style="margin-top:5px;color:var(--red)">⛔ reject（已表态）</div></div>
+    <div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px"><span class="tag" style="background:var(--panel);border:1px solid var(--line)">PM</span><div style="margin-top:5px;color:var(--red)">⛔ reject（已表态）</div></div>
   </div>
+  <div class="hint">barrier 2/4 · 「已表态」= verdict 非空（pass/reject 都是已表态）；verdict 值统一 pass / reject</div>
 </div>
-<div class="card"><h3>③ confirming</h3>
-  <div class="pills">
-    <div class="pill"><span class="r">Arch</span><span class="v conf">🔍 复核中</span><span class="n">pc 1</span></div>
-    <div class="pill"><span class="r">FE</span><span class="v pass">✅ pass</span><span class="n">0</span></div>
-    <div class="pill"><span class="r">QA</span><span class="v conf">🔍 复核中</span><span class="n">pc 1</span></div>
-    <div class="pill"><span class="r">PM</span><span class="v pass">✅ pass</span><span class="n">0</span></div>
-  </div><div class="hint">confirm → agreed；reopen → 回 clarifying</div>
+<div class="card">
+  <h3>② clarifying → confirming · 问题视角（每条 open 意见的子状态）</h3>
+  <div class="sumrow"><span class="k">#3341</span><span class="tag t-open">open 待澄清</span><span>分页方案 · Arch 提 · 被指派 rd · 最后回复 rd 10:32</span></div>
+  <div class="sumrow"><span class="k">#3342</span><span class="tag t-open">open 待澄清</span><span>时区声明 · QA 提 · 被指派 rd · 未回复</span></div>
+  <div class="sumrow"><span class="k">#3345</span><span class="tag t-pc">pending-confirm 待复核</span><span>分页默认值 · PM 提 · rd 已 resolve(note) · 等 PM confirm</span></div>
+  <div class="sumrow"><span class="k">#3346</span><span class="tag t-res">resolved</span><span>导出字段 · FE 提 · confirmed</span></div>
+  <div class="hint">问题子状态机：open（待澄清）→ pending-confirm（已澄清待复核）→ resolved / reopen（→回 open）——数据即 issues.state，无新增状态</div>
 </div>
+<div class="card">
+  <h3>③ agreed · 收口</h3>
+  <div class="sumrow"><span class="k">判定</span><span>open 0 · pending-confirm 0 → agreed → plugin 判定 approve / reject</span></div>
+</div>
+<div class="hint"><b>与 P2 关联</b>：P2 时间线的每个相位，在本面板有对应视图（①=collecting 的表态矩阵、②=clarifying/confirming 的问题列表、③=agree 收口）——药丸（P1 节点详情）只做 collecting 期的 verdict 快览，澄清/复核一律看问题视角。</div>
 </div>
 
-<!-- ═════ P4 · 拍板卡 ═════ -->
 <div class="panel" id="p4">
 <h1>P4 · user_gate 拍板卡（agreed 后迎宾呈现态）</h1>
 <div class="lead">📬 收件箱同步：「节点 5 RD 技术评审 · 待你拍板」（点此跳转）</div>
