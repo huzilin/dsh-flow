@@ -164,9 +164,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4, 6, 7, 8
 
-- [ ] 三种 scope 切换后流程树节点集/序号与后端实例一致，被裁节点不占位
-- [ ] 阅读器内 line/range/block 锚点选取并发起评论，定位正确
-- [ ] 详情五区分栏数据源全部来自聚合快照端点
+- [x] 三种 scope 切换后流程树节点集/序号与后端实例一致，被裁节点不占位（后端矩阵断言 + FE 双快照锁定，浏览器联调待编排者验收）
+- [x] 阅读器内 line/range/block 锚点选取并发起评论，定位正确
+- [x] 详情五区分栏数据源全部来自聚合快照端点
 
 ## 16. FE 模块 III/IV：收件箱 / TODO + 拍板卡三态 + 冲突卡
 
