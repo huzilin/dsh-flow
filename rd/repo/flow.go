@@ -64,6 +64,22 @@ func GetFlowNodeByRequirementAndNodeIDLockTx(ctx context.Context, tx *gorm.DB, r
 	return row, nil
 }
 
+// ListFlowNodesByRequirementLockTx 事务内行锁读取需求全部实例节点（渲染序；
+// SELECT … FOR UPDATE——T9 打回回退的批量读改写基线：回退目标与下游联动重置
+// 单事务行锁，并发回退仅一次生效）；空集返回空切片。
+func ListFlowNodesByRequirementLockTx(ctx context.Context, tx *gorm.DB, requirementID string) ([]*FlowNode, error) {
+	items := make([]*FlowNode, 0)
+	err := tx.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("requirement_id = ?", requirementID).
+		Order("node_order").
+		Find(&items).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return items, nil
+}
+
 // GetFlowDefByID 按流程类型读流程定义行；未命中返回 (nil, nil)。
 func (r *Repo) GetFlowDefByID(ctx context.Context, flowDefsID string) (*FlowDef, error) {
 	row := &FlowDef{}
