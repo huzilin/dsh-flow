@@ -1,0 +1,3 @@
+./golden_matrix_test.go
+./golden_test.go
+./migration_it_test.go

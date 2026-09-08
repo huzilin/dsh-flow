@@ -53,6 +53,7 @@ func (s *RequirementService) List(ctx context.Context, req *api.ListRequirements
 	filter := repo.ListRequirementFilter{
 		Priority: req.Priority,
 		Status:   req.Status,
+		Scope:    req.Scope,
 		Page:     req.Page,
 		PageSize: req.PageSize,
 	}

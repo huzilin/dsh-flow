@@ -45,6 +45,7 @@ func ListRequirements(svc RequirementAPI) gin.HandlerFunc {
 			Backlog:   c.Query("backlog") == "true",
 			Priority:  c.Query("priority"),
 			Status:    c.Query("status"),
+			Scope:     c.Query("scope"),
 			Page:      queryInt64(c, "page"),
 			PageSize:  queryInt64(c, "page_size"),
 		}

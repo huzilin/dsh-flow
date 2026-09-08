@@ -25,6 +25,9 @@ type ListRequirementFilter struct {
 	Priority string
 	// Status 需求状态；空=不过滤
 	Status string
+	// Scope 按流程实例所选渲染 scope 筛选（full/rd/fe）；空=不过滤。
+	// 语义：requirements 存在 flows.scope=本值 的实例才命中（EXISTS 子查询）。
+	Scope string
 	// Page 页码，1 起（调用方归一化）
 	Page int64
 	// PageSize 页大小（调用方归一化）
@@ -47,6 +50,11 @@ func (r *Repo) ListRequirements(ctx context.Context, filter ListRequirementFilte
 		}
 		if filter.Status != "" {
 			q = q.Where("status = ?", filter.Status)
+		}
+		if filter.Scope != "" {
+			// scope 筛选：需求存在 flows.scope=本值 的流程实例才命中（EXISTS 子查询，
+			// count 与 find 同一条件构建，语义一致）
+			q = q.Where("EXISTS (SELECT 1 FROM flows WHERE flows.requirement_id = requirements.requirement_id AND flows.scope = ?)", filter.Scope)
 		}
 		return q
 	}

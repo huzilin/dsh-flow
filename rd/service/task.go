@@ -321,6 +321,11 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 			if row.LastProgress != nil {
 				oldProgress = *row.LastProgress
 			}
+			// 同值覆写跳过 UPDATE+审计（逐变更字段口径；库不变时幂等无害）
+			if oldProgress == req.Progress {
+				nooped = row
+				return nil
+			}
 			updates["last_progress"] = req.Progress
 			audits = append(audits, taskUpdateAudit(row, "lastProgress", oldProgress, req.Progress))
 		case "complete":

@@ -140,7 +140,10 @@ type ListRequirementsReq struct {
 	// page 页码，1 起；0 视为 1
 	Page int64 `protobuf:"varint,5,opt,name=page,proto3" json:"page,omitempty"`
 	// page_size 页大小；0 视为默认 20，上限 100（强制分页，禁全量）
-	PageSize      int64 `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageSize int64 `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// scope 按需求流程实例所选渲染 scope 筛选（full/rd/fe）；空=不过滤。
+	// 过滤语义：需求存在 flows.scope=本值的实例才命中（join flows 或等价子查询）。
+	Scope         string `protobuf:"bytes,7,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -215,6 +218,13 @@ func (x *ListRequirementsReq) GetPageSize() int64 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListRequirementsReq) GetScope() string {
+	if x != nil {
+		return x.Scope
+	}
+	return ""
 }
 
 // RequirementItem 需求行（列表与详情快照共用）。
@@ -6531,7 +6541,7 @@ const file_api_proto_rawDesc = "" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12\x12\n" +
 	"\x04code\x18\x03 \x01(\tR\x04code\x12\x18\n" +
 	"\ablocked\x18\x04 \x01(\bR\ablocked\x12\x18\n" +
-	"\amissing\x18\x05 \x03(\tR\amissing\"\xb3\x01\n" +
+	"\amissing\x18\x05 \x03(\tR\amissing\"\xc9\x01\n" +
 	"\x13ListRequirementsReq\x12\x1d\n" +
 	"\n" +
 	"version_id\x18\x01 \x01(\tR\tversionId\x12\x18\n" +
@@ -6539,7 +6549,8 @@ const file_api_proto_rawDesc = "" +
 	"\bpriority\x18\x03 \x01(\tR\bpriority\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12\x12\n" +
 	"\x04page\x18\x05 \x01(\x03R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x06 \x01(\x03R\bpageSize\"\xf4\x02\n" +
+	"\tpage_size\x18\x06 \x01(\x03R\bpageSize\x12\x14\n" +
+	"\x05scope\x18\a \x01(\tR\x05scope\"\xf4\x02\n" +
 	"\x0fRequirementItem\x12%\n" +
 	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +

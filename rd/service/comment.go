@@ -443,7 +443,7 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 		if effect.LoopCountDelta > 0 {
 			updates["loop_count"] = row.LoopCount + effect.LoopCountDelta
 			row.LoopCount = row.LoopCount + effect.LoopCountDelta
-			audits = append(audits, issueAudit(row.IssueID, "loop_count",
+			audits = append(audits, issueAudit(row.IssueID, "loopCount",
 				fmt.Sprintf("%d", row.LoopCount-effect.LoopCountDelta), fmt.Sprintf("%d", row.LoopCount), in.operator))
 			// 澄清不收敛自动上升（spec §2：loop_count 达阈值如 reopen≥5，阈值经
 			// config escalate.loop_threshold 注入）+ 通知位行（T12，同事务）

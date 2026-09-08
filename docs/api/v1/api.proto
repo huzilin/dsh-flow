@@ -58,6 +58,9 @@ message ListRequirementsReq {
   int64 page = 5;
   // page_size 页大小；0 视为默认 20，上限 100（强制分页，禁全量）
   int64 page_size = 6;
+  // scope 按需求流程实例所选渲染 scope 筛选（full/rd/fe）；空=不过滤。
+  // 过滤语义：需求存在 flows.scope=本值的实例才命中（join flows 或等价子查询）。
+  string scope = 7;
 }
 
 // RequirementItem 需求行（列表与详情快照共用）。

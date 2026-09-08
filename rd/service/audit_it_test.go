@@ -256,8 +256,8 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 		"operator": "arch", "text": "仍不满意",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
-	assert.Equal(t, auditFieldCount(t, handles, "issues", issueC, "loop_count"), int64(1), "reopen 计数审计一次")
-	assert.Equal(t, auditWhoCount(t, handles, "issues", issueC, "UPDATE", "arch"), int64(3), "reopen 审计（state+loop_count+replies）by 操作者")
+	assert.Equal(t, auditFieldCount(t, handles, "issues", issueC, "loopCount"), int64(1), "reopen 计数审计一次")
+	assert.Equal(t, auditWhoCount(t, handles, "issues", issueC, "UPDATE", "arch"), int64(3), "reopen 审计（state+loopCount+replies）by 操作者")
 
 	// ---- escalate：手动上升（operator=arch）——session 建绑/置位/上升条目/通知位 ----
 	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueC+"/escalate", map[string]any{
