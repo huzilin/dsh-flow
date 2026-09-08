@@ -144,9 +144,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 11, 12
 
-- [ ] §4.1 审计 AC：全部写路径落 audit_log（覆盖扫描脚本化断言）
-- [ ] 审计写失败 → 业务事务回滚（同库同事务验证）
-- [ ] by_who 口径（role_id/user/system/plugin）全路径正确
+- [x] §4.1 审计 AC：全部写路径落 audit_log（覆盖扫描脚本化断言）
+- [x] 审计写失败 → 业务事务回滚（同库同事务验证）
+- [x] by_who 口径（role_id/user/system/plugin）全路径正确
 
 ## 14. FE 骨架 + 模块 I（需求池 / 版本 / 看板）
 
