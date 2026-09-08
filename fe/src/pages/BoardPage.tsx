@@ -1,11 +1,15 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api, ApiError } from "../api/client";
+import { updateRequirement } from "../api/requirements";
 import { REQUIREMENT_STATUSES } from "../api/constants";
-import type { RequirementItem } from "../api/proto/api";
+import type { RequirementItem, UpdateRequirementReq } from "../api/proto/api";
 import { useRequirementsQuery, useVersionsQuery } from "../hooks/queries";
 import { AlertBanner } from "../components/AlertBanner";
 import { PriorityBadge } from "../components/Badges";
+import { RequirementModal } from "../components/CreateRequirementDialog";
 import { DepBadge, ReqScopeBadge } from "../components/ReqMetaBadges";
 import {
   FilterBar,
@@ -25,37 +29,16 @@ const GROUP_HEAD_CLASS: Record<string, string> = {
 };
 
 /**
- * 卡片 ✎ 编辑占位（编辑弹窗 RequirementModal 本体由详情域改造提供，ui-interaction-final §6 N4；
- * 本页只留卡角入口：stopPropagation 阻断卡片跳详情，点击行为待弹窗接入后接 onEdit）。
- */
-function CardEditPlaceholder({ requirementId }: { requirementId: string }) {
-  return (
-    <span className="card-edit-slot">
-      <button
-        type="button"
-        className="card-edit"
-        title="编辑（编辑弹窗接入中）"
-        aria-label={`编辑 ${requirementId}`}
-        onClick={(e) => {
-          // TODO(编辑弹窗)：接入 RequirementModal 后由此回调打开；当前仅占位不动作
-          e.stopPropagation();
-        }}
-      >
-        ✎
-      </button>
-    </span>
-  );
-}
-
-/**
  * 看板（原型 P8）：「看板|列表」双视图 + 状态四泳道（待启动/进行中/已完成/已取消——PRD §5.2）。
  * 泳道卡片 v3 增补：scope 徽标三色实值、依赖角标（dependencies.length>0 显「依赖 ×N」，
- * hover title 列前置 id 清单）、卡角 ✎ 编辑占位。数据源同需求池接口；后端强制分页，单页上限 100。
+ * hover title 列前置 id 清单）、卡角 ✎ 编辑入口（stopPropagation 阻断卡片跳详情，
+ * 打开 RequirementModal 编辑模式——§6 N4 编辑复用同弹窗）。数据源同需求池接口；
+ * 后端强制分页，单页上限 100。
  */
 export function BoardPage({
   renderCardEdit,
 }: {
-  /** 编辑入口插槽：默认渲染占位 ✎（另一 subagent 完成编辑弹窗后经路由 props 注入） */
+  /** 编辑入口插槽（默认接线 RequirementModal 编辑模式；测试可注入替身） */
   renderCardEdit?: (item: RequirementItem) => ReactNode;
 }) {
   const navigate = useNavigate();
@@ -79,7 +62,47 @@ export function BoardPage({
   const versionName = (id: string) =>
     versions.data?.items.find((v) => v.versionId === id)?.name ?? id;
 
-  const renderCardEditFn = renderCardEdit ?? ((it: RequirementItem) => <CardEditPlaceholder requirementId={it.requirementId} />);
+  const [editTarget, setEditTarget] = useState<RequirementItem | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const updateMutation = useMutation({
+    mutationFn: (input: { req: UpdateRequirementReq }) => updateRequirement(api, input.req.requirementId, input.req),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["requirements"] });
+      void queryClient.invalidateQueries({ queryKey: ["requirement", editTarget?.requirementId] });
+      setEditTarget(null);
+      setEditError(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.isOptimisticLock) {
+        void queryClient.invalidateQueries({ queryKey: ["requirements"] });
+        setEditTarget(null);
+        setEditError(null);
+        window.alert("基线冲突：需求已被他人修改，已刷新最新数据，请重试");
+      } else {
+        setEditError(err instanceof Error ? err.message : String(err));
+      }
+    },
+  });
+  const renderCardEditFn =
+    renderCardEdit ??
+    ((it: RequirementItem) => (
+      <span className="card-edit-slot">
+        <button
+          type="button"
+          className="card-edit"
+          title="编辑需求"
+          aria-label={`编辑 ${it.requirementId}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditTarget(it);
+            setEditError(null);
+          }}
+        >
+          ✎
+        </button>
+      </span>
+    ));
 
   return (
     <section>
@@ -196,6 +219,37 @@ export function BoardPage({
             )}
           </tbody>
         </table>
+      )}
+
+      {/* 编辑弹窗（§6 N4：卡片 ✎ 与详情页「编辑」复用同一 RequirementModal） */}
+      {editTarget && (
+        <RequirementModal
+          open
+          mode="edit"
+          initial={editTarget}
+          versions={versions.data?.items ?? []}
+          submitting={updateMutation.isPending}
+          submitError={editError}
+          onClose={() => {
+            setEditTarget(null);
+            setEditError(null);
+          }}
+          onUpdate={(req) => {
+            updateMutation.mutate({
+              req: {
+                requirementId: editTarget.requirementId,
+                title: req.title,
+                description: req.description,
+                category: req.category,
+                priority: req.priority,
+                status: req.status,
+                owner: req.owner,
+                versionId: req.versionId,
+                updatedAt: req.updatedAt,
+              },
+            });
+          }}
+        />
       )}
     </section>
   );
