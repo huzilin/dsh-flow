@@ -194,7 +194,9 @@ func TestIntegration_ReviewCollectDecision_RealMySQL(t *testing.T) {
 	assert.Equal(t, nodeCol(t, handles, "n-26", "state"), "entry", "gate 型下一节点驻留 entry")
 	assert.Assert(t, nodeCol(t, handles, "n-26", "entered_at") != "", "entered_at 落值")
 
-	// rejected 拍板（第 3 条需求 bus-03=n-30）：verdict 落定、不推进、重入字段不动（T9 接缝）
+	// rejected 拍板（第 3 条需求 bus-03=n-30）：verdict 落定 + T9 回退重入同事务生效
+	// （目标 bus-02=n-29 exec 重入；评审节点清相位待重新提评；全链路细粒度断言见
+	// reject_it_test.go）
 	req3 := setupReviewNode(t, router, handles, "3", "n-30")
 	for _, position := range []struct{ role, capabilityID string }{
 		{"arch", "arch.prd-review"}, {"rd", "rd.prd-review"}, {"fe", "fe.prd-review"},
@@ -206,11 +208,14 @@ func TestIntegration_ReviewCollectDecision_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, resp.str("verdict"), "rejected")
 	assert.Equal(t, resp.str("nextNodeId"), "", "rejected 不推进")
-	assert.Equal(t, flowCol(t, handles, req3, "current_node_id"), "n-30", "rejected 不前移")
-	assert.Equal(t, nodeCol(t, handles, "n-30", "state"), "review", "rejected 不动相位（T9 接缝）")
-	assert.Equal(t, nodeCol(t, handles, "n-30", "reopen_source"), "", "reopen_source 留 T9")
-	assert.Equal(t, nodeCol(t, handles, "n-30", "rolled_back_count"), "0", "rolled_back_count 留 T9")
-	assert.Assert(t, strings.Contains(nodeCol(t, handles, "n-30", "last_decision"), `"verdict":"rejected"`), "rejected 结论落库")
+	assert.Equal(t, resp.str("rollbackNodeId"), "n-29", "回退目标=上一渲染节点")
+	assert.Equal(t, flowCol(t, handles, req3, "current_node_id"), "n-29", "current_node_id 回退")
+	assert.Equal(t, nodeCol(t, handles, "n-30", "state"), "", "评审节点清相位待重新提评")
+	assert.Equal(t, nodeCol(t, handles, "n-30", "rolled_back_count"), "1", "打回计数=round+1")
+	assert.Equal(t, nodeCol(t, handles, "n-29", "state"), "exec", "回退目标 exec 重入")
+	assert.Equal(t, nodeCol(t, handles, "n-29", "reopen_source"), "downstream-reject", "目标重开来源")
+	assert.Assert(t, nodeCol(t, handles, "n-29", "pending_scope") != "", "pending_scope 待重定标记")
+	assert.Assert(t, auditFieldCount(t, handles, "flow_nodes", "n-30", "lastDecision") == 1, "rejected 结论审计留痕")
 }
 
 // TestIntegration_ReviewClarifyLoop_RealMySQL 澄清循环消费 T7 issue 链最小闭环：
