@@ -1,21 +1,8 @@
 import { useQueries } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { DependencyNodeItem, RequirementItem } from "../api/proto/api";
-import { DependencyTreeResp } from "../api/proto/api";
 import { api } from "../api/client";
-
-/**
- * 依赖树拉取（GET /api/requirements/:reqId/dependencies/tree，rd/handler/flow.go 路由同形）。
- * 注：api 层（flows.ts）由接口封装 owner 维护、本任务禁改，故此封装暂驻组件域，
- * 形状与 api/*.ts 既有 wrapper 一致（api.request + proto fromJSON），待收编时平移。
- */
-function fetchDependencyTree(requirementId: string): Promise<DependencyTreeResp> {
-  return api.request({
-    method: "GET",
-    path: `/api/requirements/${encodeURIComponent(requirementId)}/dependencies/tree`,
-    decode: (raw) => DependencyTreeResp.fromJSON(raw),
-  });
-}
+import { dependencyTree as fetchDependencyTree } from "../api/flows";
 
 /** 森林节点：展示方向以「前置」为父（原型 P9 deproot：根=无前置，子行标「前置 父id」）。 */
 export interface DepForestNode {
@@ -98,7 +85,7 @@ export function VersionDependencyForest({ reqs }: { reqs: RequirementItem[] }) {
   const queries = useQueries({
     queries: reqs.map((r) => ({
       queryKey: ["dependencyTree", r.requirementId],
-      queryFn: () => fetchDependencyTree(r.requirementId),
+      queryFn: () => fetchDependencyTree(api, r.requirementId),
     })),
   });
 
