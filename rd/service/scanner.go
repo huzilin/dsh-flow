@@ -82,7 +82,7 @@ type ScanReport struct {
 	// Error 降级原因摘要
 	Error string
 	// Scanned 参与判定的在途任务数
-	Scanned int
+	Scanned int64
 	// Followups 本轮新建催办通知（task_id）
 	Followups []string
 	// Intervenes 本轮新建介入通知（task_id）
@@ -117,7 +117,7 @@ func (s *Scanner) RunOnce(ctx context.Context) (*ScanReport, error) {
 	if err != nil {
 		return nil, errs.Trace(err)
 	}
-	report.Scanned = len(tasks)
+	report.Scanned = int64(len(tasks))
 	now := s.now()
 	for _, task := range tasks {
 		// 事实装配：同类未闭合通知查重 + active 会话绑定（running 代理判据）
