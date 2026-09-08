@@ -192,8 +192,7 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 
 	// ---- review：表态（by 表态角色）→ collect approved → 拍板（by user）→
 	// 推进编排迁移（下一节点激活/前移 by plugin）。第 2 条需求第 4 节点 = n-17。
-	// （顺序约束：需求删除仅删 requirements 行——flows 孤儿行占住 uk_flows_req，
-	// 删除后再建需求会撞 req-NNN 取号复用；删除路径断言移到全测末尾。）
+	// （顺序约束：删除路径断言放全测末尾，避免中途删除干扰取号序 n-NN 断言。）
 	req3 := setupReviewNode(t, router, handles, "2", "n-17")
 	for _, position := range []struct{ role, capabilityID string }{
 		{"arch", "arch.prd-review"}, {"rd", "rd.prd-review"}, {"fe", "fe.prd-review"},
@@ -337,16 +336,36 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 	assert.Equal(t, scratchCol(t, handles,
 		"SELECT author FROM issues WHERE issue_id = ?", scanNotice), "system", "触发者身份留 issues.author（行上可见）")
 
-	// ---- requirements：Delete（管理面 by_who=user；放末尾——删除仅删 requirements
-	// 行，孤儿 flows 占住 uk_flows_req，其后再建需求会撞取号复用，见头部顺序约束）----
+	// ---- requirements：Delete（管理面 by_who=user；放末尾——避免中途删除干扰
+	// 取号序 n-NN 断言）。级联删除：flows/flow_nodes 同事务清除且逐行补 DELETE
+	// 审计（与实例化 INSERT 审计镜像），删后无孤儿行。----
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements", map[string]any{
 		"title": "待删需求", "category": "需求任务", "createdBy": "user-a",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	reqDel := item(t, resp, "requirement").str("requirementId")
+	// 删除前快照：级联审计以删除前节点 id 集为准（删后行已不在）
+	delNodeIDs := make([]string, 0)
+	assert.NilError(t, handles.Gorm.WithContext(ctx).Raw(
+		"SELECT node_id FROM flow_nodes WHERE requirement_id = ?", reqDel).Scan(&delNodeIDs).Error)
+	assert.Equal(t, len(delNodeIDs), 13, "待删需求 business full 13 实例节点")
 	resp = reqJSON(t, router, http.MethodDelete, "/api/requirements/"+reqDel+"?confirm=true", nil)
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, auditWhoCount(t, handles, "requirements", reqDel, "DELETE", "user"), int64(1), "需求删除 DELETE 审计 by user")
+	assert.Equal(t, auditWhoCount(t, handles, "flows", reqDel, "DELETE", "user"), int64(1), "级联 flows DELETE 审计 by user")
+	delNodeAudit := int64(0)
+	assert.NilError(t, handles.Gorm.WithContext(ctx).Raw(
+		"SELECT COUNT(*) FROM audit_log WHERE table_name = 'flow_nodes' AND action = 'DELETE' AND by_who = 'user' AND row_id IN ?",
+		delNodeIDs).Scan(&delNodeAudit).Error)
+	assert.Equal(t, delNodeAudit, int64(13), "级联 flow_nodes 逐节点 DELETE 审计（13 节点全量）")
+	orphanFlows := int64(0)
+	assert.NilError(t, handles.Gorm.WithContext(ctx).Raw(
+		"SELECT COUNT(*) FROM flows WHERE requirement_id NOT IN (SELECT requirement_id FROM requirements)").Scan(&orphanFlows).Error)
+	assert.Equal(t, orphanFlows, int64(0), "删除后无孤儿 flows")
+	orphanNodes := int64(0)
+	assert.NilError(t, handles.Gorm.WithContext(ctx).Raw(
+		"SELECT COUNT(*) FROM flow_nodes WHERE requirement_id NOT IN (SELECT requirement_id FROM requirements)").Scan(&orphanNodes).Error)
+	assert.Equal(t, orphanNodes, int64(0), "删除后无孤儿 flow_nodes")
 }
 
 // TestIntegration_AuditAppendOnly_RealMySQL append-only 回归：同一行两次 UPDATE 后

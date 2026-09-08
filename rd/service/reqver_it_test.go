@@ -386,6 +386,51 @@ func TestIntegration_RequirementsEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.boolean("blocked"), true, "进行中需求删除应 blocked")
 }
 
+// TestIntegration_RequirementsScopeFilter_RealMySQL wb_list_requirements scope 筛选
+// （repo EXISTS 子查询分支）：两需求各起不同 scope 流程实例（business 允许 full/rd/fe），
+// scope=rd 只回对应项、scope=fe 只回对应项、不带 scope 回全量。
+func TestIntegration_RequirementsScopeFilter_RealMySQL(t *testing.T) {
+	router, _ := openScratch(t)
+
+	// 建两需求，创建即实例化且 scope 不同（scope 经 Create 归一校验落 flows.scope）
+	resp := reqJSON(t, router, http.MethodPost, "/api/requirements", map[string]any{
+		"title": "rd 侧需求", "category": "需求任务", "createdBy": "user-a", "scope": "rd",
+	})
+	assert.Equal(t, resp.code, http.StatusOK)
+	rdReq := item(t, resp, "requirement").str("requirementId")
+
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements", map[string]any{
+		"title": "fe 侧需求", "category": "需求任务", "createdBy": "user-a", "scope": "fe",
+	})
+	assert.Equal(t, resp.code, http.StatusOK)
+	feReq := item(t, resp, "requirement").str("requirementId")
+
+	// scope=rd：只回 rd 实例需求
+	resp = reqJSON(t, router, http.MethodGet, "/api/requirements?scope=rd", nil)
+	assert.Equal(t, resp.code, http.StatusOK)
+	assert.Equal(t, resp.number(t, "total"), int64(1), "scope=rd 只回 rd 实例需求")
+	rdItems := arr(t, resp, "items")
+	assert.Equal(t, len(rdItems), 1)
+	assert.Equal(t, rdItems[0].str("requirementId"), rdReq)
+
+	// scope=fe：只回 fe 实例需求
+	resp = reqJSON(t, router, http.MethodGet, "/api/requirements?scope=fe", nil)
+	assert.Equal(t, resp.number(t, "total"), int64(1), "scope=fe 只回 fe 实例需求")
+	feItems := arr(t, resp, "items")
+	assert.Equal(t, len(feItems), 1)
+	assert.Equal(t, feItems[0].str("requirementId"), feReq)
+
+	// scope=full：两需求均非 full 实例，空集
+	resp = reqJSON(t, router, http.MethodGet, "/api/requirements?scope=full", nil)
+	assert.Equal(t, resp.number(t, "total"), int64(0))
+	assert.Equal(t, len(arr(t, resp, "items")), 0)
+
+	// 不带 scope：回全量
+	resp = reqJSON(t, router, http.MethodGet, "/api/requirements", nil)
+	assert.Equal(t, resp.number(t, "total"), int64(2))
+	assert.Equal(t, len(arr(t, resp, "items")), 2)
+}
+
 // ---- versions 五端点 ----
 
 // TestIntegration_VersionsEndpoints_RealMySQL 版本创建/改名/发布软约束/
