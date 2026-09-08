@@ -111,9 +111,13 @@ func ResolveTaskAction(actionID string, assignee string, nodeActionsJSON string,
 	return resolveNodeAction(actionID, assignee, nodeActionsJSON)
 }
 
-// SplitCapabilityAction 拆分 "<capabilityId>.<actionId>"：capabilityId 可含点
-// （如 rd.prd-review）、动作 id 无点——按**最后一个**点切分；无点号（或首尾点）
-// 为 node action，ok=false。导出供 service 层 complete 判据期望产物解析复用（单一口径）。
+// SplitCapabilityAction 拆分 "<capabilityId>.<actionId>"：id 约定——action_id 不含点
+// （capability_id 可含点，如 rd.prd-review），故按**最后一个**点切分；无点号（或首尾点）
+// 为 node action，ok=false。脆弱点声明：若 action_id 自身含点（如 node 动作
+// align.opening）会被误切为 capability/action 对——防线在其后的解析链：误切出的
+// "capability" 不在能力注册表即拒（未知能力），即便命中，动作 id 也无任务族映射
+// （TaskTypeForAction 未知动作，「不可派发」拦截）。导出供 service 层 complete 判据
+// 期望产物解析复用（单一口径）。
 func SplitCapabilityAction(actionID string) (string, string, bool) {
 	idx := strings.LastIndex(actionID, ".")
 	if idx <= 0 || idx == len(actionID)-1 {

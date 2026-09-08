@@ -2,7 +2,7 @@
 
 roadmap P5「seed 注入 → HTTP 驱动全流程」：真实 MySQL **scratch 库**（`wbflow_e2e_*` 前缀，
 每条剧本每次运行新建 → 迁移+seed → 演练 → DROP，禁写 `wbflow` 库，天然可重复执行）+
-`httptest.NewServer` 启动完整 Gin 栈（22 个 `wb_*` 端点，T1-T16 全量装配）+ 真实 HTTP
+`httptest.NewServer` 启动完整 Gin 栈（26 个 `wb_*` 端点，T1-T16 全量装配）+ 真实 HTTP
 client（Bearer token）。演练者扮演全部 agent/User 角色，按节点剧本 HTTP 驱动推进。
 
 ## 运行命令
