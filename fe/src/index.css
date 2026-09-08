@@ -171,17 +171,18 @@ input.invalid {
   color: #8f959e;
   text-decoration: line-through;
 }
+/* scope 三色（原型 P8 v3 增补：full 紫 / rd 蓝 / fe 绿；plan 无 scope 显「—」） */
 .badge-scope-full {
-  background: #e3f5e5;
-  color: #21853a;
+  background: #f1ecff;
+  color: #6b4fd8;
 }
 .badge-scope-rd {
   background: #e8f0ff;
   color: #245bdb;
 }
 .badge-scope-fe {
-  background: #fff3e0;
-  color: #d9730d;
+  background: #e3f5e5;
+  color: #21853a;
 }
 
 /* 筛选条 */
@@ -1191,4 +1192,167 @@ input.invalid {
 .session-status-disposed {
   background: rgba(217, 128, 128, 0.12);
   color: #b42318;
+/* ── P8/P9 增补（ui-prototype-v3 P8 看板/列表、P9 版本聚合/依赖树/并发调度） ── */
+
+/* 看板|列表双视图切换（原型 sbtn 风格：胶囊小按钮，on 态琥珀描边） */
+.view-switch {
+  display: flex;
+  gap: 6px;
+}
+.sbtn {
+  padding: 3px 12px;
+  border-radius: 12px;
+  border: 1px solid #d0d3d9;
+  background: #fff;
+  color: #646a73;
+  font-size: 12px;
+}
+.sbtn.on {
+  color: #b26a00;
+  border-color: #e8b34a;
+  background: #fff8e6;
+}
+
+/* 泳道卡片：标题行放 ✎ 编辑占位（右上角，不抢卡片主体）；依赖角标（琥珀，原型 .dep） */
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-edit-slot {
+  margin-left: auto;
+  flex: none;
+}
+.card-edit {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  color: #8f959e;
+  font-size: 12px;
+  cursor: pointer;
+}
+.card-edit:hover {
+  color: #3370ff;
+}
+.badge-dep {
+  background: #fff8e6;
+  color: #b26a00;
+}
+
+/* 列表视图状态分组头（原型 P8：● 状态 · n 项，colspan 合并；色系随状态） */
+.board-list-table .board-group-head td {
+  font-weight: 600;
+  font-size: 12px;
+  padding-top: 14px;
+  border-bottom: none;
+}
+.board-group-head-pending td {
+  color: #646a73;
+}
+.board-group-head-running td {
+  color: #b26a00;
+}
+.board-group-head-done td {
+  color: #2ea121;
+}
+.board-group-head-canceled td {
+  color: #d83931;
+}
+
+/* 版本需求聚合：四色进度条（灰/琥珀/绿/红——原型 P9 vbar） */
+.ver-agg {
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ver-agg-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ver-agg-line {
+  font-size: 12px;
+}
+.vbar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f2f3f5;
+  flex: 1;
+  min-width: 120px;
+}
+.vbar-seg {
+  display: block;
+  height: 100%;
+}
+.vbar-seg-待启动 {
+  background: #8f959e;
+}
+.vbar-seg-进行中 {
+  background: #e8b34a;
+}
+.vbar-seg-已完成 {
+  background: #2ea121;
+}
+.vbar-seg-已取消 {
+  background: #d83931;
+}
+
+/* 版本依赖树（原型 P9 deproot/tree：左缩进线 + ▸/└ 层级标记 + ↗ 流程树链接） */
+.dep-tree-row td {
+  background: #fafbfc;
+}
+.dep-forest {
+  border-left: 2px solid #e5e7eb;
+  margin: 4px 0 4px 8px;
+  padding-left: 16px;
+}
+.dep-node {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.dep-node-mark {
+  flex: none;
+}
+.dep-node-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #3370ff;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dep-node-link:hover {
+  text-decoration: underline;
+}
+
+/* 并发调度预留区（原型 P9 调度卡：三行 k/v，纯展示） */
+.sched-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 16px;
+}
+.sched-card h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #646a73;
+}
+.sched-row {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+  font-size: 13px;
+}
+.sched-key {
+  flex: none;
+  font-weight: 600;
+  color: #646a73;
 }
