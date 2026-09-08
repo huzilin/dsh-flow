@@ -7,7 +7,8 @@ import { api } from "../api/client";
 import { FLOW_LABELS } from "../api/constants";
 import { useRequirementsQuery, useVersionsQuery } from "../hooks/queries";
 import { AlertBanner } from "../components/AlertBanner";
-import { PriorityBadge, ScopeBadge, StatusBadge } from "../components/Badges";
+import { PriorityBadge, StatusBadge } from "../components/Badges";
+import { DepBadge, ReqScopeBadge } from "../components/ReqMetaBadges";
 import { CreateRequirementDialog } from "../components/CreateRequirementDialog";
 import {
   FilterBar,
@@ -165,16 +166,14 @@ function RequirementRow({
         <span className="badge badge-category">{item.category}</span>
       </td>
       <td>
-        {item.flowDefsId === "" ? (
-          <span className="muted">—</span>
-        ) : (
-          <>
-            <span className="badge badge-flow">
-              {item.flowDefsId}·{FLOW_LABELS[item.flowDefsId]}
-            </span>{" "}
-            <ScopeBadge flowDefsId={item.flowDefsId} />
-          </>
-        )}
+        {/* 流程徽标 + scope 三色实值徽标 + 依赖角标（原型 P8 v3 增补，与看板同款） */}
+        {item.flowDefsId !== "" && (
+          <span className="badge badge-flow">
+            {item.flowDefsId}·{FLOW_LABELS[item.flowDefsId]}
+          </span>
+        )}{" "}
+        <ReqScopeBadge flowDefsId={item.flowDefsId} />
+        <DepBadge dependencies={item.dependencies} />
       </td>
       <td>
         <PriorityBadge priority={item.priority} />
