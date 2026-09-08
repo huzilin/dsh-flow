@@ -229,13 +229,17 @@ func (s *RequirementService) Get(ctx context.Context, req *api.GetRequirementReq
 		})
 	}
 
-	// dependencies 填充（注记-D4：flows.dependencies 透传，取唯一实例行）
+	// dependencies 填充（注记-D4：flows.dependencies 透传，取唯一实例行——
+	// uk_flows_req 唯一键保证单行；解析失败降级空集+日志，与 List 口径一致）
 	deps := []string{}
 	for _, f := range flowRows {
-		deps, err = parseDependencyList(f.Dependencies)
+		parsed, err := parseDependencyList(f.Dependencies)
 		if err != nil {
-			return nil, errs.Trace(err)
+			log.Printf("[requirement] dependencies 解析失败（降级空集）: req=%s err=%v",
+				f.RequirementID, err)
+			break
 		}
+		deps = parsed
 		break
 	}
 
