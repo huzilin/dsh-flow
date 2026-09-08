@@ -213,18 +213,25 @@ export interface UnagreeSeat {
   at: number;
 }
 
-/** 节点内反对中的评审位清单（同位多轮取最新一条 unagree）。 */
+/** 节点内反对中的评审位清单（该位最新表态=unagree 才计入；后轮 agree 覆盖前轮 unagree）。 */
 export function unagreeSeatsOf(node: FlowNodeItem): UnagreeSeat[] {
-  const latest = new Map<string, UnagreeSeat>();
+  const latest = new Map<string, UnagreeSeat & { state: string }>();
   for (const r of parseReviewResults(node.reviewResults)) {
-    if (r.state !== "unagree") continue;
     const key = `${r.role}:${r.capabilityId}`;
     const prev = latest.get(key);
     if (!prev || r.round > prev.round || (r.round === prev.round && r.at >= prev.at)) {
-      latest.set(key, { role: r.role, capabilityId: r.capabilityId, round: r.round, at: r.at });
+      latest.set(key, {
+        role: r.role,
+        capabilityId: r.capabilityId,
+        round: r.round,
+        at: r.at,
+        state: r.state,
+      });
     }
   }
-  return [...latest.values()];
+  return [...latest.values()]
+    .filter((s) => s.state === "unagree")
+    .map(({ role, capabilityId, round, at }) => ({ role, capabilityId, round, at }));
 }
 
 /** 评审位最新表态清单（门禁汇总用；同轮同角色覆写取最后——与 wb_review 覆写语义一致）。 */

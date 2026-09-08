@@ -8,10 +8,13 @@ import {
   inSelection,
   issueReviewerOf,
   parseReplies,
+  rejectedReentryHint,
   scanFenceBlocks,
+  seatStatesOf,
   selectionLabel,
   splitContentLines,
   summarizeReviews,
+  unagreeSeatsOf,
 } from "./flowview";
 
 /** 视图模型纯函数表驱动测试（与 rd/domain 口径逐项对齐）。 */
@@ -170,5 +173,69 @@ describe("锚点/评论展示辅助", () => {
     );
     expect(replies).toHaveLength(2);
     expect(replies[1]?.voided).toBe(true);
+  });
+});
+
+describe("T16 拍板卡/冲突卡纯函数", () => {
+  const node = (over: Partial<FlowNodeItem>): FlowNodeItem =>
+    ({
+      nodeId: "n-03",
+      defNodeId: "bus-02",
+      nodeOrder: "3",
+      nodeKey: "x",
+      state: "review",
+      reviewResults: "[]",
+      reopenSource: "",
+      rolledBackCount: "0",
+      featureBranch: "",
+      enteredAt: "0",
+      nodeType: "produce",
+      gate: "0",
+      userGate: "0",
+      reviewers: "[]",
+      lastDecision: "",
+      ...over,
+    }) as FlowNodeItem;
+
+  it("unagreeSeatsOf：反对位取最新轮；agree/reviewing 不计", () => {
+    const n = node({
+      reviewResults:
+        '[{"role":"qa","capabilityId":"q","state":"unagree","round":1,"at":1},' +
+        '{"role":"qa","capabilityId":"q","state":"agree","round":2,"at":2},' +
+        '{"role":"rd","capabilityId":"r","state":"unagree","round":2,"at":3},' +
+        '{"role":"rd","capabilityId":"r","state":"unagree","round":2,"at":4}]',
+    });
+    const seats = unagreeSeatsOf(n);
+    expect(seats).toHaveLength(1);
+    expect(seats[0]).toMatchObject({ role: "rd", capabilityId: "r", round: 2, at: 4 });
+  });
+
+  it("seatStatesOf：评审位全覆盖（无结果=reviewing）；同轮覆写取最后", () => {
+    const n = node({
+      reviewers: '[{"role":"qa","capabilityId":"q"},{"role":"rd","capabilityId":"r"}]',
+      reviewResults:
+        '[{"role":"qa","capabilityId":"q","state":"agree","round":1,"at":1},' +
+        '{"role":"qa","capabilityId":"q","state":"unagree","round":1,"at":2}]',
+    });
+    const seats = seatStatesOf(n);
+    expect(seats).toHaveLength(2);
+    expect(seats.find((s) => s.role === "qa")?.state).toBe("unagree");
+    expect(seats.find((s) => s.role === "rd")?.state).toBe("reviewing");
+  });
+
+  it("rejectedReentryHint：快照相位读取（review=等待重入 / exec=返工执行中）", () => {
+    expect(rejectedReentryHint(node({ state: "review" }))).toBe("已打回，等待 exec 重入");
+    expect(rejectedReentryHint(node({ state: "" }))).toBe("已打回，等待 exec 重入");
+    expect(rejectedReentryHint(node({ state: "exec" }))).toBe("已打回重入：exec 返工执行中");
+  });
+
+  it("parseReplies：T12 条目 kind/verdict/sessionId 透传", () => {
+    const replies = parseReplies(
+      '[{"replyId":"r-1","by":"user","roleId":"user","text":"结论","at":5,' +
+        '"kind":"adjudication","verdict":"uphold","sessionId":"ses-7"}]',
+    );
+    expect(replies[0]?.kind).toBe("adjudication");
+    expect(replies[0]?.verdict).toBe("uphold");
+    expect(replies[0]?.sessionId).toBe("ses-7");
   });
 });
