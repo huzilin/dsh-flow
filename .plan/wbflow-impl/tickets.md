@@ -6,7 +6,9 @@
 
 Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→2→3→4→{5,6,7}→8→{9,10,11,12}→13/17；FE 14 可与 4 并行开工，15、16 随后端会师。
 
-> **实证记录（2026-09-09 收尾）**：17 工单全部并入 `wbflow-impl` @ `6886434`（含 CR R1-R5 复审循环清零）。全闸门实证：`gofmt/build/vet/test` 全绿；集中 IT 复跑（env 门控真库 MySQL 8.0.46）**0 失败**；e2e 三剧本 PASS（full 19.3s / rd-only 107s / task 44.6s）；FE 浏览器冒烟通过（新建需求含类别→流程类型联动、需求池 scope 徽标、详情流程树 13 节点+评审聚合、收件箱七类筛选、看板四泳道）。下方 checkbox 为工单完成时的静态勾选基线，实证结论以本注记为准；逐项勾选待 AC 终核。
+> **实证记录（2026-09-09 收尾）**：17 工单全部并入 `wbflow-impl` @ `6886434`（含 CR R1-R5 复审循环清零）。全闸门实证：`gofmt/build/vet/test` 全绿；集中 IT 复跑（env 门控真库 MySQL 8.0.46）**0 失败**；e2e 三剧本 PASS（full 19.3s / rd-only 107s / task 44.6s）；FE 浏览器冒烟通过（新建需求含类别→流程类型联动、需求池 scope 徽标、详情流程树 13 节点+评审聚合、收件箱七类筛选、看板四泳道）。
+>
+> **拍板落地增补（2026-09-09，`6bc9454`+`d1c3731`）**：User 拍板 A-E 后（spec §1.2 注记为正本）——A deprecate 条件解绑、B wb_advance 编排推进（27 端点，e2e SQL 模拟全部换真调用）、C 并行 join 三层（对侧检查/flows 行锁/scanner 兜底巡检）、D scope 暂不支持（零改动）、E semantica 补录 11 条+拍板 1 条。增补后复验：本地闸门全绿、真库 IT 0 失败（service 包 583.7s，**复跑需 `-timeout 900s`**）、e2e 三剧本 PASS（18.5s/15.4s/12.8s）、抽轴复核 16 项全 pass（3 条观察级备忘见复核报告）。下方 checkbox 为工单完成时的静态勾选基线，实证结论以本注记为准；逐项勾选待 AC 终核。
 
 ## 1. 服务壳：配置 / MySQL 接入 / 健康检查
 

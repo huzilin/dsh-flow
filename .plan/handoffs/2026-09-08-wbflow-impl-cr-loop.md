@@ -18,7 +18,15 @@
 - 本机 8080 被占（冒烟用 18080）；分支名必须扁平（带 `/` 与 `wbflow-impl` 嵌套冲突）
 - subagent 约定：prompt 开头 `Load the "caveman" skill and follow it.`；实现者各占独立 worktree/分支，合并者串行占 `.worktrees/wbflow-impl`；api.proto/生成物冲突=proto 取并集后 `cd docs/api/v1 && buf generate` 重生成，生成物不手解
 
-## 当前状态：CR 复审循环已清零（2026-09-08 晚，第 2 次更新），待实证收尾
+## 当前状态：裁决 A-E 全部落地，收官待推 origin（2026-09-09，第 3 次更新）
+
+> **裁决落地（2026-09-09）**：User 拍板 A-E + 目标调整（一期自包含 Web）。spec 拍板注记落 main（`55b63eb`+`49db988`，裁决正本）；semantica 拍板条 `d230687f` + 补录 11 条 + 实现口径 2 条。实现：A deprecate 条件解绑（`d1c3731`）+ B wb_advance 编排推进 27 端点（e2e SQL 模拟全换真调用）+ C 并行 join 三层（对侧检查/flows 行 SELECT FOR UPDATE/scanner 兜底巡检）（`6bc9454`）。`wbflow-impl` 快进至 `d1c3731`。
+>
+> **复验**：本地闸门全绿；真库 IT 0 失败（service 包 583.7s——**复跑需 `-timeout 900s`**）；e2e 三剧本 PASS（18.5s/15.4s/12.8s）；抽轴复核 16 项全 pass，3 条观察级备忘（A 判定 check-then-act 微窗口、巡检范围大于注记字面、wb_advance 审计恒 plugin——均非缺陷已记录）。A 的「已开始」判定对齐为 `flows.current_node_id` 非 NULL（semantica `23aeeaea`，spec 注记已同步）。
+>
+> **剩余（待 User）**：仅「是否推 origin / 建 MR」。`.worktrees/wbflow-impl`（crfix-r1 线）保留待推后清理。若后续复跑 IT 记得 `-timeout 900s`。
+
+## 存档：CR 复审循环已清零（2026-09-08 晚，第 2 次更新）
 
 > **本轮进展（2026-09-08 晚会话）**：R4 三轴复审（Standards + Spec A/B）→ 实现者修复 10 项 → R5 合轴复核清零。`wbflow-impl` 已快进至 `a31d9b1`（含 CR#1-#17 修复 + R4 十项 + R5 备注，共 16 提交）；main 新增 `59f3f0a`（spec §4.1 计数 41→40）。本地闸门（gofmt/build/vet/test）全绿。
 >
