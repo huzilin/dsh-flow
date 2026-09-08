@@ -77,9 +77,9 @@ func TestUnit_LatestReplyOfKind(t *testing.T) {
 // TestUnit_EscalationNoticeText 通知文案装配：源 issue id 与触发来源进文案
 // （T11 收件箱读侧直接呈现）。
 func TestUnit_EscalationNoticeText(t *testing.T) {
-	auto := BuildEscalationNoticeText("cm-1", AutoEscalateTriggerText(5))
+	auto := BuildEscalationNoticeText("cm-1", AutoEscalateRouseText(5))
 	assert.Assert(t, contains(auto, "cm-1") && contains(auto, "reopen 达阈值 5"), "自动触发文案: %s", auto)
-	manual := BuildEscalationNoticeText("cm-2", ManualEscalateTriggerText("arch"))
+	manual := BuildEscalationNoticeText("cm-2", ManualEscalateRouseText("arch"))
 	assert.Assert(t, contains(manual, "cm-2") && contains(manual, "operator=arch"), "手动触发文案: %s", manual)
 	assert.Equal(t, EscalationReplyText(""), "冲突不收敛，上升 User 仲裁", "reason 空=默认文案")
 	assert.Equal(t, EscalationReplyText("双方僵持"), "双方僵持", "reason 非空直用")

@@ -13,7 +13,7 @@
 // escalate 复位口径：escalate 语义=「待 User 仲裁」挂起态（spec §0 列注释
 // 「1=拉起裁决 session」），非历史徽标——裁决回填即挂起解除，复位 0 使
 // 冲突卡聚合（ui-interaction-final §1.4）只呈现进行中冲突、且二次拉锯可
-// 重新触发自动上升；裁决结论经 replies 裁决条目 + resolve 族留痕，不复用
+// 重新唤起自动上升；裁决结论经 replies 裁决条目 + resolve 族留痕，不复用
 // escalate 列承载历史。
 package domain
 
@@ -96,28 +96,28 @@ func LatestReplyOfKind(repliesJSON string, kind string) (repo.IssueReply, bool, 
 	return repo.IssueReply{}, false, nil
 }
 
-// EscalationTriggerAuto / EscalationTriggerManual 通知文案触发来源词表
+// EscalationRouseAuto / EscalationRouseManual 通知文案来源（唤起方）词表
 // （issues notification 行 text 装配口径，T11 收件箱读侧直接呈现）。
 const (
-	EscalationTriggerAuto   = "auto"
-	EscalationTriggerManual = "manual"
+	EscalationRouseAuto   = "auto"
+	EscalationRouseManual = "manual"
 )
 
 // BuildEscalationNoticeText 通知位文案装配（issue_type=notification 行 text）：
 // 收件箱七类通知的冲突上升条目（spec §1.2 通知枚举 v3 消费侧为 T11，本工单
-// 落通知位行）。triggerText 描述触发来源（如「reopen 达阈值 5，自动上升」/
+// 落通知位行）。rouseText 描述唤起来源（如「reopen 达阈值 5，自动上升」/
 // 「operator=arch 手动上升」）。
-func BuildEscalationNoticeText(sourceIssueID string, trigger string) string {
-	return fmt.Sprintf("[冲突上升待仲裁] issue %s 待 User 裁决（%s），裁决 session 已就绪", sourceIssueID, trigger)
+func BuildEscalationNoticeText(sourceIssueID string, rouseText string) string {
+	return fmt.Sprintf("[冲突上升待仲裁] issue %s 待 User 裁决（%s），裁决 session 已就绪", sourceIssueID, rouseText)
 }
 
-// AutoEscalateTriggerText 自动上升触发文案（reopen 达阈值注入当前阈值）。
-func AutoEscalateTriggerText(threshold int64) string {
+// AutoEscalateRouseText 自动上升唤起文案（reopen 达阈值注入当前阈值）。
+func AutoEscalateRouseText(threshold int64) string {
 	return fmt.Sprintf("reopen 达阈值 %d，自动上升", threshold)
 }
 
-// ManualEscalateTriggerText 手动上升触发文案。
-func ManualEscalateTriggerText(operator string) string {
+// ManualEscalateRouseText 手动上升唤起文案。
+func ManualEscalateRouseText(operator string) string {
 	return fmt.Sprintf("operator=%s 手动上升", operator)
 }
 

@@ -101,7 +101,7 @@ func TestUnit_NotifierNotifyAssembly(t *testing.T) {
 	assert.Equal(t, *row2.AnchorArtifactID, "t-1730000000000-001")
 	assert.Equal(t, row2.Author, "scanner")
 
-	// 显式 TargetType 覆盖缺省映射
+	// 会话类映射 session（target_type 恒确定性映射，无显式覆写口）
 	store3 := &fakeStore{issueID: "cm-102"}
 	_, err = (&Notifier{store: store3}).Notify(context.Background(), NotificationSpec{
 		Kind:          NotificationKindSessionMessage,

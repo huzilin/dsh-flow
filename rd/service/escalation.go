@@ -170,7 +170,7 @@ func (s *EscalationService) escalateOnce(ctx context.Context, req *api.EscalateR
 		}
 		// 通知位（issues notification 行，assignee=user）：收件箱读侧 T11 消费
 		if _, err := writeEscalationNoticeTx(ctx, tx, s.repo, locked,
-			domain.ManualEscalateTriggerText(req.Operator), req.Operator); err != nil {
+			domain.ManualEscalateRouseText(req.Operator), req.Operator); err != nil {
 			return err
 		}
 		resp.Noop = false
@@ -438,7 +438,7 @@ func adjudicationReply(ruling Ruling) repo.IssueReply {
 // 返回通知行 issue_id（cm-<ts> 取号；唯一键冲突由调用方整体重试兜底）。
 //
 // 错误集：ErrIdempotentConflict 语义冲突由调用方重试；底层 IO 错误经 Trace 上抛。
-func writeEscalationNoticeTx(ctx context.Context, tx *gormio.DB, r *repo.Repo, source *repo.Issue, triggerText string, byWho string) (string, error) {
+func writeEscalationNoticeTx(ctx context.Context, tx *gormio.DB, r *repo.Repo, source *repo.Issue, rouseText string, byWho string) (string, error) {
 	issueID, err := r.AllocIssueIDTx(ctx, tx)
 	if err != nil {
 		return "", err
@@ -452,7 +452,7 @@ func writeEscalationNoticeTx(ctx context.Context, tx *gormio.DB, r *repo.Repo, s
 		RoleID:        byWho,
 		IssueType:     domain.IssueTypeNotification,
 		Assignee:      strPtr(repo.SessionRoleAdjudicator),
-		Text:          domain.BuildEscalationNoticeText(source.IssueID, triggerText),
+		Text:          domain.BuildEscalationNoticeText(source.IssueID, rouseText),
 		State:         repo.IssueStateOpen,
 		Replies:       "[]",
 	}

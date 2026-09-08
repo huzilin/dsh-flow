@@ -452,7 +452,7 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 				escalateSet = true
 				audits = append(audits, issueAudit(row.IssueID, "escalate", "0", "1", in.operator))
 				if _, err := writeEscalationNoticeTx(ctx, tx, s.repo, row,
-					domain.AutoEscalateTriggerText(s.escalateLoopThreshold), auditByWhoPlugin); err != nil {
+					domain.AutoEscalateRouseText(s.escalateLoopThreshold), auditByWhoPlugin); err != nil {
 					return err
 				}
 			}

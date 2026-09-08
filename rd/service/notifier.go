@@ -96,8 +96,6 @@ type NotificationSpec struct {
 	RequirementID string
 	// NodeID 节点 id（跳转二级定位；会话类可空）
 	NodeID string
-	// TargetType 跳转目标类型；空=按 Kind 确定性映射（notificationTargetTypes）
-	TargetType string
 	// TargetID 跳转目标业务 id（target_type=node 时空串——定位取 NodeID）
 	TargetID string
 	// RecipientRole 收件角色（必填；空收件人无投递意义，Notify 拦截）
@@ -126,10 +124,8 @@ func (n *Notifier) Notify(ctx context.Context, spec NotificationSpec) (*repo.Iss
 	if spec.RecipientRole == "" {
 		return nil, fmt.Errorf("通知收件角色必填（kind=%s）", spec.Kind)
 	}
-	targetType := spec.TargetType
-	if targetType == "" {
-		targetType = notificationTargetTypes[spec.Kind]
-	}
+	// target_type 恒按 Kind 确定性映射（notificationTargetTypes，无显式覆写口）
+	targetType := notificationTargetTypes[spec.Kind]
 	// target_type=node 跳转定位取 node_id 列，target_id 列位空（NULL）
 	targetID := spec.TargetID
 	if targetType == "node" {
