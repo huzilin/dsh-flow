@@ -3,7 +3,7 @@
 // T17 端到端演练 harness（roadmap P5「seed 注入 → HTTP 驱动全流程」）：
 //   - 每条剧本独立真实 MySQL scratch 库（wbflow_e2e_* 前缀，新建 → 迁移+seed →
 //     演练 → DROP，禁写 wbflow 库，天然可重复执行）；
-//   - httptest.NewServer 启动完整 Gin 栈（22 wb_* 端点全装配，T1-T16 能力面）；
+//   - httptest.NewServer 启动完整 Gin 栈（26 wb_* 端点全装配，T1-T16 能力面）；
 //   - HTTP client 携 Bearer token 以真实 HTTP 协议驱动。
 //
 // env 门控与注入（密码零落地）：WBFLOW_E2E=1 + WBFLOW_MYSQL_HOST/PORT/USER/PASSWORD。
