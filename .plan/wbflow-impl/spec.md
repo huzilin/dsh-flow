@@ -81,6 +81,7 @@ CREATE TABLE flows (
   flow_defs_id    VARCHAR(32) NOT NULL COMMENT '流程类型，逻辑引用 flow_defs.flow_defs_id',
   dependencies    TEXT        NOT NULL COMMENT '前置依赖 JSON 文本：["req-…"]（同版本内依赖边）',
   current_node_id VARCHAR(32) NULL COMMENT '当前节点 id；NULL=未进入编排（语义见列注释约定）',
+  scope           VARCHAR(8)  NOT NULL DEFAULT '' COMMENT '生效 scope（迁移 v3 补列，T4）：business/tech 取 scope_options 首值等；空=未定（task 渲染期再选）',
   created_at      BIGINT      NOT NULL COMMENT '创建时间，unix 毫秒',
   updated_at      BIGINT      NOT NULL COMMENT '更新时间，unix 毫秒（乐观锁）',
   PRIMARY KEY (id),
@@ -375,7 +376,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 | agent 谎报完成 | complete 上报后 plugin 校验相位判据；不满足 `{ok:false, blocked:true, missing:[…]}`；任务回 in-progress |
 | 重复上报/重复派发 | 幂等：complete 判据幂等；派发按 `reqId+nodeId+action_id+assignee` 幂等键；同轮同角色 review 覆写取最后 |
 | agent 无响应 | 扫描器：绑定 subagent `agent/status`=running → 等待；已结束 5min 未表态 → followup 催办（遇卡点上报 user）；10min → 通知 user 介入（参数化配置） |
-| 启动失败 | agent/request-error 监听 + 重试策略（沿用直启实测结论） |
+| 启动失败 | agent/request-error 监听 + 重试策略（沿用直启实测结论）——**归属 DSH/plugin 侧（wbflow 插件），非 rd 服务端待办** |
 | 门禁拦截 | 判据不满足的操作返回 `{blocked:true, reason}`，审计留痕 |
 | 并发 collect 竞争 | flow_nodes 行锁 + 单事务（聚合判定读改写原子）；消息/通知派发移出事务 |
 | 澄清不收敛 | loop_count 达阈值（如 reopen≥5）→ 自动标 escalate → User 仲裁（沿用 wb_reopen roundCount>5 通知语义） |
@@ -394,7 +395,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 | 连接池 | GORM 连接池（MaxOpenConns 按部署配置）+ PrepareStmt |
 | 事务 | 短事务优先；写路径行锁范围最小化（flow_nodes 单行）；通知派发移出事务 |
 | 审计 | 同库同事务写入（一致性优先）；量大后按 table_name+row_id 分区（预留） |
-| 前端 | 流程树 SVG 一次渲染全节点（≤41 定义节点上限，无性能问题）；阅读器大文档分段渲染 |
+| 前端 | 流程树 SVG 一次渲染全节点（≤40 定义节点上限，无性能问题）；阅读器大文档分段渲染 |
 
 ---
 
@@ -402,7 +403,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 
 ### 4.1 版本级（roadmap P1–P6 全链路）
 
-- [ ] 新会话以 team preset + 团队制度启动，wb_* 22 工具（HTTP 版）对 agent 可用（P1）
+- [ ] 新会话以 team preset + 团队制度启动，wb_* 26 工具（HTTP 版）对 agent 可用（P1）
 - [ ] MySQL v0.29 全量表 + seed（四流程 41 定义节点 + 21 能力）初始化通过（P2）
 - [ ] 一条 full 需求端到端：对齐（to-brd）→ 产品设计 → 三轮评审（per-agent 表态/澄清/复核/agreed→approved）→ RD∥FE 并行开发（CR 内嵌）→ QA 验收（仅 full 渲染）→ 用户验收 → 完成，全流程无阻塞（P5）
 - [ ] 一条 rd-only 需求：流程树动态重排为 9 节点（FE 侧与 QA 不渲染、不占位），走通至用户验收（P5）
@@ -427,7 +428,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 
 ## Testing Decisions
 
-- **接缝测试**：httptest 直打 Gin 路由（最高接缝），覆盖全部 22 端点正常/拦截/幂等分支。
+- **接缝测试**：httptest 直打 Gin 路由（最高接缝），覆盖全部 26 端点正常/拦截/幂等分支。
 - **领域层单测**：domain/ 纯逻辑（collect 聚合判定、issue 状态机 v2、门禁公式、结论协议装配）表驱动全分支——无 IO 全覆盖。
 - **repo 层**：sqlmock / testcontainers-mysql（DDL 真实执行 + 关键查询计划）。
 - **既有约定沿用**：`TestUnit_*` 前缀、gomonkey 打桩下游、gotest.tools+testify 混用。
