@@ -26,7 +26,11 @@
 >
 > **R5 复核两条非阻断备忘**：IT 删除用例硬编码 13 节点（seed 变更会碎，既有风格）；README helper 名大小写已随手修（`a31d9b1`）。
 >
-> **剩余步骤（需 User 输入）**：① MySQL root 凭据 → 集中 IT 复跑 + e2e 三剧本复跑 + FE 浏览器冒烟（本会话已查实 env/shell 配置无 WBFLOW_MYSQL 通道）；② 裁决 A-E；③ 若要 → 推 origin/建 MR；④ 全部通过后清理 `.worktrees/t*` 与 `/tmp/wbflow-base`（prunable）。
+> **最终状态（2026-09-09 凌晨收官）**：CR 复审循环 R1-R5 全清零。全闸门实证——`gofmt/build/vet/test` 全绿；集中 IT 复跑（真库 MySQL 8.0.46 @192.168.3.100）**0 失败**；e2e 三剧本 PASS（full 19.3s / rd-only 107s / task 44.6s）；FE 浏览器冒烟通过（新建需求/流程树/收件箱/看板，类别→流程类型联动正确）。`.worktrees/t*`（17 个）与 `/tmp/wbflow-base` 已清理，分支保留。
+>
+> **真库暴露缺陷回修（6886434）**：R4#5 的 PREPARE 条件 DDL 在真库报 Error 1295（prepared statement protocol 不支持 DDL——sqlite 替身验证不到，印证「替身验证结构、真库暴露行为」）→ 改为裸 ALTER + `applyStep` 对 1060/1061 已存在错误宽容实现重跑幂等；migration IT 双跑断言 PASS。凭据已落 `rd/configs/config.local.yaml`（gitignore，主仓库+worktree 两份），auth token 本地自设。
+>
+> **剩余（全部待 User）**：① 裁决 A-E（上下文已挖齐呈报）；② 是否推 origin/建 MR。`.worktrees/wbflow-impl`（crfix-r1 线）保留待推后清理。
 
 ### 以下为第 1 轮记录（存档，修复情况以本轮为准）
 

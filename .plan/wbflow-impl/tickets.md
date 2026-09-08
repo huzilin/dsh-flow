@@ -6,6 +6,8 @@
 
 Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→2→3→4→{5,6,7}→8→{9,10,11,12}→13/17；FE 14 可与 4 并行开工，15、16 随后端会师。
 
+> **实证记录（2026-09-09 收尾）**：17 工单全部并入 `wbflow-impl` @ `6886434`（含 CR R1-R5 复审循环清零）。全闸门实证：`gofmt/build/vet/test` 全绿；集中 IT 复跑（env 门控真库 MySQL 8.0.46）**0 失败**；e2e 三剧本 PASS（full 19.3s / rd-only 107s / task 44.6s）；FE 浏览器冒烟通过（新建需求含类别→流程类型联动、需求池 scope 徽标、详情流程树 13 节点+评审聚合、收件箱七类筛选、看板四泳道）。下方 checkbox 为工单完成时的静态勾选基线，实证结论以本注记为准；逐项勾选待 AC 终核。
+
 ## 1. 服务壳：配置 / MySQL 接入 / 健康检查
 
 **What to build:** rd 服务可启动、可探活——yaml 配置加载、zap 日志、GORM MySQL 连接（PrepareStmt + 连接池 + SkipDefaultTransaction）、/healthz 健康检查、统一错误映射骨架（哨兵错误 → HTTP 出参集中映射，接口永不 panic）、优雅退出。这是后续所有工单的地基（prefactoring）。
@@ -154,7 +156,7 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 3
 
-- [ ] 需求创建/列表筛选/详情跳转对真实后端可用
+- [x] 需求创建/列表筛选/详情跳转对真实后端可用（2026-09-09 浏览器冒烟实证）
 - [ ] 版本创建/推进/废弃软约束提示正确呈现
 - [ ] FE 与 proto 契约类型对齐（生成或镜像一份类型源，禁手写漂移）
 
@@ -184,7 +186,7 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 9, 10, 11, 13
 
-- [ ] full 流程脚本无阻塞跑完（§4.1 P5 主 AC）
-- [ ] rd-only：FE 侧与 QA 不渲染不占位，走通至用户验收
-- [ ] task：走通至用户验收，报障直连开发执行者
-- [ ] 脚本可重复执行（重置 seed → 重跑）
+- [x] full 流程脚本无阻塞跑完（§4.1 P5 主 AC）（2026-09-09 真库 PASS 19.3s）
+- [x] rd-only：FE 侧与 QA 不渲染不占位，走通至用户验收（真库 PASS 107s）
+- [x] task：走通至用户验收，报障直连开发执行者（真库 PASS 44.6s）
+- [x] 脚本可重复执行（重置 seed → 重跑）（scratch 库每次新建天然可重复，两轮实证）
