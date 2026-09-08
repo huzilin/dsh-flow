@@ -338,14 +338,18 @@ CREATE TABLE versions (
 | POST | /api/comments/:commentId/resolve | wb_resolve | ResolveReq/Resp | path=fix\|agree；+escalate? |
 | POST | /api/comments/:commentId/confirm | wb_confirm_review | ConfirmReviewReq/Resp | 提评者复核 |
 | POST | /api/comments/:commentId/reopen | wb_reopen | ReopenReq/Resp | loop_count++ |
+| POST | /api/comments/:commentId/escalate | wb_escalate | EscalateReq/Resp | 手动上升裁决（裁决 session 建绑） |
+| POST | /api/comments/:commentId/adjudicate | wb_adjudicate | AdjudicateReq/Resp | User 仲裁回填（uphold/override） |
 | POST | /api/requirements/:reqId/nodes/:nodeId/review | wb_review | ReviewReq/Resp | 写 review_results（agent 自判 agree/unagree） |
+| POST | /api/requirements/:reqId/nodes/:nodeId/decision | wb_decision | DecisionReq/Resp | User 终审拍板（gate 相位） |
+| POST | /api/requirements/:reqId/reproject | wb_reproject | ReprojectScopeReq/Resp | 打回后重定 scope 下游重投影 |
 | POST | /api/tasks | wb_assign_task | AssignTaskReq/Resp | 幂等键 reqId+nodeId+action_id+assignee |
 | PATCH | /api/tasks/:taskId | wb_task_update | TaskUpdateReq/Resp | event: ack\|progress\|complete（complete 触发判据校验） |
 | GET | /api/inbox | wb_list_inbox | ListInboxReq/Resp | 通知枚举 v3 七类 |
 | GET | /api/requirements/:reqId/dependencies/tree | （依赖树） | DependencyTreeReq/Resp | 动态加载，分析师视图 |
 | GET | /api/projects · POST /api/projects | （registry） | ProjectReq/Resp | dsh 嵌入期启用 |
 
-- **移出 agent/HTTP 清单**：wb_decide（门禁判定 = 内部 collect 判定 + User 拍板专用路由 `POST /api/requirements/:reqId/nodes/:nodeId/decision`，DecisionReq/Resp）、wb_override（escalate 取代）——语义保留在 service 层。
+- **移出 agent/HTTP 清单**：wb_decide（门禁判定 = 内部 collect 判定 + User 拍板专用路由 `POST /api/requirements/:reqId/nodes/:nodeId/decision`，DecisionReq/Resp，**已注册实现**）、wb_override（escalate/adjudicate 取代，`POST /api/comments/:commentId/adjudicate` 承载）——语义保留在 service 层。
 - **实时通道**：收件箱 badge/节点状态变更 = 前端轮询（MVP）；SSE/WebSocket 预留（/api/events，v1.1）。
 
 ### 1.3 内部分层（Go）
@@ -375,7 +379,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 | 门禁拦截 | 判据不满足的操作返回 `{blocked:true, reason}`，审计留痕 |
 | 并发 collect 竞争 | flow_nodes 行锁 + 单事务（聚合判定读改写原子）；消息/通知派发移出事务 |
 | 澄清不收敛 | loop_count 达阈值（如 reopen≥5）→ 自动标 escalate → User 仲裁（沿用 wb_reopen roundCount>5 通知语义） |
-| MySQL 不可用 | 服务降级只读（GET 走缓存快照）+ 健康检查 /healthz；恢复后扫描器续跑 |
+| MySQL 不可用 | 服务降级：API 路由不注册（仅 /healthz 上报 db missing）；恢复后重启进程续跑（当前实现为降级启动+healthz 上报，「GET 走缓存快照」为 v1.1 预留口径，本期未实现） |
 | 审计失败 | 审计写失败回滚业务事务（审计与业务同库同事务，保证留痕一致） |
 
 ---
