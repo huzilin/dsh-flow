@@ -283,7 +283,9 @@ func TestIntegration_TaskUpdate_RealMySQL(t *testing.T) {
 	done := item(t, resp, "task")
 	assert.Equal(t, done.str("status"), "completed")
 	assert.Assert(t, done.number(t, "doneAt") > 0, "done_at 落值")
-	assert.Equal(t, auditCount(t, handles, "tasks", taskID, "UPDATE"), int64(6), "+status/+done_at")
+	// 审计累计：progress(1) + ack(3) + 判据拦截后 progress「仍在改」(1) + complete(2) = 7
+	// （乐观锁 409 那次 progress 已随事务回滚不计；终态再上报 no-op 亦不增）
+	assert.Equal(t, auditCount(t, handles, "tasks", taskID, "UPDATE"), int64(7), "+status/+done_at")
 
 	// 已终态再上报幂等 no-op（重复 complete / ack / progress）
 	for _, event := range []string{"complete", "ack", "progress"} {
@@ -295,7 +297,7 @@ func TestIntegration_TaskUpdate_RealMySQL(t *testing.T) {
 		assert.Equal(t, resp.code, http.StatusOK, "终态 %s 幂等 no-op", event)
 		assert.Equal(t, resp.boolean("noop"), true)
 	}
-	assert.Equal(t, auditCount(t, handles, "tasks", taskID, "UPDATE"), int64(6), "终态再上报不写审计")
+	assert.Equal(t, auditCount(t, handles, "tasks", taskID, "UPDATE"), int64(7), "终态再上报不写审计")
 
 	// review 族（bus-03/n-04 评审位 rd）：无表态 → missing=review_statement:rd；表态后放行
 	execSQL(t, handles, "UPDATE flow_nodes SET state = 'review' WHERE node_id = 'n-04'")

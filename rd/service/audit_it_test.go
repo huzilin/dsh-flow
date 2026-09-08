@@ -210,7 +210,8 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+req3+"/nodes/n-17/decision",
 		map[string]any{"verdict": "approved", "reason": "评审通过", "branch": "feat/audit"})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
-	assert.Equal(t, auditWhoCount(t, handles, "flow_nodes", "n-17", "UPDATE", "user"), int64(1), "User 拍板审计 by user")
+	// T9 补链后 approved 携 branch → lastDecision + featureBranch 双审计（by user=2）
+	assert.Equal(t, auditWhoCount(t, handles, "flow_nodes", "n-17", "UPDATE", "user"), int64(2), "User 拍板审计 by user（lastDecision+featureBranch）")
 	assert.Equal(t, auditWhoCount(t, handles, "flow_nodes", "n-18", "UPDATE", "plugin"), int64(2), "下一节点激活审计 by plugin（state+enteredAt）")
 	assert.Equal(t, auditWhoCount(t, handles, "flows", req3, "UPDATE", "plugin"), int64(1), "current_node_id 前移审计 by plugin")
 	auditTimestampInvariant(t, handles, "flow_nodes", "n-17")
