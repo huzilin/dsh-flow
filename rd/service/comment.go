@@ -257,6 +257,7 @@ func (s *IssueService) Reply(ctx context.Context, req *api.ReplyReq) (*api.Reply
 	row, err := s.transitionIssue(ctx, transitionInput{
 		issueID:   req.CommentId,
 		action:    domain.IssueActionReply,
+		operator:  req.RoleId,
 		actorRole: req.RoleId,
 		reply: repo.IssueReply{
 			By:     req.By,
@@ -501,6 +502,8 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 		if in.escalate {
 			if row.Escalate == 0 {
 				escalateSet = true
+				// 显式置位审计与自动阈值路径同口径（escalate 列变更逐次留痕）
+				audits = append(audits, issueAudit(row.IssueID, "escalate", "0", "1", in.operator))
 			}
 			updates["escalate"] = domain.MarkEscalate()
 			row.Escalate = 1
