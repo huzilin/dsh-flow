@@ -174,9 +174,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 11, 12
 
-- [ ] 拍板卡三态切换 AC（spec §4.2）
-- [ ] 冲突卡 AC：escalate 聚合、正反对照、裁决回填 issue、跳转节点详情
-- [ ] 收件箱 badge 轮询刷新（MVP 轮询口径）、TODO 投影一致
+- [x] 拍板卡三态切换 AC（spec §4.2）
+- [x] 冲突卡 AC：escalate 聚合、正反对照、裁决回填 issue、跳转节点详情
+- [x] 收件箱 badge 轮询刷新（MVP 轮询口径）、TODO 投影一致
 
 ## 17. E2E 演练脚本（full / rd-only / task 三条）
 
