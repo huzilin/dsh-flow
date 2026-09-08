@@ -171,16 +171,18 @@ func TestIntegration_MyTask_RealMySQL(t *testing.T) {
 	execSQL(t, handles, "UPDATE flows SET current_node_id = 'n-03' WHERE requirement_id = ?", reqID)
 	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec' WHERE node_id = 'n-03'")
 
-	// 三维全中：pm × n-03 × exec 拿 produce/revise（激活子集）
+	// 三维全中：pm × n-03 × exec 拿首产配置（T9：exec 多配置按 rolled_back_count
+	// 选择——rbc=0 出 produce，返工集 revise 剔除；submit 未激活）
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/my-task", map[string]any{"role": "pm"})
 	assert.Equal(t, resp.code, http.StatusOK)
 	node := item(t, resp, "node")
 	assert.Equal(t, node.str("nodeId"), "n-03")
 	assert.Equal(t, node.str("defNodeId"), "bus-02")
 	assert.Equal(t, node.str("nodeType"), "produce")
+	assert.Equal(t, node.number(t, "rolledBackCount"), int64(0))
 	assert.Equal(t, resp.str("currentPhase"), "exec")
 	active := arr(t, resp, "activeActions")
-	assert.Equal(t, len(active), 2, "激活子集 produce/revise（submit 未激活）")
+	assert.Equal(t, len(active), 1, "exec 首产配置 produce（revise 按 rbc=0 剔除，T9）")
 	assert.Equal(t, active[0].str("actionId"), "produce")
 	assert.Equal(t, active[0].str("skill"), "to-prd")
 	assert.Equal(t, active[0].str("capabilityId"), "product-design")

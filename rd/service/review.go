@@ -234,21 +234,22 @@ func (s *ReviewService) dispatchReviewNotifications(ctx context.Context, require
 // Decide wb_decision：User 终审拍板专用路由（spec §1.2 移出清单——wb_decide 收编）。
 // 仅 user_gate=1 节点可拍（否则 blocked）；拍板开放判据=当前评审轮全表态全 agree
 // （collect=approved，拍板卡进度态时置灰拦截）；agreed 后 approved → 节点 gate 落定
-// （last_decision 写 verdict JSON）+ current_node_id 前移 + 下一节点激活；
-// rejected → 节点记录 verdict（exec 重入循环/revise 语义由 T9 消费——本工单留
-// reopen_source/rolled_back_count 接缝，不动相位）。重复拍板同 verdict 幂等 no-op
-// （库不变、不写审计）；改判（verdict 不一致）ErrIdempotentConflict 拒绝。
-// 写路径单事务：行锁读 → 判据校验 → last_decision 乐观锁更新 + 审计（by_who=user）
-// → 推进写。
+// （last_decision 写 verdict JSON）+ branch 非空时 feature_branch 落值（T9 补链）+
+// current_node_id 前移 + 下一节点激活；rejected → 同事务回退重入（T9：目标节点
+// exec 重入 revise，reopen_source/rolled_back_count/pending_scope 落值，下游节点
+// upstream-reject 联动重置，current_node_id 回退——见 RollbackForRejectTx）。
+// 重复拍板同 verdict 幂等 no-op（库不变、不写审计、不重复回退）；改判（verdict
+// 不一致）ErrIdempotentConflict 拒绝。写路径单事务：行锁读 → 判据校验 →
+// last_decision 乐观锁更新 + 审计（by_who=user）→ 推进/回退写。
 //
 // 入参：requirement_id/node_id/verdict 必填；verdict ∈ {approved, rejected}；
 // rejected 时 reason 必填（打回走 reject 结论协议）；branch 评审敲定分支名可选。
-// 出参：落库结论（noop=true=幂等命中既有结论）。
+// 出参：落库结论（noop=true=幂等命中既有结论）；rejected 附 rollback_node_id。
 //
 // 错误集：ErrInvalidArgument（必填缺失/verdict 越集/rejected 缺理由）；
-// ErrNotFound（需求/节点未命中）；ErrGateBlocked（非 user_gate 位/评审未全 agree）；
-// ErrIdempotentConflict（已拍板后改判）；ErrOptimisticLock（基线冲突，409）；
-// 底层 IO/JSON 错误经 Trace 上抛。
+// ErrNotFound（需求/节点未命中）；ErrGateBlocked（非 user_gate 位/评审未全 agree/
+// rejected 首渲染节点无上游可回退）；ErrIdempotentConflict（已拍板后改判）；
+// ErrOptimisticLock（基线冲突，409）；底层 IO/JSON 错误经 Trace 上抛。
 func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.DecisionResp, error) {
 	if req.RequirementId == "" {
 		return nil, invalidArg("requirement_id 必填")
@@ -316,18 +317,39 @@ func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.
 		}
 		updates := map[string]any{"last_decision": decisionText}
 		audits := []repo.AuditLog{reviewAudit(node, "lastDecision", "", decisionText, auditByWhoUser)}
+		// 评审敲定分支名落值（feature_branch 列——结论协议 branch 字段的持久化补链，
+		// T9）：仅 approved 且携带 branch 时写（rejected 打回不敲定分支）
+		if req.Verdict == domain.GateVerdictApproved && req.Branch != "" {
+			updates["feature_branch"] = req.Branch
+			audits = append(audits, reviewAudit(node, "featureBranch", "", req.Branch, auditByWhoUser))
+		}
 		if err := s.applyNodeUpdates(ctx, tx, node, updates, audits); err != nil {
 			return err
 		}
 
-		// rejected：verdict 落定即收口；exec 重入循环（revise：rolled_back_count++/
-		// reopen_source 记来源/pending_scope 重定范围）由 T9 消费——本工单不动相位。
+		// rejected：T9 回退重入（同事务）——目标节点 exec 重入 revise
+		// （reopen_source=downstream-reject、rolled_back_count++、pending_scope 待重定
+		// 标记），下游节点 upstream-reject 联动重置，current_node_id 回退；
+		// 首渲染节点被拒（无上游）整体回滚（拍板不生效，blocked）。
 		if req.Verdict == domain.GateVerdictApproved {
 			nextNodeID, advanceErr := s.advanceApprovedNode(ctx, tx, node, now)
 			if advanceErr != nil {
 				return advanceErr
 			}
 			resp.NextNodeId = nextNodeID
+		} else {
+			flow, flowErr := repo.GetFlowByRequirementIDTx(ctx, tx, node.RequirementID)
+			if flowErr != nil {
+				return flowErr
+			}
+			if flow == nil {
+				return notFound("需求 %q 无流程实例", node.RequirementID)
+			}
+			rollbackNodeID, rollbackErr := s.RollbackForRejectTx(ctx, tx, flow, node, now)
+			if rollbackErr != nil {
+				return rollbackErr
+			}
+			resp.RollbackNodeId = rollbackNodeID
 		}
 		resp.Verdict = req.Verdict
 		resp.LastDecision = decisionText

@@ -18,6 +18,8 @@ type FlowAPI interface {
 	MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTaskResp, error)
 	// DependencyTree 依赖树（分析师视图，动态加载，环检测）
 	DependencyTree(ctx context.Context, req *api.DependencyTreeReq) (*api.DependencyTreeResp, error)
+	// Reproject 范围重定投影（T9 打回链路：pending_scope 消费端点）
+	Reproject(ctx context.Context, req *api.ReprojectScopeReq) (*api.ReprojectScopeResp, error)
 }
 
 // RegisterFlowRoutes 注册流程实例路由（group 形如 /api/requirements，
@@ -25,6 +27,7 @@ type FlowAPI interface {
 func RegisterFlowRoutes(group *gin.RouterGroup, svc FlowAPI) {
 	group.POST("/:reqId/my-task", MyTask(svc))
 	group.GET("/:reqId/dependencies/tree", DependencyTree(svc))
+	group.POST("/:reqId/reproject", Reproject(svc))
 }
 
 // MyTask POST /api/requirements/:reqId/my-task（body 绑定，路径 id 优先）。
@@ -50,6 +53,25 @@ func DependencyTree(svc FlowAPI) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		req := &api.DependencyTreeReq{RequirementId: c.Param("reqId")}
 		resp, err := svc.DependencyTree(c.Request.Context(), req)
+		if err != nil {
+			AbortWithErr(c, err)
+			return
+		}
+		respondProto(c, http.StatusOK, resp)
+	}
+}
+
+// Reproject POST /api/requirements/:reqId/reproject（body 绑定，路径 id 优先）。
+// T9 打回链路：pending_scope 待重定标记的消费端点。
+func Reproject(svc FlowAPI) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		req := &api.ReprojectScopeReq{}
+		if err := bindProtoBody(c, req); err != nil {
+			AbortWithErr(c, err)
+			return
+		}
+		req.RequirementId = c.Param("reqId")
+		resp, err := svc.Reproject(c.Request.Context(), req)
 		if err != nil {
 			AbortWithErr(c, err)
 			return

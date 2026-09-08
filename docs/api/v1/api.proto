@@ -698,6 +698,14 @@ message MyTaskNode {
   string state = 4;
   // reviewers 实例评审位声明 JSON 文本（scope 过滤后静态声明）
   string reviewers = 5;
+  // rolled_back_count 回退计数：0=首次（exec 首产配置），≥1=重入（exec 返工配置
+  // revise/diagnosing-bugs/retest——activeActions 已按本计数选择，T9）
+  int64 rolled_back_count = 6;
+  // reopen_source 重开来源：""/upstream-reject/downstream-reject/rework-return；
+  // 空=非重入
+  string reopen_source = 7;
+  // feature_branch 评审敲定后的分支名；空=未敲定
+  string feature_branch = 8;
 }
 
 // MyTaskResp POST /api/requirements/:reqId/my-task 出参。
@@ -1051,6 +1059,41 @@ message DecisionResp {
   string last_decision = 5;
   // next_node_id approved 后前移到的节点 id（未推进/重复拍板为空串）
   string next_node_id = 6;
+  // rollback_node_id rejected 后回退重入的节点 id（exec 重入 revise 语义，T9；
+  // 未回退/重复拍板为空串）
+  string rollback_node_id = 7;
+}
+
+// ---------------------------------------------------------------------------
+// 打回链路（T9：rejected 回退重入 + pending_scope 重定范围重投影）
+// ---------------------------------------------------------------------------
+
+// ReprojectScopeReq POST /api/requirements/:reqId/reproject 入参。
+// 打回后范围重定（pending_scope 待重定标记的消费端点）：按新 scope 重投影
+// 持有 pending_scope 节点（回退目标）的下游节点集（复用 T4 投影函数：被裁
+// 节点删行不占位、新增定义节点插入新实例行、node_order 全量重排），随后清
+// pending_scope 继续编排。
+message ReprojectScopeReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // scope 重定后的渲染 scope；须 ∈ flow_defs.scope_options；
+  // 空=按当前 scope 重投影（仅清 pending_scope，节点集不变——同范围重排）
+  string scope = 2;
+}
+
+// ReprojectScopeResp POST /api/requirements/:reqId/reproject 出参。
+message ReprojectScopeResp {
+  // ok 恒 true
+  bool ok = 1;
+  // scope 生效 scope（重定值或既有值）
+  string scope = 2;
+  // noop true=无 pending_scope 待重定标记（幂等重放/无打回），库未变更
+  bool noop = 3;
+  // node_id 持有 pending_scope 的节点 id（=回退目标；noop 时为空串）
+  string node_id = 4;
+  // reprojected_count 重投影覆盖的下游节点行数（保留重排 + 新增 + 删除裁剪；
+  // noop 时为 0）
+  int64 reprojected_count = 5;
 }
 
 // ---------------------------------------------------------------------------
