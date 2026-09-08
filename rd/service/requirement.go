@@ -185,19 +185,7 @@ func (s *RequirementService) Get(ctx context.Context, req *api.GetRequirementReq
 	}
 	issues := make([]*api.IssueItem, 0, len(issueRows))
 	for _, i := range issueRows {
-		issues = append(issues, &api.IssueItem{
-			IssueId:    i.IssueID,
-			NodeId:     i.NodeID,
-			AnchorKind: i.AnchorKind,
-			Author:     i.Author,
-			RoleId:     i.RoleID,
-			Text:       i.Text,
-			State:      i.State,
-			Escalate:   i.Escalate,
-			LoopCount:  i.LoopCount,
-			RoundCount: i.RoundCount,
-			CreatedAt:  i.CreatedAt,
-		})
+		issues = append(issues, issueItem(i))
 	}
 
 	reviewResults, err := utils.MarshalJSONText(mergedReviews)
@@ -525,6 +513,17 @@ func (s *RequirementService) Update(ctx context.Context, req *api.UpdateRequirem
 
 		flowDefsID := row.FlowDefsID
 		if req.Category != row.Category {
+			// 带流程实例的需求改 category：blocked 拒绝（数据一致性防线）——
+			// category 派生 flow_defs_id 并重投影实例节点集，流程已实例化时
+			// 原地重投影语义未定（编排接缝裁决 B 范畴，不做同事务重投影）。
+			// 先删除需求（ flows/flow_nodes 一并清除）或走专用流程后重改。
+			flowRow, err := repo.GetFlowByRequirementIDTx(ctx, tx, req.RequirementId)
+			if err != nil {
+				return errs.Trace(err)
+			}
+			if flowRow != nil {
+				return gateBlocked("需求 %q 已有流程实例（flow=%s），拒绝变更 category；请先删除需求或走专用流程", req.RequirementId, flowRow.FlowDefsID)
+			}
 			rederived, err := domain.DeriveFlowDefsID(req.Category, "")
 			if err != nil {
 				return invalidArg("%v", err)
@@ -618,6 +617,18 @@ func (s *RequirementService) Delete(ctx context.Context, req *api.DeleteRequirem
 		}
 		if row.Status == domain.ReqStatusRunning {
 			return gateBlocked("需求 %q 进行中，拒绝删除（先取消或完成）", req.RequirementId)
+		}
+		// 先删依赖行再删需求行（同事务）：flow_nodes / flows（逻辑引用无物理外键，
+		// 不删会留下孤儿流程实例与节点）。硬删与需求行为一致。
+		if err := tx.WithContext(ctx).
+			Where("requirement_id = ?", req.RequirementId).
+			Delete(&repo.FlowNode{}).Error; err != nil {
+			return errs.Trace(err)
+		}
+		if err := tx.WithContext(ctx).
+			Where("requirement_id = ?", req.RequirementId).
+			Delete(&repo.Flow{}).Error; err != nil {
+			return errs.Trace(err)
 		}
 		if err := s.repo.DeleteRequirementByIDTx(tx, row.ID); err != nil {
 			return err

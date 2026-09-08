@@ -284,8 +284,12 @@ func TestIntegration_Artifacts_IdempotentAndConcurrentAlloc(t *testing.T) {
 	assert.Equal(t, auditCount(t, handles, "artifacts", firstID, "INSERT"), int64(1), "幂等命中不重复审计")
 	assert.Equal(t, artifactCount(t, handles, reqID, "n-01", "rd_design", "doc.md"), int64(1))
 
-	// 并发登记（同节点不同 href）：取号唯一
+	// 并发登记（同节点不同 href）：取号唯一（先落盘全部夹具文件，登记侧校验存在性）
 	const concurrency = 8
+	for seq := 0; seq < concurrency; seq++ {
+		notePath := filepath.Join(docsRoot, fmt.Sprintf("note-%d.md", seq))
+		assert.NilError(t, os.WriteFile(notePath, []byte(fmt.Sprintf("n%d", seq)), 0o644))
+	}
 	results := make([]testResp, concurrency)
 	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {

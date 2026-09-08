@@ -191,7 +191,7 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	issue = item(t, resp, "issue")
 	assert.Equal(t, issue.str("state"), "resolved", "CONTEXT：resolved=评审者确认后达成")
-	assert.Equal(t, issue.number(t, "resolveReviewConfirmed"), int64(1))
+	assert.Equal(t, issue.number(t, "resolveReviewerConfirmed"), int64(1))
 	assert.Equal(t, issue.str("resolvedBy"), "arch")
 	assert.Assert(t, issue.number(t, "resolvedAt") > 0)
 	assert.Assert(t, auditCount(t, handles, "issues", issueID, "UPDATE") >= 1, "迁移应有 UPDATE 审计")
@@ -230,7 +230,7 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	agree = item(t, resp, "issue")
 	assert.Equal(t, agree.str("state"), "resolved")
 	assert.Equal(t, agree.str("resolvePath"), "agree")
-	assert.Equal(t, agree.number(t, "resolveReviewConfirmed"), int64(1), "协商一致=确认内嵌")
+	assert.Equal(t, agree.number(t, "resolveReviewerConfirmed"), int64(1), "协商一致=确认内嵌")
 	assert.Equal(t, agree.str("resolvedBy"), "qa")
 	assert.Equal(t, agree.number(t, "loopCount"), int64(0))
 
