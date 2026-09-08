@@ -1,6 +1,6 @@
 # wbflow v1.0 重新实现 · 技术规格（Tech Spec）
 
-> **状态**：2026-09-08 定稿稿（待 User 确认接缝与两项默认假设：MySQL 8.0 / 幂等键）。设计权威=五件套（见 Further Notes）；本 spec = 实现层规格，冲突时以设计五件套为准。
+> **状态**：2026-09-08 定稿稿；2026-09-09 User 拍板修订——①**目标调整：一期 = 自包含 Web 应用**（编排推进能力本期以 wb_advance 补齐，Web 可独立跑通全流程；DSH plugin 嵌入为未来阶段，届时编排触发权移交 plugin）；②A-D 裁决落款（deprecate 条件解绑 / wb_advance 补端点 / join 锁+兜底巡检 / scope 暂不支持主动切换，细则见 §1.2 注记）。两项默认假设（MySQL 8.0 / 幂等键）已验证。设计权威=五件套（见 Further Notes）；本 spec = 实现层规格，冲突时以设计五件套+本拍板为准。
 > **技术栈（User 指定）**：数据库 **MySQL** · 后端 **Go + Gin** · 前端 **Web**（本期实现在 web；保留嵌入 DSH 能力——API-first 双嵌入）。
 > **文档约束（2026-09-08 User 交接「tech-spec 文档要求汇总」，全量采纳为基线）**：数据模型九条（完整 DDL/双时间戳/自增整型主键/无物理外键/updated_at 乐观锁/两类版本区分/**JSON 载荷存 TEXT 不用 JSON 类型**/默认 NOT NULL/语义命名）+ 接口契约五条（GoDoc/proto 真相源/XxxReq-XxxResp/string 承载结构化载荷）+ gofmt 呈现。偏离需先声明与既有裁决的冲突。
 > **最高接缝**：**HTTP API**——wb_* 语义一份、HTTP 一张皮。Web 前端、未来 DSH 嵌入（conversation.view 槽）、agent 侧（DSH subagent 的 wb_* 工具=HTTP client）统一消费同一 API 层。测试直接打 HTTP。
@@ -332,7 +332,7 @@ CREATE TABLE versions (
 | POST | /api/versions | wb_create_version | CreateVersionReq/Resp | |
 | PUT | /api/versions/:versionId | wb_update_version | UpdateVersionReq/Resp | |
 | POST | /api/versions/:versionId/advance | wb_advance_version | AdvanceVersionReq/Resp | 发布软约束：unfinished 仅提示 |
-| POST | /api/versions/:versionId/deprecate | wb_deprecate_version ⚠️ | DeprecateVersionReq/Resp | 有引用 blocked |
+| POST | /api/versions/:versionId/deprecate | wb_deprecate_version ⚠️ | DeprecateVersionReq/Resp | 条件解绑（2026-09-09 拍板，细则见 §1.2 注记-A）：其下全部需求未开始（无 flows 实例）→ 废弃成功并解绑全部需求回待分配池；任一需求已开始 → 409 blocked |
 | POST | /api/requirements/:reqId/nodes/:nodeId/artifacts | wb_add_artifact | AddArtifactReq/Resp | +product_type 枚举校验 |
 | POST | /api/requirements/:reqId/comments | wb_comment | CommentReq/Resp | anchor 四级；+escalate? |
 | POST | /api/comments/:commentId/replies | wb_reply | ReplyReq/Resp | roundCount++ |
@@ -343,11 +343,20 @@ CREATE TABLE versions (
 | POST | /api/comments/:commentId/adjudicate | wb_adjudicate | AdjudicateReq/Resp | User 仲裁回填（uphold/override） |
 | POST | /api/requirements/:reqId/nodes/:nodeId/review | wb_review | ReviewReq/Resp | 写 review_results（agent 自判 agree/unagree） |
 | POST | /api/requirements/:reqId/nodes/:nodeId/decision | wb_decision | DecisionReq/Resp | User 终审拍板（gate 相位） |
-| POST | /api/requirements/:reqId/reproject | wb_reproject | ReprojectScopeReq/Resp | 打回后重定 scope 下游重投影 |
+| POST | /api/requirements/:reqId/reproject | wb_reproject | ReprojectScopeReq/Resp | 打回后重定 scope 下游重投影；scope 主动切换无端点（2026-09-09 拍板：暂不支持，变更仅走打回→本链路） |
 | POST | /api/tasks | wb_assign_task | AssignTaskReq/Resp | 幂等键 reqId+nodeId+action_id+assignee |
 | PATCH | /api/tasks/:taskId | wb_task_update | TaskUpdateReq/Resp | event: ack\|progress\|complete（complete 触发判据校验） |
+| POST | /api/requirements/:reqId/nodes/:nodeId/advance | wb_advance | AdvanceReq/Resp | 编排推进（2026-09-09 拍板新增，细则见 §1.2 注记-B/C） |
 | GET | /api/inbox | wb_list_inbox | ListInboxReq/Resp | 通知枚举 v3 七类 |
 | GET | /api/requirements/:reqId/dependencies/tree | （依赖树） | DependencyTreeReq/Resp | 动态加载，分析师视图 |
+
+> **2026-09-09 拍板注记（A/B/C 细则，实现与测试以本注记为准）**：
+>
+> **-A 版本废弃 = 条件解绑**：`wb_deprecate_version` 语义由「有引用一律 blocked」改为条件解绑——判定单位为需求级，需求「已开始」=存在 flows 流程实例（创建后未实例化=未推进=可解绑）；其下**任一**需求已开始 → 整个废弃请求 409 blocked（语义：已开始的推演不允许被版本废弃波及，未来再议）；其下**全部**需求未开始 → 废弃成功（versions.state=已废弃，终态），同时事务内将其下全部需求 version_id 置空（解绑，回到待分配池），逐行审计。与 ui-interaction-final §2「联动取消」口径的偏差：不取消需求、不写需求取消 history，改为解绑回池（本注记为裁决正本，UI 文档偏差由实现交付注记）。
+>
+> **-B 编排推进端点 wb_advance**：目标调整为一期自包含 Web 后，原「编排接缝三类无 HTTP 承载（plugin 职责）」不再成立。新增 `wb_advance`（AdvanceReq{reqId,nodeId}/Resp），承载三类推进：①exec 相位完成（complete 判据已通过）→ 下一节点相位初始化（review 相位则 InitReviewRound）；②节点内 CR 轮转（dev→review，轮 0 重开）；③QA/门禁机械收口（collect rule4 空转语义）。wb_advance 自身幂等：重复调用时若推进已完成则返回当前状态不重复推进。触发方：wb_task_update complete 判据通过后**服务端同步调用**推进逻辑（Web 一期由服务端内聚触发），端点同时暴露供兜底与手动场景；e2e 原接缝 SQL 模拟全部替换为 wb_advance 真调用（SQL 模拟代码删除）。DSH 嵌入期该端点收编为 plugin 内部调用，HTTP 契约不变。
+>
+> **-C 并行 join 判定**：并行组（flows.branch rd/fe 泳道）推进采用「提交瞬间检查 + 锁 + 兜底巡检」三层——①wb_advance 推进 exec 节点时检查同组对侧节点：对侧已完成（complete 且未推进）→ 本侧推进即整组推进到下一阶段；对侧未完成 → 本侧标记完成待对侧。②并发防护：推进路径对 flows 行取 `SELECT … FOR UPDATE` 锁（单事务内），防双侧同时 complete 的并发双推进（库为 RC + 单 master 无复制延迟，行锁已足）。③scanner（T10 基础设施）新增兜底巡检：每轮扫描「双侧均 complete 但未推进」的并行组并补推进（漏推自愈），巡检推进同样走锁路径并落审计。
 | GET | /api/projects · POST /api/projects | （registry） | ProjectReq/Resp | dsh 嵌入期启用 |
 
 - **移出 agent/HTTP 清单**：wb_decide（门禁判定 = 内部 collect 判定 + User 拍板专用路由 `POST /api/requirements/:reqId/nodes/:nodeId/decision`，DecisionReq/Resp，**已注册实现**）、wb_override（escalate/adjudicate 取代，`POST /api/comments/:commentId/adjudicate` 承载）——语义保留在 service 层。
@@ -403,7 +412,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 
 ### 4.1 版本级（roadmap P1–P6 全链路）
 
-- [ ] 新会话以 team preset + 团队制度启动，wb_* 26 工具（HTTP 版）对 agent 可用（P1）
+- [ ] 新会话以 team preset + 团队制度启动，wb_* 27 工具（HTTP 版，含 wb_advance）对 agent 可用（P1）
 - [ ] MySQL v0.29 全量表 + seed（四流程 40 定义节点 + 21 能力）初始化通过（P2）
 - [ ] 一条 full 需求端到端：对齐（to-brd）→ 产品设计 → 三轮评审（per-agent 表态/澄清/复核/agreed→approved）→ RD∥FE 并行开发（CR 内嵌）→ QA 验收（仅 full 渲染）→ 用户验收 → 完成，全流程无阻塞（P5）
 - [ ] 一条 rd-only 需求：流程树动态重排为 9 节点（FE 侧与 QA 不渲染、不占位），走通至用户验收（P5）
@@ -428,7 +437,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 
 ## Testing Decisions
 
-- **接缝测试**：httptest 直打 Gin 路由（最高接缝），覆盖全部 26 端点正常/拦截/幂等分支。
+- **接缝测试**：httptest 直打 Gin 路由（最高接缝），覆盖全部 27 端点正常/拦截/幂等分支。
 - **领域层单测**：domain/ 纯逻辑（collect 聚合判定、issue 状态机 v2、门禁公式、结论协议装配）表驱动全分支——无 IO 全覆盖。
 - **repo 层**：sqlmock / testcontainers-mysql（DDL 真实执行 + 关键查询计划）。
 - **既有约定沿用**：`TestUnit_*` 前缀、gomonkey 打桩下游、gotest.tools+testify 混用。
