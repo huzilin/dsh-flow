@@ -184,7 +184,7 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 9, 10, 11, 13
 
-- [ ] full 流程脚本无阻塞跑完（§4.1 P5 主 AC）
-- [ ] rd-only：FE 侧与 QA 不渲染不占位，走通至用户验收
-- [ ] task：走通至用户验收，报障直连开发执行者
-- [ ] 脚本可重复执行（重置 seed → 重跑）
+- [x] full 流程脚本无阻塞跑完（§4.1 P5 主 AC）
+- [x] rd-only：FE 侧与 QA 不渲染不占位，走通至用户验收
+- [x] task：走通至用户验收，报障直连开发执行者
+- [x] 脚本可重复执行（重置 seed → 重跑）
