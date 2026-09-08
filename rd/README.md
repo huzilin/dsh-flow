@@ -11,7 +11,7 @@ service/    业务编排：判据校验、collect 聚合、门禁公式、幂等
 domain/     状态机纯逻辑：评审轮聚合判定 / issue 状态机 v2 / 门禁公式 / 结论协议装配（无 IO 可单测）
 repo/       GORM MySQL：PreparedStmt + SkipDefaultTransaction（写路径显式事务 + 行锁）
 configs/    yaml 配置
-pkg/utils/  通用工具（coalesce/序列化/map 转 struct——收敛于此，业务代码不内联）
+pkg/utils/  通用工具（TEXT 列 JSON 序列化 helper、strPtr/boolToInt64 标量微 helper——收敛于此，业务代码不内联）
 ```
 
 ## 约定（详见 spec.md）

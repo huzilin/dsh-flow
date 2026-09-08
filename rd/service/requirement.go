@@ -27,9 +27,6 @@ const (
 // （audit_log.by_who 取值：role_id/user/system/plugin）。
 const auditByWhoManagement = "user"
 
-// 取号/插入竞态整体重试上限（唯一键 1062 与锁竞争 1213/1205 同等重试）。
-const idAllocRetryLimit = 3
-
 // RequirementService 需求管理面 service（requirements 五端点）。
 type RequirementService struct {
 	repo *repo.Repo
@@ -362,7 +359,7 @@ func (s *RequirementService) createOnce(ctx context.Context, req *api.CreateRequ
 		CreatedBy:   req.CreatedBy,
 	}
 	if req.VersionId != "" {
-		row.VersionID = strPtr(req.VersionId)
+		row.VersionID = utils.StrPtr(req.VersionId)
 	}
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		requirementID, err := s.repo.AllocRequirementIDTx(ctx, tx)
@@ -565,7 +562,7 @@ func (s *RequirementService) Update(ctx context.Context, req *api.UpdateRequirem
 				Table:    "requirements",
 				RowID:    row.RequirementID,
 				Action:   "UPDATE",
-				Field:    strPtr(field),
+				Field:    utils.StrPtr(field),
 				OldValue: change.oldText(),
 				NewValue: change.newText(),
 				ByWho:    auditByWhoManagement,
@@ -589,8 +586,9 @@ func (s *RequirementService) Update(ctx context.Context, req *api.UpdateRequirem
 
 // Delete wb_delete_requirement ⚠️：删除类端点保持「需 User 明确指令」口径——
 // confirm 未显式置 true 即 blocked（不执行）；status=进行中 拒绝删除（blocked）。
-// 删除动作同事务写 audit_log（DELETE，by_who=user）；重复删除命中 ErrNotFound
-// （删除幂等=资源已不存在）。
+// 删除动作同事务写 audit_log（DELETE，by_who=user）；级联清除的 flows/flow_nodes
+// 逐行补 DELETE 审计（与 instantiateFlowTx 的 INSERT 审计镜像：flow_nodes 逐节点、
+// flows 1 行，动作枚举不变）；重复删除命中 ErrNotFound（删除幂等=资源已不存在）。
 //
 // 入参：requirement_id 必填；confirm 必须显式 true。
 // 出参：被删 requirement_id。
@@ -616,16 +614,49 @@ func (s *RequirementService) Delete(ctx context.Context, req *api.DeleteRequirem
 			return gateBlocked("需求 %q 进行中，拒绝删除（先取消或完成）", req.RequirementId)
 		}
 		// 先删依赖行再删需求行（同事务）：flow_nodes / flows（逻辑引用无物理外键，
-		// 不删会留下孤儿流程实例与节点）。硬删与需求行为一致。
+		// 不删会留下孤儿流程实例与节点）。硬删与需求行为一致；删除前先收节点 id，
+		// 删除后逐行补 DELETE 审计（行已不在，审计以删除前快照为准）。
+		var nodeIDs []string
+		if err := tx.WithContext(ctx).Model(&repo.FlowNode{}).
+			Where("requirement_id = ?", req.RequirementId).
+			Pluck("node_id", &nodeIDs).Error; err != nil {
+			return errs.Trace(err)
+		}
 		if err := tx.WithContext(ctx).
 			Where("requirement_id = ?", req.RequirementId).
 			Delete(&repo.FlowNode{}).Error; err != nil {
+			return errs.Trace(err)
+		}
+		for _, nodeID := range nodeIDs {
+			if err := s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
+				Table:  "flow_nodes",
+				RowID:  nodeID,
+				Action: "DELETE",
+				ByWho:  auditByWhoManagement,
+			}); err != nil {
+				return err
+			}
+		}
+		var flowCount int64
+		if err := tx.WithContext(ctx).Model(&repo.Flow{}).
+			Where("requirement_id = ?", req.RequirementId).
+			Count(&flowCount).Error; err != nil {
 			return errs.Trace(err)
 		}
 		if err := tx.WithContext(ctx).
 			Where("requirement_id = ?", req.RequirementId).
 			Delete(&repo.Flow{}).Error; err != nil {
 			return errs.Trace(err)
+		}
+		if flowCount > 0 {
+			if err := s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
+				Table:  "flows",
+				RowID:  req.RequirementId,
+				Action: "DELETE",
+				ByWho:  auditByWhoManagement,
+			}); err != nil {
+				return err
+			}
 		}
 		if err := s.repo.DeleteRequirementByIDTx(tx, row.ID); err != nil {
 			return err
@@ -678,8 +709,8 @@ type requirementChange struct {
 }
 
 // oldText / newText 审计出参文本（TEXT 列字符串口径）。
-func (c requirementChange) oldText() *string { return strPtr(c.oldVal) }
-func (c requirementChange) newText() *string { return strPtr(c.newVal) }
+func (c requirementChange) oldText() *string { return utils.StrPtr(c.oldVal) }
+func (c requirementChange) newText() *string { return utils.StrPtr(c.newVal) }
 
 // updatePatch 更新目标值集合（diff 基准）。
 type updatePatch struct {

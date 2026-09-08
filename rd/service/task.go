@@ -582,9 +582,9 @@ func taskUpdateAudit(row *repo.Task, field string, oldVal string, newVal string)
 		Table:    "tasks",
 		RowID:    row.TaskID,
 		Action:   "UPDATE",
-		Field:    strPtr(field),
-		OldValue: strPtr(oldVal),
-		NewValue: strPtr(newVal),
+		Field:    utils.StrPtr(field),
+		OldValue: utils.StrPtr(oldVal),
+		NewValue: utils.StrPtr(newVal),
 		ByWho:    row.RoleID,
 	}
 }

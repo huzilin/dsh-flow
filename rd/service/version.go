@@ -11,6 +11,7 @@ import (
 	"github.com/huzilin/wbflow/rd/api"
 	"github.com/huzilin/wbflow/rd/domain"
 	"github.com/huzilin/wbflow/rd/pkg/errs"
+	"github.com/huzilin/wbflow/rd/pkg/utils"
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
@@ -64,7 +65,7 @@ func (s *VersionService) createOnce(ctx context.Context, req *api.CreateVersionR
 	row := &repo.Version{
 		Name:      req.Name,
 		State:     domain.VerStatePending,
-		IsBacklog: boolToInt64(req.IsBacklog),
+		IsBacklog: utils.BoolToInt64(req.IsBacklog),
 	}
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		versionID, err := s.repo.AllocVersionIDTx(ctx, tx)
@@ -132,9 +133,9 @@ func (s *VersionService) Update(ctx context.Context, req *api.UpdateVersionReq) 
 			Table:    "versions",
 			RowID:    row.VersionID,
 			Action:   "UPDATE",
-			Field:    strPtr("name"),
-			OldValue: strPtr(row.Name),
-			NewValue: strPtr(req.Name),
+			Field:    utils.StrPtr("name"),
+			OldValue: utils.StrPtr(row.Name),
+			NewValue: utils.StrPtr(req.Name),
 			ByWho:    auditByWhoManagement,
 		}); err != nil {
 			return err
@@ -205,9 +206,9 @@ func (s *VersionService) Advance(ctx context.Context, req *api.AdvanceVersionReq
 			Table:    "versions",
 			RowID:    row.VersionID,
 			Action:   "UPDATE",
-			Field:    strPtr("state"),
-			OldValue: strPtr(row.State),
-			NewValue: strPtr(domain.VerStatePublished),
+			Field:    utils.StrPtr("state"),
+			OldValue: utils.StrPtr(row.State),
+			NewValue: utils.StrPtr(domain.VerStatePublished),
 			ByWho:    auditByWhoManagement,
 		}); err != nil {
 			return err
@@ -274,9 +275,9 @@ func (s *VersionService) Deprecate(ctx context.Context, req *api.DeprecateVersio
 			Table:    "versions",
 			RowID:    row.VersionID,
 			Action:   "UPDATE",
-			Field:    strPtr("state"),
-			OldValue: strPtr(row.State),
-			NewValue: strPtr(domain.VerStateDeleted),
+			Field:    utils.StrPtr("state"),
+			OldValue: utils.StrPtr(row.State),
+			NewValue: utils.StrPtr(domain.VerStateDeleted),
 			ByWho:    auditByWhoManagement,
 		}); err != nil {
 			return err
@@ -332,14 +333,3 @@ func getVersionTx(ctx context.Context, tx *gormio.DB, versionID string) (*repo.V
 	}
 	return row, nil
 }
-
-// boolToInt64 TINYINT(1) 列取值转换。
-func boolToInt64(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
-}
-
-// strPtr 字符串指针（NULL 保留清单列 / 审计文本构造）。
-func strPtr(s string) *string { return &s }

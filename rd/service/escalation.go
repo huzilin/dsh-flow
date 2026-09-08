@@ -285,9 +285,9 @@ func (s *EscalationService) Adjudicate(ctx context.Context, req *api.AdjudicateR
 			Table:    "sessions",
 			RowID:    session.SessionID,
 			Action:   "UPDATE",
-			Field:    strPtr("status"),
-			OldValue: strPtr(repo.SessionStatusActive),
-			NewValue: strPtr(repo.SessionStatusEnded),
+			Field:    utils.StrPtr("status"),
+			OldValue: utils.StrPtr(repo.SessionStatusActive),
+			NewValue: utils.StrPtr(repo.SessionStatusEnded),
 			ByWho:    req.DecidedBy,
 		}); err != nil {
 			return err
@@ -382,7 +382,7 @@ func (s *EscalationService) OverrideIssueTx(ctx context.Context, tx *gormio.DB, 
 	issue.State = repo.IssueStateOverridden
 	issue.ResolveBy = &ruling.DecidedBy
 	issue.ResolveAt = &ruling.At
-	issue.ResolvePath = strPtr(domain.IssueResolvePathRuling)
+	issue.ResolvePath = utils.StrPtr(domain.IssueResolvePathRuling)
 	issue.ResolveNote = &ruling.Conclusion
 	issue.ResolveReviewerConfirmed = 1
 	issue.ResolvedBy = &ruling.DecidedBy
@@ -451,7 +451,7 @@ func writeEscalationNoticeTx(ctx context.Context, tx *gormio.DB, r *repo.Repo, s
 		Author:        byWho,
 		RoleID:        byWho,
 		IssueType:     domain.IssueTypeNotification,
-		Assignee:      strPtr(repo.SessionRoleAdjudicator),
+		Assignee:      utils.StrPtr(repo.SessionRoleAdjudicator),
 		Text:          domain.BuildEscalationNoticeText(source.IssueID, rouseText),
 		State:         repo.IssueStateOpen,
 		Replies:       "[]",

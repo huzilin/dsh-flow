@@ -194,9 +194,9 @@ func (s *ReviewService) RollbackForRejectTx(ctx context.Context, tx *gormio.DB, 
 		Table:    "flows",
 		RowID:    flow.RequirementID,
 		Action:   "UPDATE",
-		Field:    strPtr("currentNodeId"),
-		OldValue: strPtr(derefString(flow.CurrentNodeID)),
-		NewValue: strPtr(target.NodeID),
+		Field:    utils.StrPtr("currentNodeId"),
+		OldValue: utils.StrPtr(derefString(flow.CurrentNodeID)),
+		NewValue: utils.StrPtr(target.NodeID),
 		ByWho:    auditByWhoPlugin,
 	}); err != nil {
 		return "", err

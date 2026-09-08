@@ -13,6 +13,7 @@ import (
 
 	"github.com/huzilin/wbflow/rd/domain"
 	"github.com/huzilin/wbflow/rd/pkg/errs"
+	"github.com/huzilin/wbflow/rd/pkg/utils"
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
@@ -188,9 +189,9 @@ func (s *SessionService) transition(ctx context.Context, sessionID string, to st
 			Table:    "sessions",
 			RowID:    sessionID,
 			Action:   "UPDATE",
-			Field:    strPtr("status"),
-			OldValue: strPtr(locked.Status),
-			NewValue: strPtr(to),
+			Field:    utils.StrPtr("status"),
+			OldValue: utils.StrPtr(locked.Status),
+			NewValue: utils.StrPtr(to),
 			ByWho:    s.endByWho,
 		})
 	})

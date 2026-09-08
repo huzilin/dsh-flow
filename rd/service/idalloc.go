@@ -8,6 +8,10 @@ import (
 	"github.com/huzilin/wbflow/rd/pkg/errs"
 )
 
+// idAllocRetryLimit 取号/插入竞态整体重试上限（唯一键 1062 与锁竞争 1213/1205
+// 同等重试）。
+const idAllocRetryLimit = 3
+
 // withIDAllocRetry 取号重试骨架：执行 once 直至成功或不可重试错误；retryable
 // 错误重试至 idAllocRetryLimit 次，耗尽后返回 ErrIdempotentConflict（409）。
 func withIDAllocRetry[T any](once func() (result T, retryable bool, err error)) (T, error) {

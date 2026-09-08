@@ -19,6 +19,7 @@ import (
 	"github.com/huzilin/wbflow/rd/api"
 	"github.com/huzilin/wbflow/rd/domain"
 	"github.com/huzilin/wbflow/rd/pkg/errs"
+	"github.com/huzilin/wbflow/rd/pkg/utils"
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
@@ -217,9 +218,9 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 			Table:    "flow_nodes",
 			RowID:    carrier.NodeID,
 			Action:   "UPDATE",
-			Field:    strPtr("pendingScope"),
-			OldValue: strPtr(derefString(carrier.PendingScope)),
-			NewValue: strPtr(""),
+			Field:    utils.StrPtr("pendingScope"),
+			OldValue: utils.StrPtr(derefString(carrier.PendingScope)),
+			NewValue: utils.StrPtr(""),
 			ByWho:    auditByWhoUser,
 		}); err != nil {
 			return err
@@ -234,9 +235,9 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 				Table:    "flows",
 				RowID:    flow.RequirementID,
 				Action:   "UPDATE",
-				Field:    strPtr("scope"),
-				OldValue: strPtr(flow.Scope),
-				NewValue: strPtr(newScope),
+				Field:    utils.StrPtr("scope"),
+				OldValue: utils.StrPtr(flow.Scope),
+				NewValue: utils.StrPtr(newScope),
 				ByWho:    auditByWhoUser,
 			}); err != nil {
 				return err
@@ -321,9 +322,9 @@ func flowNodeAudit(node *repo.FlowNode, field string, oldVal string, newVal stri
 		Table:    "flow_nodes",
 		RowID:    node.NodeID,
 		Action:   "UPDATE",
-		Field:    strPtr(field),
-		OldValue: strPtr(oldVal),
-		NewValue: strPtr(newVal),
+		Field:    utils.StrPtr(field),
+		OldValue: utils.StrPtr(oldVal),
+		NewValue: utils.StrPtr(newVal),
 		ByWho:    auditByWhoUser,
 	}
 }

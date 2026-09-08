@@ -207,7 +207,7 @@ func (s *ReviewService) dispatchReviewNotifications(ctx context.Context, require
 	default:
 		return
 	}
-	owner, err := DeriveOwnerRole(ctx, s.repo, requirementID, nodeID)
+	owner, err := deriveOwnerRole(ctx, s.repo, requirementID, nodeID)
 	if err != nil {
 		log.Printf("[notifier] owner 角色推导失败，跳过派发: req=%s node=%s err=%v", requirementID, nodeID, err)
 		return
@@ -501,9 +501,9 @@ func (s *ReviewService) advanceApprovedNode(ctx context.Context, tx *gormio.DB, 
 		Table:    "flows",
 		RowID:    flow.RequirementID,
 		Action:   "UPDATE",
-		Field:    strPtr("currentNodeId"),
-		OldValue: strPtr(derefString(flow.CurrentNodeID)),
-		NewValue: strPtr(next.NodeID),
+		Field:    utils.StrPtr("currentNodeId"),
+		OldValue: utils.StrPtr(derefString(flow.CurrentNodeID)),
+		NewValue: utils.StrPtr(next.NodeID),
 		ByWho:    auditByWhoPlugin,
 	}); err != nil {
 		return "", err
@@ -549,9 +549,9 @@ func reviewAudit(node *repo.FlowNode, field string, oldVal string, newVal string
 		Table:    "flow_nodes",
 		RowID:    node.NodeID,
 		Action:   "UPDATE",
-		Field:    strPtr(field),
-		OldValue: strPtr(oldVal),
-		NewValue: strPtr(newVal),
+		Field:    utils.StrPtr(field),
+		OldValue: utils.StrPtr(oldVal),
+		NewValue: utils.StrPtr(newVal),
 		ByWho:    byWho,
 	}
 }

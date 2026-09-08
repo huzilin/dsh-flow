@@ -536,9 +536,9 @@ func issueAudit(issueID string, field string, oldVal string, newVal string, byWh
 		Table:    "issues",
 		RowID:    issueID,
 		Action:   "UPDATE",
-		Field:    strPtr(field),
-		OldValue: strPtr(oldVal),
-		NewValue: strPtr(newVal),
+		Field:    utils.StrPtr(field),
+		OldValue: utils.StrPtr(oldVal),
+		NewValue: utils.StrPtr(newVal),
 		ByWho:    byWho,
 	}
 }
