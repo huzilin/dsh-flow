@@ -70,6 +70,7 @@ export function BoardPage({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["requirements"] });
       void queryClient.invalidateQueries({ queryKey: ["requirement", editTarget?.requirementId] });
+      void queryClient.invalidateQueries({ queryKey: ["requirementHistory", editTarget?.requirementId] });
       setEditTarget(null);
       setEditError(null);
     },

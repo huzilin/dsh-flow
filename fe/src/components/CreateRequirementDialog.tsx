@@ -203,7 +203,12 @@ function RequirementModalForm({
           <label>
             scope{scopeOptions.length === 0 && "（—）"}
             {mode === "edit" ? (
-              <input value={scope === "" ? "—" : scope} disabled readOnly />
+              <input
+                value={scope === "" ? "—" : scope}
+                disabled
+                readOnly
+                title="列表契约无 scope 实值（flow.scope），确切值见需求详情页"
+              />
             ) : (
               <select
                 value={scope}

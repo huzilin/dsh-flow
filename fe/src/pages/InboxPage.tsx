@@ -231,13 +231,9 @@ export function InboxPage() {
  */
 function GatePendingToast({ items }: { items: InboxItem[] }) {
   if (items.length === 0) return null;
-  // 复用 conflict-entry 盒形，色系换琥珀（gate 语义，同 badge-todo-in-progress 色板）
+  // 复用 conflict-entry 盒形 + .gate-entry 琥珀色系（gate 语义；样式落 index.css 单源）
   return (
-    <div
-      className="conflict-entry"
-      style={{ borderColor: "#fedf89", background: "#fffaeb" }}
-      aria-label="待拍板提醒"
-    >
+    <div className="conflict-entry gate-entry" aria-label="待拍板提醒">
       📬 有 {items.length} 条『待你拍板』待处理{" "}
       <button
         className="button-link"

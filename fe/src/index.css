@@ -1192,6 +1192,8 @@ input.invalid {
 .session-status-disposed {
   background: rgba(217, 128, 128, 0.12);
   color: #b42318;
+}
+
 /* ── P8/P9 增补（ui-prototype-v3 P8 看板/列表、P9 版本聚合/依赖树/并发调度） ── */
 
 /* 看板|列表双视图切换（原型 sbtn 风格：胶囊小按钮，on 态琥珀描边） */
@@ -1361,4 +1363,10 @@ input.invalid {
 .badge-stall {
   background: rgba(232, 179, 74, 0.15);
   color: #b54708;
+}
+
+/* ── 待拍板提醒条（原型 P10 lead 行：badge/toast 不抢占焦点）── */
+.gate-entry {
+  border-color: rgba(232, 179, 74, 0.45);
+  background: rgba(232, 179, 74, 0.06);
 }

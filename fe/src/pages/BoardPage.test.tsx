@@ -8,8 +8,8 @@ import { BoardPage } from "./BoardPage";
 import { jsonResponse } from "../test-utils";
 
 /**
- * 看板页测试（原型 P8）：四泳道卡片（scope 三色/依赖角标/✎ 编辑占位）、
- * 列表视图按状态分组（空组整组隐藏）、行点击跳详情、编辑占位阻断冒泡。
+ * 看板页测试（原型 P8）：四泳道卡片（scope 三色/依赖角标/✎ 编辑入口）、
+ * 列表视图按状态分组（空组整组隐藏）、行点击跳详情、编辑弹窗打开且阻断冒泡。
  */
 
 function mkReq(over: Partial<RequirementItem> = {}): RequirementItem {
@@ -141,12 +141,15 @@ describe("BoardPage（原型 P8 双视图）", () => {
     });
   });
 
-  it("编辑占位阻断冒泡：点击 ✎ 不触发卡片跳详情", async () => {
+  it("编辑入口：点击 ✎ 打开编辑弹窗且不触发卡片跳详情（N4 编辑复用）", async () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", routeFetch(CARDS));
     renderBoard();
     await screen.findByText("交易对账明细导出");
     await user.click(screen.getByRole("button", { name: "编辑 req-a" }));
+    // 弹窗打开（编辑模式标题+基线回填），且卡片跳详情未触发
+    expect(await screen.findByText("编辑需求")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^标题/)).toHaveValue("交易对账明细导出");
     expect(screen.queryByText("需求详情占位")).not.toBeInTheDocument();
   });
 });

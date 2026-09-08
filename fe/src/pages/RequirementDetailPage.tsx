@@ -13,6 +13,7 @@ import { NodeDetail } from "../components/NodeDetail";
 import { RequirementModal } from "../components/CreateRequirementDialog";
 import { Modal } from "../components/Modal";
 import { formatTime } from "./RequirementPoolPage";
+import { describeHistory } from "../domain/historyview";
 
 /**
  * 需求详情 = 模块 II 主视图（T15）：需求头 + 流程树（SVG 纵向全节点渲染，scope 实值徽标）+
@@ -304,21 +305,4 @@ function RequirementFootnoteCard({
   );
 }
 
-/** 审计行 → 自然语句（N6：描述不做逐字 diff——填写/清空/修改了需求说明）。 */
-function describeHistory(action: string, field: string, oldValue: string, newValue: string): string {
-  if (action === "INSERT") return "创建了需求";
-  if (action === "DELETE") return "删除了需求";
-  if (field === "description") {
-    if (oldValue === "") return "填写了需求说明";
-    if (newValue === "") return "清空了需求说明";
-    return "修改了需求说明";
-  }
-  if (field === "status") return `将「状态」从「${oldValue}」变更为「${newValue}」`;
-  if (field === "priority") return `将「优先级」从「${oldValue}」变更为「${newValue}」`;
-  if (field === "title") return `将「标题」从「${oldValue}」变更为「${newValue}」`;
-  if (field === "owner") return `将「负责人」从「${oldValue || "—"}」变更为「${newValue || "—"}」`;
-  if (field === "version_id") return `将「版本」从「${oldValue || "待分配"}」变更为「${newValue || "待分配"}」`;
-  if (field === "flow_defs_id") return `将「流程类型」从「${oldValue}」变更为「${newValue}」`;
-  if (field === "category") return `将「类别」从「${oldValue}」变更为「${newValue}」`;
-  return `将「${field}」从「${oldValue}」变更为「${newValue}」`;
-}
+// 审计行 → 自然语句装配移至 domain/historyview.ts（纯函数，可直测；N6 口径）

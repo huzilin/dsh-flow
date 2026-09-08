@@ -70,7 +70,8 @@ export function buildDepForest(treeRoots: DependencyNodeItem[]): DepForest {
 
   const roots: DepForestNode[] = [];
   for (const [id, prereqIds] of prereqIdsOf) {
-    if (prereqIds.length === 0) roots.push(makeNode(id, [], new Set([id])));
+    // 悬挂 id（found=false，info 无登记）不渲染——防「空标题根 + 死链接」
+    if (prereqIds.length === 0 && info.has(id)) roots.push(makeNode(id, [], new Set([id])));
   }
   return { roots, hasEdges };
 }
