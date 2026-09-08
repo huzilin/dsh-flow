@@ -177,10 +177,11 @@ func Dispatch(n *Notifier, spec NotificationSpec) {
 	}
 }
 
-// DeriveOwnerRole 被评审方（owner）角色推导：节点 exec 能力归属角色优先
+// deriveOwnerRole 被评审方（owner）角色推导：节点 exec 能力归属角色优先
 // （与 issue assignee L2 推导同函数口径 domain.NodeExecRole），回落
 // requirements.owner；两者皆空返回空串（调用方跳过派发）。
-func DeriveOwnerRole(ctx context.Context, r *repo.Repo, requirementID string, nodeID string) (string, error) {
+// 包内私有（唯一调用方 review.go 派发前装配收件人）。
+func deriveOwnerRole(ctx context.Context, r *repo.Repo, requirementID string, nodeID string) (string, error) {
 	node, err := r.GetFlowNodeByRequirementAndNodeID(ctx, requirementID, nodeID)
 	if err != nil {
 		return "", errs.Trace(err)
