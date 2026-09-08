@@ -164,7 +164,8 @@ func currentVersion(ctx context.Context, g *gorm.DB) (int64, error) {
 }
 
 // applyStep 执行单版本：拆语句逐条执行后推进账本（DDL 隐式提交，无法包事务；
-// 中断重跑时已建表语句会报存在性错误——基线步骤只增不改，按新步骤递进处理）。
+// 中断重跑安全性由各版本 SQL 自带幂等保证——0001 CREATE TABLE IF NOT EXISTS /
+// 0002 INSERT IGNORE / 0003 INFORMATION_SCHEMA 条件 DDL，见各 SQL 文件头注）。
 func applyStep(ctx context.Context, g *gorm.DB, s step) error {
 	for _, stmt := range splitStatements(s.sql) {
 		if execErr := g.WithContext(ctx).Exec(stmt).Error; execErr != nil {

@@ -21,13 +21,37 @@
 --        ⇒ 必落库。
 --    flows 与 requirement 一比一（uk_flows_req），承载于流程实例侧（工单 T4 裁决口径）；
 --    实例节点集 = flow_def_nodes.scope_expr ∩ flows.scope（实例化投影，不另存选择值副本）。
+--
+-- 幂等（与 0001 CREATE TABLE IF NOT EXISTS / 0002 INSERT IGNORE 对称）：MySQL 8 无
+-- ADD COLUMN IF NOT EXISTS，改用 INFORMATION_SCHEMA.COLUMNS 存在性检查 + PREPARE/EXECUTE
+-- 条件 DDL 惯用法——applyStep 拆句逐条执行（migration.go splitStatements），中断重跑时
+-- 已加列走 SELECT 1 空操作分支，不再报 1060 重复列错误。
+-- 注意：本文件为 MySQL 专用 DDL（PREPARE/INFORMATION_SCHEMA 语法 sqlite 无对应），
+-- 本地替身测试不可覆盖；真库行为由 migration_it_test.go（env 门控）scratch 库连跑两次
+-- 「首跑 applied=[1 2 3] + 二跑 no-op」断言守护。
 
-ALTER TABLE flow_nodes
-  ADD COLUMN last_decision TEXT NULL
-  COMMENT '门禁裁决结果 JSON 文本：{"verdict":"approved|rejected","reason":"…","at":毫秒,"branch":"…"}；NULL=未判定（approved/rejected=collect 聚合输出，capability-model-final §1.2a；reject 结论协议扩展承载 branches/confirmed_issues/context）'
-  AFTER pending_scope;
+SET @fnd_last_decision_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'flow_nodes' AND COLUMN_NAME = 'last_decision'
+);
+SET @fnd_ddl = IF(
+  @fnd_last_decision_exists = 0,
+  'ALTER TABLE flow_nodes ADD COLUMN last_decision TEXT NULL COMMENT ''门禁裁决结果 JSON 文本：{"verdict":"approved|rejected","reason":"…","at":毫秒,"branch":"…"}；NULL=未判定（approved/rejected=collect 聚合输出，capability-model-final §1.2a；reject 结论协议扩展承载 branches/confirmed_issues/context）'' AFTER pending_scope',
+  'SELECT 1'
+);
+PREPARE fnd_stmt FROM @fnd_ddl;
+EXECUTE fnd_stmt;
+DEALLOCATE PREPARE fnd_stmt;
 
-ALTER TABLE flows
-  ADD COLUMN scope VARCHAR(8) NOT NULL DEFAULT ''
-  COMMENT '需求所选渲染 scope：full/rd/fe；''=无 scope（plan 流程）。实例化节点集=flow_def_nodes.scope_expr ∩ 本列（ui-interaction-final §1.1）；scope 徽标/列表筛选的消费证据见迁移头注'
-  AFTER dependencies;
+SET @flow_scope_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'flows' AND COLUMN_NAME = 'scope'
+);
+SET @flow_ddl = IF(
+  @flow_scope_exists = 0,
+  'ALTER TABLE flows ADD COLUMN scope VARCHAR(8) NOT NULL DEFAULT '''' COMMENT ''需求所选渲染 scope：full/rd/fe；''''=无 scope（plan 流程）。实例化节点集=flow_def_nodes.scope_expr ∩ 本列（ui-interaction-final §1.1）；scope 徽标/列表筛选的消费证据见迁移头注'' AFTER dependencies',
+  'SELECT 1'
+);
+PREPARE flow_stmt FROM @flow_ddl;
+EXECUTE flow_stmt;
+DEALLOCATE PREPARE flow_stmt;
