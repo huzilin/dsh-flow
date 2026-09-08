@@ -115,17 +115,13 @@ func (s *ArtifactService) Add(ctx context.Context, req *api.AddArtifactReq) (*ap
 		return nil, notFound("节点 %q 不存在于需求 %q", req.NodeId, req.RequirementId)
 	}
 
-	for attempt := 0; attempt < idAllocRetryLimit; attempt++ {
-		row, retryable, err := s.addOnce(ctx, req, kind)
-		if err != nil {
-			if retryable {
-				continue
-			}
-			return nil, err
-		}
-		return &api.AddArtifactResp{Ok: true, Artifact: artifactItem(row)}, nil
+	row, err := withIDAllocRetry(func() (*repo.Artifact, bool, error) {
+		return s.addOnce(ctx, req, kind)
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil, errs.Trace(errs.ErrIdempotentConflict)
+	return &api.AddArtifactResp{Ok: true, Artifact: artifactItem(row)}, nil
 }
 
 // addOnce 单次登记尝试（事务：幂等查 → 取号 → 插入 → INSERT 审计）；

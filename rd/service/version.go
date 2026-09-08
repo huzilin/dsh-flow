@@ -50,17 +50,13 @@ func (s *VersionService) Create(ctx context.Context, req *api.CreateVersionReq) 
 	if req.Name == "" {
 		return nil, invalidArg("name 必填")
 	}
-	for attempt := 0; attempt < idAllocRetryLimit; attempt++ {
-		row, retryable, err := s.createOnce(ctx, req)
-		if err != nil {
-			if retryable {
-				continue
-			}
-			return nil, err
-		}
-		return &api.CreateVersionResp{Ok: true, Version: versionItem(row)}, nil
+	row, err := withIDAllocRetry(func() (*repo.Version, bool, error) {
+		return s.createOnce(ctx, req)
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil, errs.Trace(errs.ErrIdempotentConflict)
+	return &api.CreateVersionResp{Ok: true, Version: versionItem(row)}, nil
 }
 
 // createOnce 单次创建尝试（事务：取号 → 插入 → 审计）。

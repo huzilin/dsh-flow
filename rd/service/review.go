@@ -433,6 +433,9 @@ func (s *ReviewService) reenterReviewRoundLocked(ctx context.Context, tx *gormio
 // 空转直过无挂载相位）+ entered_at 落值；review 相位激活时初始化评审轮
 // （全位 reviewing 轮 0）。尾节点（编排终点）current_node_id 保持驻留。
 // 注意：调用前当前节点 last_decision 须已由调用方落定（本函数不再写当前节点行）。
+// 并发注记：下一节点读取（GetNextFlowNodeTx）为非锁读（普通 SELECT）——并发双
+// collect 场景败者以 flows.current_node_id 乐观锁冲突 409 回滚收场，正确性安全
+// （胜者单写推进，无需在此升级为锁读）。
 func (s *ReviewService) advanceApprovedNode(ctx context.Context, tx *gormio.DB, node *repo.FlowNode, now int64) (string, error) {
 	flow, err := repo.GetFlowByRequirementIDTx(ctx, tx, node.RequirementID)
 	if err != nil {

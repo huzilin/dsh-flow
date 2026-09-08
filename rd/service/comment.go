@@ -163,22 +163,21 @@ func (s *IssueService) Comment(ctx context.Context, req *api.CommentReq) (*api.C
 		ReviewerRole:     strPtrIfSet(reviewerRole),
 		Assignee:         strPtrIfSet(assignee),
 	}
-	for attempt := 0; attempt < idAllocRetryLimit; attempt++ {
+	if _, err := withIDAllocRetry(func() (*repo.Issue, bool, error) {
 		retryable, err := s.commentOnce(ctx, row)
 		if err != nil {
-			if retryable {
-				continue
-			}
-			return nil, err
+			return nil, retryable, err
 		}
-		// 通知派发（事务外，spec §1.3——失败不阻断业务）：评论携 escalate 置位
-		// → 冲突上升裁决通知（§6.8 reviewer 主持；收件=评审归属角色，回落 User）
-		if escalate == 1 {
-			s.dispatchEscalationNotification(ctx, row)
-		}
-		return &api.CommentResp{Ok: true, Issue: issueItem(row)}, nil
+		return row, false, nil
+	}); err != nil {
+		return nil, err
 	}
-	return nil, errs.Trace(errs.ErrIdempotentConflict)
+	// 通知派发（事务外，spec §1.3——失败不阻断业务）：评论携 escalate 置位
+	// → 冲突上升裁决通知（§6.8 reviewer 主持；收件=评审归属角色，回落 User）
+	if escalate == 1 {
+		s.dispatchEscalationNotification(ctx, row)
+	}
+	return &api.CommentResp{Ok: true, Issue: issueItem(row)}, nil
 }
 
 // dispatchEscalationNotification 冲突上升裁决通知派发（escalate 置位后调用，
@@ -576,13 +575,9 @@ func (s *IssueService) nodeExecRole(ctx context.Context, node *repo.FlowNode, sc
 	if err != nil {
 		return "", errs.Trace(err)
 	}
-	infos := make(map[string]domain.CapabilityInfo, len(caps))
-	for _, cap := range caps {
-		var actions []repo.ActionDef
-		if err := utils.UnmarshalJSONText(cap.Actions, &actions); err != nil {
-			return "", errs.Trace(err)
-		}
-		infos[cap.CapabilityID] = domain.CapabilityInfo{RoleID: cap.RoleID, Actions: actions}
+	infos, err := buildCapabilityInfoMap(caps)
+	if err != nil {
+		return "", err
 	}
 	return domain.NodeExecRole(filtered, infos)
 }

@@ -339,17 +339,13 @@ func (s *RequirementService) Create(ctx context.Context, req *api.CreateRequirem
 		defRows = append(defRows, *defNode)
 	}
 
-	for attempt := 0; attempt < idAllocRetryLimit; attempt++ {
-		row, retryable, err := s.createOnce(ctx, req, flowDefsID, priority, scope, defRows)
-		if err != nil {
-			if retryable {
-				continue
-			}
-			return nil, err
-		}
-		return &api.CreateRequirementResp{Ok: true, Requirement: requirementItem(row)}, nil
+	row, err := withIDAllocRetry(func() (*repo.Requirement, bool, error) {
+		return s.createOnce(ctx, req, flowDefsID, priority, scope, defRows)
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil, errs.Trace(errs.ErrIdempotentConflict)
+	return &api.CreateRequirementResp{Ok: true, Requirement: requirementItem(row)}, nil
 }
 
 // createOnce 单次创建尝试（事务：取号 → 插入需求 → 流程实例化 → 审计）；

@@ -128,17 +128,23 @@ func (s *TaskService) Assign(ctx context.Context, req *api.AssignTaskReq) (*api.
 	}
 	branch := domain.BranchForScope(flow.Scope)
 
-	for attempt := 0; attempt < idAllocRetryLimit; attempt++ {
+	result, err := withIDAllocRetry(func() (*assignOnceResult, bool, error) {
 		row, reused, retryable, assignErr := s.assignOnce(ctx, req, node.ID, resolved, branch, goal, taskCtx)
 		if assignErr != nil {
-			if retryable {
-				continue
-			}
-			return nil, assignErr
+			return nil, retryable, assignErr
 		}
-		return &api.AssignTaskResp{Ok: true, Task: taskItem(row), Reused: reused}, nil
+		return &assignOnceResult{row: row, reused: reused}, false, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil, errs.Trace(errs.ErrIdempotentConflict)
+	return &api.AssignTaskResp{Ok: true, Task: taskItem(result.row), Reused: result.reused}, nil
+}
+
+// assignOnceResult assignOnce 成功结果载体（withIDAllocRetry 泛型单返回值约束）。
+type assignOnceResult struct {
+	row    *repo.Task
+	reused bool
 }
 
 // assignOnce 单次派发尝试（事务：flow_nodes 行锁 → 幂等命中检查 → 取号插入 →
@@ -534,14 +540,12 @@ func loadCapabilityInfos(ctx context.Context, r *repo.Repo) (map[string]string, 
 		return nil, nil, errs.Trace(err)
 	}
 	roles := make(map[string]string, len(caps))
-	infos := make(map[string]domain.CapabilityInfo, len(caps))
 	for _, capability := range caps {
 		roles[capability.CapabilityID] = capability.RoleID
-		var actions []repo.ActionDef
-		if err := utils.UnmarshalJSONText(capability.Actions, &actions); err != nil {
-			return nil, nil, errs.Trace(err)
-		}
-		infos[capability.CapabilityID] = domain.CapabilityInfo{RoleID: capability.RoleID, Actions: actions}
+	}
+	infos, err := buildCapabilityInfoMap(caps)
+	if err != nil {
+		return nil, nil, err
 	}
 	return roles, infos, nil
 }

@@ -76,17 +76,16 @@ func (s *EscalationService) Escalate(ctx context.Context, req *api.EscalateReq) 
 	}
 
 	resp := &api.EscalateResp{}
-	for attempt := 0; attempt < idAllocRetryLimit; attempt++ {
+	if _, err := withIDAllocRetry(func() (struct{}, bool, error) {
 		retryable, err := s.escalateOnce(ctx, req, resp)
 		if err != nil {
-			if retryable {
-				continue
-			}
-			return nil, err
+			return struct{}{}, retryable, err
 		}
-		return resp, nil
+		return struct{}{}, false, nil
+	}); err != nil {
+		return nil, err
 	}
-	return nil, errs.Trace(errs.ErrIdempotentConflict)
+	return resp, nil
 }
 
 // escalateOnce 单次上升尝试（事务：issue 行锁 → session 幂等/建绑 → 置位 +

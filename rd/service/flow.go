@@ -417,14 +417,12 @@ func (s *FlowService) loadCapabilityMaps(ctx context.Context) (map[string]string
 		return nil, nil, errs.Trace(err)
 	}
 	roles := make(map[string]string, len(caps))
-	infos := make(map[string]domain.CapabilityInfo, len(caps))
 	for _, cap := range caps {
 		roles[cap.CapabilityID] = cap.RoleID
-		var actions []repo.ActionDef
-		if err := utils.UnmarshalJSONText(cap.Actions, &actions); err != nil {
-			return nil, nil, errs.Trace(err)
-		}
-		infos[cap.CapabilityID] = domain.CapabilityInfo{RoleID: cap.RoleID, Actions: actions}
+	}
+	infos, err := buildCapabilityInfoMap(caps)
+	if err != nil {
+		return nil, nil, err
 	}
 	return roles, infos, nil
 }

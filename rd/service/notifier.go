@@ -28,7 +28,6 @@ import (
 
 	"github.com/huzilin/wbflow/rd/domain"
 	"github.com/huzilin/wbflow/rd/pkg/errs"
-	"github.com/huzilin/wbflow/rd/pkg/utils"
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
@@ -214,13 +213,9 @@ func DeriveOwnerRole(ctx context.Context, r *repo.Repo, requirementID string, no
 		if err != nil {
 			return "", errs.Trace(err)
 		}
-		infos := make(map[string]domain.CapabilityInfo, len(caps))
-		for _, capability := range caps {
-			var actions []repo.ActionDef
-			if err := utils.UnmarshalJSONText(capability.Actions, &actions); err != nil {
-				return "", errs.Trace(err)
-			}
-			infos[capability.CapabilityID] = domain.CapabilityInfo{RoleID: capability.RoleID, Actions: actions}
+		infos, err := buildCapabilityInfoMap(caps)
+		if err != nil {
+			return "", err
 		}
 		if filtered != "" {
 			execRole, execErr := domain.NodeExecRole(filtered, infos)
