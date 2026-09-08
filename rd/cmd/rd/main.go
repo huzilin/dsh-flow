@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,11 +21,56 @@ import (
 	"github.com/huzilin/wbflow/rd/database"
 	"github.com/huzilin/wbflow/rd/handler"
 	"github.com/huzilin/wbflow/rd/logger"
+	"github.com/huzilin/wbflow/rd/migration"
 	"github.com/huzilin/wbflow/rd/repo"
 	"github.com/huzilin/wbflow/rd/service"
 )
 
 func main() {
+	// migrate 子命令：应用 schema 迁移后退出，不启动 HTTP 服务。
+	// 用法：rd migrate [-config 主配置] [-config-local 本地覆盖]
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		runMigrate(os.Args[2:])
+		return
+	}
+	runServer()
+}
+
+// runMigrate 执行 schema 迁移（Bootstrap 建库 + Run 按版本应用），成功即退出码 0。
+func runMigrate(args []string) {
+	fs := flag.NewFlagSet("migrate", flag.ExitOnError)
+	mainPath := fs.String("config", config.DefaultMainConfigPath, "主配置文件路径")
+	localPath := fs.String("config-local", config.DefaultLocalConfigPath, "本地覆盖配置路径（gitignored，可不存在）")
+	_ = fs.Parse(args)
+
+	cfg, err := config.Load(*mainPath, *localPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "配置加载失败: "+err.Error())
+		os.Exit(1)
+	}
+	logger.InitZap(cfg.Log.Path, logger.Mode(cfg.Log.Mode), cfg.Log.Level)
+	defer logger.Sync()
+	lg := logger.L()
+
+	ctx := context.Background()
+	db, report, err := migration.OpenForMigrate(ctx, &cfg.MySQL)
+	if err != nil {
+		lg.Error("迁移失败", zap.Error(err))
+		os.Exit(1)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+	lg.Info("迁移完成",
+		zap.Int64("from_version", report.FromVersion),
+		zap.Int64("to_version", report.ToVersion),
+		zap.Int64s("applied", report.Applied),
+	)
+}
+
+// runServer 原 HTTP 服务路径：配置加载 → zap 初始化 → GORM MySQL 连接 → Gin 路由注册 →
+// 优雅退出（SIGTERM/SIGINT：server.Shutdown + 连接关闭）。
+func runServer() {
 	mainPath := flag.String("config", config.DefaultMainConfigPath, "主配置文件路径")
 	localPath := flag.String("config-local", config.DefaultLocalConfigPath, "本地覆盖配置路径（gitignored，可不存在）")
 	flag.Parse()
@@ -67,6 +113,7 @@ func main() {
 	var issueSvc *service.IssueService
 	var escalateSvc *service.EscalationService
 	var inboxSvc *service.InboxService
+	var reviewSvc *service.ReviewService
 	var repoHandle *repo.Repo
 	if db.Gorm != nil {
 		repoHandle = repo.NewRepo(db.Gorm)
@@ -78,6 +125,7 @@ func main() {
 		issueSvc = service.NewIssueService(repoHandle, cfg.Escalate.LoopThreshold)
 		escalateSvc = service.NewEscalationService(repoHandle)
 		inboxSvc = service.NewInboxService(repoHandle)
+		reviewSvc = service.NewReviewService(repoHandle)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
@@ -93,6 +141,7 @@ func main() {
 		Comments:    issueSvc,
 		Escalations: escalateSvc,
 		Inbox:       inboxSvc,
+		Reviews:     reviewSvc,
 	})
 	srv := &http.Server{
 		Addr:    ":" + strconv.FormatInt(cfg.HTTP.Port, 10),

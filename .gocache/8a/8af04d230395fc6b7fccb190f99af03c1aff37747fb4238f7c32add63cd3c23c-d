@@ -1,0 +1,13 @@
+./artifact.go
+./flow.go
+./issue.go
+./model.go
+./mysqlerr.go
+./notification.go
+./payload.go
+./repo.go
+./requirement.go
+./scan.go
+./session.go
+./task.go
+./version.go

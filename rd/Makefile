@@ -4,11 +4,15 @@
 # protoc-gen-go 默认 go install 到 $(HOME)/go/bin
 PATH := $(HOME)/go/bin:$(PATH)
 
-.PHONY: proto build vet test fmt
+.PHONY: proto migrate build vet test fmt
 
 # proto 从真相源重新生成 Go DTO（buf + protoc-gen-go）。
 proto:
 	cd ../docs/api/v1 && buf generate
+
+# migrate 编译当前代码并对配置库执行 schema 迁移（Bootstrap + Run 后退出）。
+migrate:
+	go run ./cmd/rd migrate
 
 fmt:
 	gofmt -l -w .
