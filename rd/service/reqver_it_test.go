@@ -88,6 +88,7 @@ func openScratchWithThreshold(t *testing.T, escalateLoopThreshold int64) (*gin.E
 		Tasks:       service.NewTaskService(r),
 		Comments:    service.NewIssueService(r, escalateLoopThreshold),
 		Reviews:     service.NewReviewService(r),
+		Advance:     service.NewAdvanceService(r),
 		Escalations: service.NewEscalationService(r),
 		Inbox:       service.NewInboxService(r),
 	})
@@ -128,7 +129,7 @@ func reqJSONHeader(t *testing.T, r *gin.Engine, method string, path string, body
 
 	out := testResp{code: resp.Code, header: resp.Header()}
 	if resp.Body.Len() > 0 {
-		assert.NilError(t, json.Unmarshal(resp.Body.Bytes(), &out.body))
+		assert.NilError(t, json.Unmarshal(resp.Body.Bytes(), &out.body), "出参非合法 JSON: %s", resp.Body.String())
 	} else {
 		out.body = map[string]any{}
 	}
@@ -434,7 +435,8 @@ func TestIntegration_RequirementsScopeFilter_RealMySQL(t *testing.T) {
 // ---- versions 五端点 ----
 
 // TestIntegration_VersionsEndpoints_RealMySQL 版本创建/改名/发布软约束/
-// 废弃引用拦截全分支 + 状态机终态语义。
+// 废弃条件解绑全分支（2026-09-09 拍板-A：全部未开始废弃成功并解绑回池/
+// 任一已开始 blocked）+ 状态机终态语义。
 func TestIntegration_VersionsEndpoints_RealMySQL(t *testing.T) {
 	router, handles := openScratch(t)
 
@@ -509,33 +511,59 @@ func TestIntegration_VersionsEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, unfinished[0].str("requirementId"), "req-001")
 	assert.Equal(t, item(t, resp, "version").str("state"), "已发布")
 
-	// 7. 废弃拦截：有未完成需求引用 → blocked
+	// 7. 条件解绑（2026-09-09 拍板-A）：其下需求均未开始推演（flows.current_node_id
+	// NULL）→ 废弃成功并解绑全部需求回待分配池（versionId 清空 + 逐行审计）
 	resp = reqJSON(t, router, http.MethodPost, "/api/versions/v-3/deprecate", nil)
-	assert.Equal(t, resp.code, http.StatusConflict)
-	assert.Equal(t, resp.boolean("blocked"), true)
-	assert.Equal(t, auditCount(t, handles, "versions", "v-3", "UPDATE"), int64(1), "拦截不写 state 审计")
-
-	// 8. 需求全部取消后废弃放行（引用口径=非 已取消/已完成）
-	resp = reqJSON(t, router, http.MethodPut, "/api/requirements/req-001", map[string]any{
-		"title": "软约束A", "description": "", "category": "需求任务",
-		"priority": "P2", "status": "已取消", "owner": "",
-		"versionId": "v-3",
-	})
-	assert.Equal(t, resp.code, http.StatusOK, "取消需求：%v", resp.body)
-	resp = reqJSON(t, router, http.MethodPut, "/api/requirements/req-002", map[string]any{
-		"title": "软约束B", "description": "", "category": "需求任务",
-		"priority": "P2", "status": "已完成", "owner": "",
-		"versionId": "v-3",
-	})
-	assert.Equal(t, resp.code, http.StatusOK)
-
-	resp = reqJSON(t, router, http.MethodPost, "/api/versions/v-3/deprecate", nil)
-	assert.Equal(t, resp.code, http.StatusOK)
+	assert.Equal(t, resp.code, http.StatusOK, "全部未开始应废弃放行: %v", resp.body)
 	assert.Equal(t, item(t, resp, "version").str("state"), "已废弃")
+	for _, reqID := range []string{"req-001", "req-002"} {
+		resp = reqJSON(t, router, http.MethodGet, "/api/requirements/"+reqID, nil)
+		assert.Equal(t, resp.code, http.StatusOK)
+		assert.Equal(t, item(t, resp, "requirement").str("versionId"), "",
+			"解绑后 %s 应回待分配池（versionId 空）", reqID)
+	}
+	assert.Equal(t, rowCount(t, handles,
+		"SELECT COUNT(*) FROM audit_log WHERE table_name = 'requirements' AND action = 'UPDATE' AND field = 'versionId' AND old_value = 'v-3' AND new_value = ''"), int64(2),
+		"解绑应逐行写 versionId 前后值审计")
+	assert.Equal(t, auditFieldCount(t, handles, "versions", "v-3", "state"), int64(2), "发布+废弃 state 迁移审计各一次")
+	assert.Equal(t, rowCount(t, handles,
+		"SELECT COUNT(*) FROM requirements WHERE version_id = 'v-3'"), int64(0), "解绑后无残留引用")
 
-	// 9. 重复废弃幂等无害
+	// 8. 重复废弃幂等无害
 	resp = reqJSON(t, router, http.MethodPost, "/api/versions/v-3/deprecate", nil)
 	assert.Equal(t, resp.code, http.StatusOK)
+	assert.Equal(t, auditFieldCount(t, handles, "versions", "v-3", "state"), int64(2), "重复废弃幂等不写审计")
+
+	// 9. 已开始推演 → 废弃 blocked（新版本挂需求并启动编排：bus-00 拍板后 current 非空）
+	resp = reqJSON(t, router, http.MethodPost, "/api/versions", map[string]any{"name": "v4.0"})
+	assert.Equal(t, resp.code, http.StatusOK)
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements", map[string]any{
+		"title": "已开始需求", "category": "需求任务", "createdBy": "user-a", "versionId": "v-4",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	startedReq := item(t, resp, "requirement").str("requirementId")
+	// node_id 全局取号（uk_flow_nodes_nid），本需求首节点需按定义引用定位
+	resp = reqJSON(t, router, http.MethodGet, "/api/requirements/"+startedReq, nil)
+	assert.Equal(t, resp.code, http.StatusOK)
+	firstNode := ""
+	for _, n := range arr(t, resp, "flowNodes") {
+		if n.str("defNodeId") == "bus-00" {
+			firstNode = n.str("nodeId")
+		}
+	}
+	assert.Assert(t, firstNode != "", "应含 bus-00 定义节点")
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+startedReq+"/nodes/"+firstNode+"/decision",
+		map[string]any{"verdict": "approved", "reason": "确认投入资源"})
+	assert.Equal(t, resp.code, http.StatusOK, "启动编排（bus-00 拍板）: %v", resp.body)
+	resp = reqJSON(t, router, http.MethodPost, "/api/versions/v-4/deprecate", nil)
+	assert.Equal(t, resp.code, http.StatusConflict, "任一需求已开始应 blocked")
+	assert.Equal(t, resp.boolean("blocked"), true)
+	assert.Equal(t, rowCount(t, handles,
+		"SELECT COUNT(*) FROM audit_log WHERE table_name = 'versions' AND row_id = 'v-4' AND action = 'UPDATE'"), int64(0),
+		"拦截不写版本 state 审计")
+	// 已开始需求不被解绑
+	resp = reqJSON(t, router, http.MethodGet, "/api/requirements/"+startedReq, nil)
+	assert.Equal(t, item(t, resp, "requirement").str("versionId"), "v-4", "已开始需求不应被解绑")
 
 	// 10. 已废弃=终态：advance blocked
 	resp = reqJSON(t, router, http.MethodPost, "/api/versions/v-3/advance", nil)

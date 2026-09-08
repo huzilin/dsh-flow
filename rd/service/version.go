@@ -1,5 +1,5 @@
 // service 包本文件：wb_list / wb_create / wb_update_version、wb_advance_version
-// （发布软约束）、wb_deprecate_version（有引用 blocked）五端点业务编排。
+// （发布软约束）、wb_deprecate_version（条件解绑，2026-09-09 拍板-A）五端点业务编排。
 package service
 
 import (
@@ -227,16 +227,27 @@ func (s *VersionService) Advance(ctx context.Context, req *api.AdvanceVersionReq
 	return &api.AdvanceVersionResp{Ok: true, Version: versionItem(updated), Unfinished: unfinished}, nil
 }
 
-// Deprecate wb_deprecate_version ⚠️：废弃=终态。有引用（version_id 引用且
-// 状态非 已取消/已完成 的需求存在）→ ErrGateBlocked（HTTP 侧 {ok:false,
-// blocked:true}），不执行废弃；已废弃重复废弃幂等无害（no-op 不写审计）。
-// 废弃动作同事务写 audit_log（UPDATE state 旧值→新值）。
+// Deprecate wb_deprecate_version ⚠️：废弃=终态 + 条件解绑（2026-09-09 拍板-A，
+// spec §1.2 注记-A 裁决正本）。判定单位=需求级，「已开始」=编排已进入
+// （flows.current_node_id 非 NULL；注记原文以「存在 flows 实例」为已开始，本实现
+// T4 起创建即实例化，按字面实现则废弃恒 blocked——取注记语义内核「已开始推演」，
+// 口径注记见 repo.CountStartedFlowsByRequirementIDs）：
+//
+//   - 其下任一需求已开始 → ErrGateBlocked（409 blocked:true，已开始的推演不被
+//     版本废弃波及，未来再议）；
+//   - 其下全部需求未开始 → 废弃成功：versions.state=已废弃（终态，乐观锁）+
+//     同事务将其下**全部**需求 version_id 置空（解绑回待分配池，逐行 updated_at
+//     维护 + 逐行写 versionId 前后值审计——与 wb_update_requirement diff 同 camel
+//     口径，NULL 记空串）+ 版本行写 state 迁移审计。
+//
+// 与 ui-interaction-final §2「联动取消」口径的偏差（以本注记为裁决正本）：不取消
+// 需求、不写需求取消 history，改为解绑回池。已废弃重复废弃幂等无害（no-op 不写审计）。
 //
 // 入参：version_id 必填；updated_at=读取基线（0=以当前库值为基线，宽松模式）。
 // 出参：更新后的版本行（state=已废弃）。
 //
 // 错误集：ErrInvalidArgument（id 缺失）；ErrNotFound（版本不存在）；
-// ErrGateBlocked（存在未完成需求引用）；ErrOptimisticLock（基线不匹配，409）。
+// ErrGateBlocked（存在已开始推演的需求）；ErrOptimisticLock（基线不匹配，409）。
 func (s *VersionService) Deprecate(ctx context.Context, req *api.DeprecateVersionReq) (*api.DeprecateVersionResp, error) {
 	if req.VersionId == "" {
 		return nil, invalidArg("version_id 必填")
@@ -254,14 +265,24 @@ func (s *VersionService) Deprecate(ctx context.Context, req *api.DeprecateVersio
 			updated = row
 			return nil
 		}
-		refs, err := s.unfinishedRefs(ctx, tx, req.VersionId)
+		// 条件解绑判定（需求级）：任一已开始 → 整个废弃请求 blocked
+		requirements, err := repo.ListRequirementsByVersionTx(ctx, tx, req.VersionId)
 		if err != nil {
 			return err
 		}
-		if len(refs) > 0 {
-			return gateBlocked("版本 %q 存在 %d 条未完成需求引用，废弃被拦截（先取消/完成或移出版本）",
-				req.VersionId, len(refs))
+		reqIDs := make([]string, 0, len(requirements))
+		for _, requirement := range requirements {
+			reqIDs = append(reqIDs, requirement.RequirementID)
 		}
+		started, err := repo.CountStartedFlowsByRequirementIDs(ctx, tx, reqIDs)
+		if err != nil {
+			return err
+		}
+		if started > 0 {
+			return gateBlocked("版本 %q 存在 %d 条已开始推演的需求（编排已进入），废弃被拦截",
+				req.VersionId, started)
+		}
+		// 版本 state → 已废弃（终态，乐观锁）+ state 迁移审计
 		baseline := row.UpdatedAt
 		if req.UpdatedAt != 0 {
 			baseline = req.UpdatedAt
@@ -282,6 +303,29 @@ func (s *VersionService) Deprecate(ctx context.Context, req *api.DeprecateVersio
 		}); err != nil {
 			return err
 		}
+		// 解绑：其下全部需求 version_id 置空（回待分配池），逐行乐观锁 + 逐行审计
+		// （field=versionId camel 口径，old=原版本 id，new=空串=待分配池）
+		for _, requirement := range requirements {
+			if requirement.VersionID == nil || *requirement.VersionID != req.VersionId {
+				continue
+			}
+			if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.Requirement{}, requirement.ID, requirement.UpdatedAt, map[string]any{
+				"version_id": nil,
+			}); err != nil {
+				return err
+			}
+			if err := s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
+				Table:    "requirements",
+				RowID:    requirement.RequirementID,
+				Action:   "UPDATE",
+				Field:    utils.StrPtr("versionId"),
+				OldValue: utils.StrPtr(req.VersionId),
+				NewValue: utils.StrPtr(""),
+				ByWho:    auditByWhoManagement,
+			}); err != nil {
+				return err
+			}
+		}
 		fresh, err := getVersionTx(ctx, tx, req.VersionId)
 		if err != nil {
 			return err
@@ -295,7 +339,7 @@ func (s *VersionService) Deprecate(ctx context.Context, req *api.DeprecateVersio
 	return &api.DeprecateVersionResp{Ok: true, Version: versionItem(updated)}, nil
 }
 
-// unfinishedRefs 版本内 unfinished 需求清单（发布软约束提示 / 废弃引用拦截共用；
+// unfinishedRefs 版本内 unfinished 需求清单（发布软约束提示共用；
 // 口径 domain：status 非 已完成/已取消）。
 func (s *VersionService) unfinishedRefs(ctx context.Context, tx *gormio.DB, versionID string) ([]*api.RequirementRef, error) {
 	rows := make([]*repo.Requirement, 0)

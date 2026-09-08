@@ -21,7 +21,8 @@ type VersionAPI interface {
 	Update(ctx context.Context, req *api.UpdateVersionReq) (*api.UpdateVersionResp, error)
 	// Advance wb_advance_version（发布软约束：unfinished 仅提示不拦截）
 	Advance(ctx context.Context, req *api.AdvanceVersionReq) (*api.AdvanceVersionResp, error)
-	// Deprecate wb_deprecate_version ⚠️（有引用 blocked）
+	// Deprecate wb_deprecate_version ⚠️（条件解绑：任一需求已开始 blocked，全部
+	// 未开始废弃成功并解绑回池——2026-09-09 拍板-A）
 	Deprecate(ctx context.Context, req *api.DeprecateVersionReq) (*api.DeprecateVersionResp, error)
 }
 

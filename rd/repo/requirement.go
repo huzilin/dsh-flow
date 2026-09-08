@@ -158,6 +158,41 @@ func (r *Repo) DeleteRequirementByIDTx(tx *gorm.DB, id int64) error {
 	return nil
 }
 
+// ListRequirementsByVersionTx 事务内读版本下全部需求（不限状态，id 升序）——
+// wb_deprecate_version 条件解绑的解绑对象集（spec §1.2 拍板注记-A：废弃成功时
+// 其下全部需求 version_id 置空解绑回待分配池）。
+func ListRequirementsByVersionTx(ctx context.Context, tx *gorm.DB, versionID string) ([]*Requirement, error) {
+	items := make([]*Requirement, 0)
+	err := tx.WithContext(ctx).
+		Where("version_id = ?", versionID).
+		Order("id").
+		Find(&items).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return items, nil
+}
+
+// CountStartedFlowsByRequirementIDs 统计需求集中编排已开始（flows.current_node_id
+// 非 NULL）的数量——wb_deprecate_version 的「已开始推演」判定（拍板注记-A）。
+// 口径注记：注记原文以「存在 flows 实例」为已开始；本实现 T4 起需求创建即实例化
+// flows 行，若按字面实现则废弃恒 blocked（特性死置）。故取注记语义内核「已开始
+// 推演」= 编排已进入（current_node_id 非 NULL）：未进入编排=未推进=可解绑。
+func CountStartedFlowsByRequirementIDs(ctx context.Context, tx *gorm.DB, requirementIDs []string) (int64, error) {
+	if len(requirementIDs) == 0 {
+		return 0, nil
+	}
+	var n int64
+	err := tx.WithContext(ctx).
+		Model(&Flow{}).
+		Where("requirement_id IN ? AND current_node_id IS NOT NULL", requirementIDs).
+		Count(&n).Error
+	if err != nil {
+		return 0, errs.Trace(err)
+	}
+	return n, nil
+}
+
 // AllocRequirementIDTx 事务内取下一个需求业务 id（req-NNN 递增，spec §0.3 示例 req-001）。
 //
 // 取号 SQL：MAX(数字后缀) FOR UPDATE 锁索引范围（事务内取号防重）；并发场景下
