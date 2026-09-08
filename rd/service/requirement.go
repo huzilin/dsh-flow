@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	gormio "gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -86,7 +87,10 @@ func (s *RequirementService) List(ctx context.Context, req *api.ListRequirements
 	for _, f := range flowRows {
 		deps, err := parseDependencyList(f.Dependencies)
 		if err != nil {
-			return nil, errs.Trace(err)
+			// 依赖 JSON 损坏不阻断整页（直改库才可能触发）：该行降级空集并留痕
+			log.Printf("[requirement] dependencies 解析失败（降级空集）: req=%s err=%v",
+				f.RequirementID, err)
+			deps = []string{}
 		}
 		depsByReq[f.RequirementID] = deps
 	}

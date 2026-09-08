@@ -153,6 +153,21 @@ func TestIntegration_ProtoD_RetestNotification(t *testing.T) {
 	assert.Assert(t, hit != nil, "retest 子型 target_id=issueId: %v", resp.body)
 	assert.Equal(t, hit.str("recipientRole"), "arch")
 
+	// 幂等：fixed 态重复 resolve(fix)（Fixed→Fixed 重入）不重发 retest（CR B1 守卫）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
+		"path": "fix", "operator": "pm",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	assert.Equal(t, item(t, resp, "issue").str("state"), "fixed")
+	resp = reqJSON(t, router, http.MethodGet, "/api/inbox?role=arch&kind=re_review", nil)
+	recount := 0
+	for _, n := range arr(t, resp, "notifications") {
+		if n.str("targetId") == issueID {
+			recount++
+		}
+	}
+	assert.Equal(t, recount, 1, "Fixed→Fixed 重入不重发 retest（幂等守卫）: %v", resp.body)
+
 	// 非评审评论（reviewer_role 空、assignee 显式指派）：resolve(fix) 不派发 retest
 	plain := &repo.Issue{
 		IssueID: "cm-it-plain", RequirementID: reqID, NodeID: "n-02",

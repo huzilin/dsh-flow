@@ -96,7 +96,8 @@ type NotificationSpec struct {
 	RequirementID string
 	// NodeID 节点 id（跳转二级定位；会话类可空）
 	NodeID string
-	// TargetID 跳转目标业务 id（target_type=node 时空串——定位取 NodeID）
+	// TargetID 跳转目标业务 id；node 类未传时空串（定位取 NodeID），显式传入
+	// 保留为锚点增强（注记-D1：re_review retest 子型传 issueId）
 	TargetID string
 	// RecipientRole 收件角色（必填；空收件人无投递意义，Notify 拦截）
 	RecipientRole string
