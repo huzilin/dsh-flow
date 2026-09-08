@@ -1356,3 +1356,9 @@ input.invalid {
   font-weight: 600;
   color: #646a73;
 }
+
+/* ── 卡② 疑似卡死高亮（原型 P1：轮次≥10 未收敛）── */
+.badge-stall {
+  background: rgba(232, 179, 74, 0.15);
+  color: #b54708;
+}

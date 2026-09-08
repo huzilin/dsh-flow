@@ -129,7 +129,14 @@ export function NodeDetail({
           <div className="status-line muted">
             审批行：表态 {counts.agree + counts.unagree + counts.reviewing}/{counts.seats || "-"} ·
             ✅ {counts.agree} · ⛔ {counts.unagree} · ○ {counts.reviewing}
+            {counts.maxRound > 0 && ` · 第 ${counts.maxRound} 轮`}
             {gateView === "agreed" && " · 待拍板"}
+            {/* 疑似卡死高亮（原型 P1 卡②：轮次≥10 未收敛，拉长拉锯提示） */}
+            {counts.maxRound >= 10 && (counts.reviewing > 0 || counts.unagree > 0) && (
+              <span className="badge badge-stall" title="评审轮次≥10 未收敛，疑似卡死">
+                ⚠ 疑似卡死
+              </span>
+            )}
           </div>
           {node.enteredAt !== "0" && (
             <div className="muted small">进入执行：{formatTime(node.enteredAt)}</div>
