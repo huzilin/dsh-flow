@@ -39,7 +39,7 @@ export function FlowTree({
   }
   const height = sorted.length * (CARD_H + GAP) + GAP * 2;
   return (
-    <div className="flow-tree-wrap">
+    <div className="flow-tree-wrap" id="flow-tree">
       <div className="flow-tree-head">
         <b>
           {flow?.flowDefsId ?? ""} 流程

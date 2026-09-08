@@ -14,7 +14,7 @@ import {
   summarizeReviews,
 } from "../domain/flowview";
 import { ArtifactReader, CommentThread } from "./ArtifactReader";
-import { DecisionCard } from "./DecisionCard";
+import { DecisionActions, DecisionCard } from "./DecisionCard";
 import { PhaseBadge, ReviewStatePill } from "./Badges";
 import { formatTime } from "../pages/RequirementPoolPage";
 
@@ -189,7 +189,16 @@ export function NodeDetail({
           <InFlightTasks myTask={myTask} focusTaskId={focusTaskId} />
         </PanelCard>
 
-        <DecisionCard node={node} issues={nodeIssues} />
+        <DecisionCard
+          node={node}
+          issues={nodeIssues}
+          artifacts={nodeArtifacts}
+          actions={
+            gateView === "agreed" ? (
+              <DecisionActions requirementId={requirementId} node={node} />
+            ) : undefined
+          }
+        />
       </div>
 
       {readerArtifact && (

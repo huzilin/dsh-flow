@@ -227,6 +227,30 @@ export function unagreeSeatsOf(node: FlowNodeItem): UnagreeSeat[] {
   return [...latest.values()];
 }
 
+/** 评审位最新表态清单（门禁汇总用；同轮同角色覆写取最后——与 wb_review 覆写语义一致）。 */
+export function seatStatesOf(
+  node: FlowNodeItem,
+): Array<{ role: string; capabilityId: string; state: string }> {
+  const latest = new Map<string, { role: string; capabilityId: string; state: string; round: number; at: number }>();
+  for (const s of parseReviewers(node.reviewers)) {
+    latest.set(`${s.role}:${s.capabilityId}`, {
+      role: s.role,
+      capabilityId: s.capabilityId,
+      state: "reviewing",
+      round: -1,
+      at: -1,
+    });
+  }
+  for (const r of parseReviewResults(node.reviewResults)) {
+    const key = `${r.role}:${r.capabilityId}`;
+    const prev = latest.get(key);
+    if (!prev || r.round > prev.round || (r.round === prev.round && r.at >= prev.at)) {
+      latest.set(key, { role: r.role, capabilityId: r.capabilityId, state: r.state, round: r.round, at: r.at });
+    }
+  }
+  return [...latest.values()].map(({ role, capabilityId, state }) => ({ role, capabilityId, state }));
+}
+
 /**
  * rejected 拍板后的重入提示（T9 重入语义呈现——重入 UI 状态从快照相位读取）：
  * 节点仍在 review/respond 等非 exec 相位=「已打回，等待 exec 重入」；
