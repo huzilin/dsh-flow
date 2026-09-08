@@ -4,3 +4,4 @@ rd/trade/.superpowers/
 *.log
 .worktrees/
 config.local.yaml
+.gocache/
