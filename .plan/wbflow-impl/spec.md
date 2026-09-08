@@ -332,7 +332,7 @@ CREATE TABLE versions (
 | POST | /api/versions | wb_create_version | CreateVersionReq/Resp | |
 | PUT | /api/versions/:versionId | wb_update_version | UpdateVersionReq/Resp | |
 | POST | /api/versions/:versionId/advance | wb_advance_version | AdvanceVersionReq/Resp | 发布软约束：unfinished 仅提示 |
-| POST | /api/versions/:versionId/deprecate | wb_deprecate_version ⚠️ | DeprecateVersionReq/Resp | 条件解绑（2026-09-09 拍板，细则见 §1.2 注记-A）：其下全部需求未开始（无 flows 实例）→ 废弃成功并解绑全部需求回待分配池；任一需求已开始 → 409 blocked |
+| POST | /api/versions/:versionId/deprecate | wb_deprecate_version ⚠️ | DeprecateVersionReq/Resp | 条件解绑（2026-09-09 拍板，细则见 §1.2 注记-A）：其下全部需求未开始（流程未进入编排）→ 废弃成功并解绑全部需求回待分配池；任一需求已开始 → 409 blocked |
 | POST | /api/requirements/:reqId/nodes/:nodeId/artifacts | wb_add_artifact | AddArtifactReq/Resp | +product_type 枚举校验 |
 | POST | /api/requirements/:reqId/comments | wb_comment | CommentReq/Resp | anchor 四级；+escalate? |
 | POST | /api/comments/:commentId/replies | wb_reply | ReplyReq/Resp | roundCount++ |
@@ -352,7 +352,7 @@ CREATE TABLE versions (
 
 > **2026-09-09 拍板注记（A/B/C 细则，实现与测试以本注记为准）**：
 >
-> **-A 版本废弃 = 条件解绑**：`wb_deprecate_version` 语义由「有引用一律 blocked」改为条件解绑——判定单位为需求级，需求「已开始」=存在 flows 流程实例（创建后未实例化=未推进=可解绑）；其下**任一**需求已开始 → 整个废弃请求 409 blocked（语义：已开始的推演不允许被版本废弃波及，未来再议）；其下**全部**需求未开始 → 废弃成功（versions.state=已废弃，终态），同时事务内将其下全部需求 version_id 置空（解绑，回到待分配池），逐行审计。与 ui-interaction-final §2「联动取消」口径的偏差：不取消需求、不写需求取消 history，改为解绑回池（本注记为裁决正本，UI 文档偏差由实现交付注记）。
+> **-A 版本废弃 = 条件解绑**：`wb_deprecate_version` 语义由「有引用一律 blocked」改为条件解绑——判定单位为需求级，需求「已开始」=流程实例已进入编排（`flows.current_node_id` 非 NULL；T4 起需求创建即实例化 flows 行，故以编排进入为准而非「存在实例」——字面判定会使未开始解绑特性死置，实现口径见 semantica `23aeeaea`）；其下**任一**需求已开始 → 整个废弃请求 409 blocked（语义：已开始的推演不允许被版本废弃波及，未来再议）；其下**全部**需求未开始 → 废弃成功（versions.state=已废弃，终态），同时事务内将其下全部需求 version_id 置空（解绑，回到待分配池），逐行审计。与 ui-interaction-final §2「联动取消」口径的偏差：不取消需求、不写需求取消 history，改为解绑回池（本注记为裁决正本，UI 文档偏差由实现交付注记）。
 >
 > **-B 编排推进端点 wb_advance**：目标调整为一期自包含 Web 后，原「编排接缝三类无 HTTP 承载（plugin 职责）」不再成立。新增 `wb_advance`（AdvanceReq{reqId,nodeId}/Resp），承载三类推进：①exec 相位完成（complete 判据已通过）→ 下一节点相位初始化（review 相位则 InitReviewRound）；②节点内 CR 轮转（dev→review，轮 0 重开）；③QA/门禁机械收口（collect rule4 空转语义）。wb_advance 自身幂等：重复调用时若推进已完成则返回当前状态不重复推进。触发方：wb_task_update complete 判据通过后**服务端同步调用**推进逻辑（Web 一期由服务端内聚触发），端点同时暴露供兜底与手动场景；e2e 原接缝 SQL 模拟全部替换为 wb_advance 真调用（SQL 模拟代码删除）。DSH 嵌入期该端点收编为 plugin 内部调用，HTTP 契约不变。
 >
