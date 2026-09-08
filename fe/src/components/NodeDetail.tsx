@@ -14,6 +14,7 @@ import {
   summarizeReviews,
 } from "../domain/flowview";
 import { ArtifactReader, CommentThread } from "./ArtifactReader";
+import { ConflictCard } from "./ConflictCard";
 import { DecisionActions, DecisionCard } from "./DecisionCard";
 import { PhaseBadge, ReviewStatePill } from "./Badges";
 import { formatTime } from "../pages/RequirementPoolPage";
@@ -70,6 +71,9 @@ export function NodeDetail({
   const counts = summarizeReviews(node);
   const gateView = deriveGateView(node);
   const nodeIssues = issues.filter((i) => i.nodeId === nodeId);
+  // 冲突卡聚合（T16）：escalate=1 的 issue 提到意见区顶部，其余按时间线呈现
+  const escalatedIssues = nodeIssues.filter((i) => i.escalate === "1");
+  const normalIssues = nodeIssues.filter((i) => i.escalate !== "1");
   const nodeArtifacts = artifacts.filter((a) => a.nodeId === nodeId);
   const readerArtifact = nodeArtifacts.find((a) => a.artifactId === readerArtifactId);
 
@@ -175,13 +179,29 @@ export function NodeDetail({
         </PanelCard>
 
         <PanelCard no="④" title="意见区" className="panel-issues">
-          {nodeIssues.length === 0 ? (
-            <div className="muted">
-              本节点暂无评论。打开文档产物可选取行/区间发起锚点评论。
+          {escalatedIssues.length > 0 && (
+            <div className="conflict-stack" data-testid="conflict-stack">
+              {escalatedIssues.map((i) => (
+                <ConflictCard
+                  key={i.issueId}
+                  requirementId={requirementId}
+                  issue={i}
+                  node={node}
+                />
+              ))}
             </div>
+          )}
+          {normalIssues.length === 0 ? (
+            escalatedIssues.length > 0 ? (
+              <div className="muted">其余评论见冲突卡与产物阅读器。</div>
+            ) : (
+              <div className="muted">
+                本节点暂无评论。打开文档产物可选取行/区间发起锚点评论。
+              </div>
+            )
           ) : (
             <CommentThread
-              issues={nodeIssues}
+              issues={normalIssues}
               requirementId={requirementId}
               highlightIssueId={focusIssueId}
             />
