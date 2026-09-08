@@ -77,6 +77,7 @@ func openScratchWithDocs(t *testing.T) (*gin.Engine, *database.DB, string) {
 		Vers:      service.NewVersionService(r),
 		Flows:     service.NewFlowService(r),
 		Artifacts: service.NewArtifactService(r, docsRoot),
+		Advance:   service.NewAdvanceService(r),
 	})
 	return router, handles, docsRoot
 }

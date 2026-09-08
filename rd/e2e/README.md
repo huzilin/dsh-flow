@@ -2,8 +2,9 @@
 
 roadmap P5「seed 注入 → HTTP 驱动全流程」：真实 MySQL **scratch 库**（`wbflow_e2e_*` 前缀，
 每条剧本每次运行新建 → 迁移+seed → 演练 → DROP，禁写 `wbflow` 库，天然可重复执行）+
-`httptest.NewServer` 启动完整 Gin 栈（26 个 `wb_*` 端点，T1-T16 全量装配）+ 真实 HTTP
-client（Bearer token）。演练者扮演全部 agent/User 角色，按节点剧本 HTTP 驱动推进。
+`httptest.NewServer` 启动完整 Gin 栈（27 个 `wb_*` 端点，T1-T16 全量装配 + `wb_advance`
+编排推进）+ 真实 HTTP client（Bearer token）。演练者扮演全部 agent/User 角色，按节点
+剧本 HTTP 驱动推进。
 
 ## 运行命令
 
@@ -37,15 +38,15 @@ owner wb_resolve 闭环 → respond complete → review 重入新轮 re_review�
 |---|---|---|
 | 1 | bus-00 待启动 | decision approved（确认投入资源） |
 | 2 | bus-01 需求对齐 | entry hold → produce to-brd（brd）→ decision approved |
-| 3 | bus-02 产品设计 | produce product-design.produce（product_doc）→ 提评接缝 |
+| 3 | bus-02 产品设计 | produce product-design.produce（product_doc）→ wb_advance 推进 |
 | 4 | bus-03 产品设计评审 | arch/rd agree；fe 建 open 意见+unagree（collect=clarify）→ pm 澄清闭环（re_review）→ fe 复核 agree（agreed）→ decision approved |
-| 5 | bus-04 RD 技术设计 | produce backend-design.produce（rd_design）→ 提评接缝 |
+| 5 | bus-04 RD 技术设计 | produce backend-design.produce（rd_design）→ wb_advance 推进 |
 | 6 | bus-05 RD 技术评审 | arch/fe/qa/pm 四位 agree（agreed）→ decision approved |
-| 7 | bus-06 FE 技术设计 | produce frontend-design.produce（fe_design）→ 提评接缝 |
+| 7 | bus-06 FE 技术设计 | produce frontend-design.produce（fe_design）→ wb_advance 推进 |
 | 8 | bus-07 FE 设计评审 | qa 单位 agree（user_gate=0 机械 approved，即时推进） |
-| 9 | bus-08 RD 开发 | produce backend-dev.dev（dev_notes+code_mr）→ 节点内 CR 轮转接缝 → cr agree（机械 approved） |
+| 9 | bus-08 RD 开发 | produce backend-dev.dev（dev_notes+code_mr）→ wb_advance 节点内 CR 轮转 → cr agree（机械 approved） |
 | 10 | bus-09 FE 开发 | 同构（frontend-dev.dev → cr agree） |
-| 11 | bus-10 QA 验收 | produce acceptance-test.accept（test_result+defect）→ 收口接缝 |
+| 11 | bus-10 QA 验收 | produce acceptance-test.accept（test_result+defect）→ wb_advance 收口推进 |
 | 12 | bus-11 用户验收 | decision approved → bus-12 完成（尾节点驻留） |
 
 终态断言：flows.current_node_id=bus-12、各 gate last_decision、审计条数对账
@@ -64,16 +65,18 @@ gate_pending×2 / clarify_task×1 / re_review×1、TODO 投影不残留。
 |---|---|---|
 | 1 | tsk-c0 待启动 | decision approved |
 | 2 | tsk-c1 需求对齐 | entry 迎宾投影（align.opening，响应者 executor）；exec 跳过（D2 无产物）→ decision approved |
-| 3 | tsk-c2 技术设计 | produce backend-design.produce（rd_design，scope=rd 激活）→ 提评接缝 |
+| 3 | tsk-c2 技术设计 | produce backend-design.produce（rd_design，scope=rd 激活）→ wb_advance 推进 |
 | 4 | tsk-c3 技术评审 | arch 单位 agree（agreed）→ decision approved |
-| 5 | tsk-c4 开发 | produce backend-dev.dev（dev_notes+code_mr）→ 节点内 CR 轮转接缝 → cr agree（机械 approved） |
+| 5 | tsk-c4 开发 | produce backend-dev.dev（dev_notes+code_mr）→ wb_advance 节点内 CR 轮转 → cr agree（机械 approved） |
 | 6 | tsk-c6 用户验收 | **报障直连断言**：issue 挂 exec 节点 tsk-c4（无显式指派）→ assignee=rd（T7 L2 推导）→ rd wb_resolve 闭环 → decision approved |
 | 7 | tsk-c7 完成 | 尾节点驻留 |
 
-## 编排接缝口径（重要）
+## 编排推进口径（2026-09-09 拍板-B）
 
 exec 完成后的三类节点轮转——**提评迁移（exec→review / exec→gate entry）**、**节点内 CR
-轮转（exec→review 同节点）**——属 plugin 编排职责，本期无 HTTP 端点承载。演练以 scratch
-库内 SQL 接缝模拟（T9/T12 IT 同口径），激活口径复用 `domain.ActivationPhase` /
-`domain.InitReviewRound`（与 service 层 `advanceApprovedNode` 一致）。业务推进断言全部经
-HTTP 出参与聚合快照，不依赖接缝内部数据。
+轮转（exec→review 同节点）**、**QA 机械收口**——由 `wb_advance` 端点承载
+（`POST /api/requirements/:reqId/nodes/:nodeId/advance`）：complete 判据通过后服务端
+**同事务内聚触发**推进，剧本步再显式 wb_advance 幂等命中返回当前态（兼验证幂等语义）。
+并行 join（RD∥FE 开发组 bus-08/bus-09）由推进核内置「提交瞬间检查 + flows 行锁 +
+scanner 兜底巡检」三层（拍板-C）。原 scratch 库 SQL 接缝模拟已删除。业务推进断言全部经
+HTTP 出参与聚合快照，不依赖推进内部数据。

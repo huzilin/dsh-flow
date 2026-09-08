@@ -168,13 +168,16 @@ func GetFlowByRequirementIDTx(ctx context.Context, tx *gorm.DB, requirementID st
 	return row, nil
 }
 
-// GetNextFlowNodeTx 事务内读渲染序的下一实例节点（门禁 approved 后 current_node_id
-// 前移目标；尾节点返回 (nil, nil)——流程编排终点）。
-func GetNextFlowNodeTx(ctx context.Context, tx *gorm.DB, requirementID string, nodeOrder int64) (*FlowNode, error) {
-	row := &FlowNode{}
+// GetFlowByRequirementIDLockTx 事务内行锁读取流程实例（SELECT … FOR UPDATE）。
+// 编排推进路径（wb_advance / complete 内聚触发 / 巡检补推 / review·decision 推进）
+// 的并发防护基线（spec §1.2 拍板注记-C：flows 行锁串行化组推进，防双侧同时
+// complete 的并发双推进；RC + 单 master 行锁已足）。锁序约定：全部推进路径
+// 先锁 flows 行再锁 flow_nodes 行，避免交叉死锁。未命中返回 (nil, nil)。
+func GetFlowByRequirementIDLockTx(ctx context.Context, tx *gorm.DB, requirementID string) (*Flow, error) {
+	row := &Flow{}
 	err := tx.WithContext(ctx).
-		Where("requirement_id = ? AND node_order > ?", requirementID, nodeOrder).
-		Order("node_order").
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("requirement_id = ?", requirementID).
 		First(row).Error
 	if err != nil {
 		if isRecordNotFound(err) {
@@ -183,6 +186,36 @@ func GetNextFlowNodeTx(ctx context.Context, tx *gorm.DB, requirementID string, n
 		return nil, errs.Trace(err)
 	}
 	return row, nil
+}
+
+// ListFlowsInOrchestration 读编排已启动的流程实例（current_node_id 非空）——
+// 扫描器并行组兜底巡检的候选集。空集返回空切片。
+func (r *Repo) ListFlowsInOrchestration(ctx context.Context) ([]*Flow, error) {
+	items := make([]*Flow, 0)
+	err := r.g.WithContext(ctx).
+		Where("current_node_id IS NOT NULL").
+		Order("id").
+		Find(&items).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return items, nil
+}
+
+// ListFlowDefNodesByTemplateIDsTx 事务内按定义节点 id 集合批量读定义节点
+// （推进路径的激活相位/并行组判定静态读取，与实例读同事务一致）。
+func ListFlowDefNodesByTemplateIDsTx(ctx context.Context, tx *gorm.DB, templateNodeIDs []string) ([]*FlowDefNode, error) {
+	if len(templateNodeIDs) == 0 {
+		return make([]*FlowDefNode, 0), nil
+	}
+	items := make([]*FlowDefNode, 0, len(templateNodeIDs))
+	err := tx.WithContext(ctx).
+		Where("template_node_id IN ?", templateNodeIDs).
+		Find(&items).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return items, nil
 }
 
 // GetFlowDefNodeByTemplateIDTx 事务内读定义节点（激活相位/门禁位判定的静态 seed 读取）；

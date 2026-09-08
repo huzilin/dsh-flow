@@ -83,6 +83,7 @@ func openScratchAudit(t *testing.T) (*gin.Engine, *database.DB, string) {
 		Tasks:       service.NewTaskService(r),
 		Comments:    service.NewIssueService(r, auditITThreshold),
 		Reviews:     service.NewReviewService(r),
+		Advance:     service.NewAdvanceService(r),
 		Escalations: service.NewEscalationService(r),
 		Inbox:       service.NewInboxService(r),
 	})

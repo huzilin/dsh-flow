@@ -47,7 +47,7 @@ func TestE2E_Task_Flow(t *testing.T) {
 	// ---- tsk-c2 技术设计（backend-design by scope=rd）→ 提评迁移 tsk-c3 ----
 	t.Log("tsk-c2 技术设计：backend-design.produce → 提评迁移")
 	s.execute("tsk-c2", "backend-design.produce", "rd", "rd_design")
-	s.activateNext("tsk-c2")
+	s.advanceNode("tsk-c2")
 	s.assertNode("tsk-c3", "review")
 
 	// ---- tsk-c3 技术评审（arch 单评审位 by scope=rd，user_gate=1）→ User 拍板 ----
@@ -60,7 +60,7 @@ func TestE2E_Task_Flow(t *testing.T) {
 	// ---- tsk-c4 开发（CR 内嵌）→ 机械 approved → tsk-c6 用户验收 ----
 	t.Log("tsk-c4 开发：backend-dev.dev → CR agree 机械 approved")
 	s.execute("tsk-c4", "backend-dev.dev", "rd", "dev_notes", "code_mr")
-	s.rotateSelf("tsk-c4")
+	s.advanceNode("tsk-c4")
 	s.assertNode("tsk-c4", "review")
 	s.reviewAndCarry("tsk-c4", [][2]string{{"cr", "code-review"}})
 	s.assertCurrent("tsk-c6")

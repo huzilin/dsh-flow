@@ -23,11 +23,13 @@ type TaskService struct {
 	repo *repo.Repo
 	// notifier 通知收敛写入口（T11：事务外派发，失败不阻断业务）
 	notifier *Notifier
+	// adv 编排推进核（2026-09-09 拍板-B：complete 判据通过后的服务端内聚触发）
+	adv *AdvanceService
 }
 
 // NewTaskService 构造任务总线 service。
 func NewTaskService(r *repo.Repo) *TaskService {
-	return &TaskService{repo: r, notifier: NewNotifier(r)}
+	return &TaskService{repo: r, notifier: NewNotifier(r), adv: NewAdvanceService(r)}
 }
 
 // dispatchReReviewNotifications 重新表态请求派发（事务提交后调用，事务外落库）：
@@ -250,7 +252,10 @@ func buildTaskContext(requirement *repo.Requirement, flow *repo.Flow, node *repo
 //
 // 已终态任务（completed/rejected/closed）再上报一律幂等 no-op（noop=true）。
 // 写路径单事务：tasks 行锁读（FOR UPDATE）+ 乐观锁更新（UpdateWithOptimisticLockTx）
-// + 审计（by_who=执行角色，上报者口径）。
+// + 审计（by_who=执行角色，上报者口径）。complete 判据通过且任务为 exec 族
+// （produce/dev/accept）时同事务内聚触发编排推进（wb_advance 同源推进核，
+// 2026-09-09 拍板-B；推进 blocked 不否定 complete，其余错误整体回滚——见
+// 事务内注释）。
 //
 // 入参：task_id 必填；event ∈ {ack, progress, complete}；updated_at=读取基线
 // （0=以当前库值为基线，宽松模式，与 wb_update_requirement 同口径）。
@@ -280,6 +285,9 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 		reviewReqID   string
 		reviewNodeID  string
 		respondDone   bool
+		// execAdvance complete 判据通过后是否触发编排推进（exec 族任务 + 节点
+		// exec 相位；2026-09-09 拍板-B 内聚触发）
+		execAdvance bool
 	)
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		row, err := repo.GetTaskByIDTx(ctx, tx, req.TaskId)
@@ -373,9 +381,44 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 				reviewNodeID = row.NodeID
 				respondDone = true
 			}
+			switch row.TaskType {
+			case repo.TaskTypeProduce, repo.TaskTypeDev, repo.TaskTypeAccept:
+				// 2026-09-09 拍板-B：exec 族 complete 判据通过后服务端内聚触发编排推进
+				//（①跨节点 / ②节点内 CR 轮转 / 并行 join 判定）
+				execAdvance = true
+			}
 		}
 
-		return s.applyTaskUpdates(ctx, tx, row, baseline, updates, audits)
+		if err := s.applyTaskUpdates(ctx, tx, row, baseline, updates, audits); err != nil {
+			return err
+		}
+		if execAdvance {
+			// 编排推进内聚（同事务：flows 行锁 → flow_nodes 锁定清单，锁序与
+			// wb_advance/巡检一致，拍板注记-C②）。事务边界决策：推进与 complete
+			// 同事务——审计失败回滚一致性原则下单事务原子，避免 complete 已提交而
+			// 推进写丢失的中间态；推进的 blocked（判据未达/exec 未在当前相位/
+			// 并行组待对侧）不否定 complete 本身——吞掉 blocked（推进交由显式
+			// wb_advance 与 scanner 兜底巡检），其余错误（IO/乐观锁）整体回滚。
+			flow, flowErr := repo.GetFlowByRequirementIDLockTx(ctx, tx, row.RequirementID)
+			if flowErr != nil {
+				return flowErr
+			}
+			if flow != nil {
+				nodes, nodesErr := repo.ListFlowNodesByRequirementLockTx(ctx, tx, row.RequirementID)
+				if nodesErr != nil {
+					return nodesErr
+				}
+				idx := flowNodeIndex(nodes, row.NodeID)
+				if idx >= 0 && nodes[idx].State == repo.PhaseExec {
+					if _, advErr := s.adv.advanceNodeLocked(ctx, tx, flow, nodes, row.NodeID, auditByWhoPlugin); advErr != nil {
+						if !errs.Is(advErr, errs.ErrGateBlocked) {
+							return advErr
+						}
+					}
+				}
+			}
+		}
+		return nil
 	})
 	if txErr != nil {
 		return nil, txErr

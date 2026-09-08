@@ -38,11 +38,14 @@ type ReviewService struct {
 	repo *repo.Repo
 	// notifier 通知收敛写入口（T11：事务外派发，失败不阻断业务）
 	notifier *Notifier
+	// adv 编排推进核（wb_advance 同源：门禁 approved 后的组/下一节点推进与并行
+	// join 判定，2026-09-09 拍板-B/C）
+	adv *AdvanceService
 }
 
 // NewReviewService 构造评审门禁 service。
 func NewReviewService(r *repo.Repo) *ReviewService {
-	return &ReviewService{repo: r, notifier: NewNotifier(r)}
+	return &ReviewService{repo: r, notifier: NewNotifier(r), adv: NewAdvanceService(r)}
 }
 
 // Review wb_review：agent 自判 agree/unagree 上报，写 review_results（单字段承载
@@ -91,6 +94,16 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 	resp := &api.ReviewResp{}
 	outcome := domain.CollectPending
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
+		// 锁序①：flows 行锁（推进路径统一锁序 flows → flow_nodes，拍板注记-C②——
+		// 机械 approved 推进经统一推进核，与 wb_advance/巡检同锁串行化组推进）
+		flow, err := repo.GetFlowByRequirementIDLockTx(ctx, tx, req.RequirementId)
+		if err != nil {
+			return err
+		}
+		if flow == nil {
+			return notFound("需求 %q 无流程实例", req.RequirementId)
+		}
+		// 锁序②：节点行锁（collect 聚合判定读改写原子基线）
 		node, err := repo.GetFlowNodeByRequirementAndNodeIDLockTx(ctx, tx, req.RequirementId, req.NodeId)
 		if err != nil {
 			return err
@@ -172,15 +185,26 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 		case domain.CollectPending:
 			// 继续收票
 		}
-		if err := s.applyNodeUpdates(ctx, tx, node, updates, audits); err != nil {
+		if err := applyNodeUpdatesTx(ctx, s.repo, tx, node, updates, audits); err != nil {
 			return err
 		}
 		if needAdvance {
-			nextNodeID, advanceErr := s.advanceApprovedNode(ctx, tx, node, now)
+			nodes, listErr := repo.ListFlowNodesByRequirementLockTx(ctx, tx, node.RequirementID)
+			if listErr != nil {
+				return listErr
+			}
+			idx := flowNodeIndex(nodes, node.NodeID)
+			if idx < 0 {
+				return notFound("节点 %q 不存在于需求 %q", node.NodeID, node.RequirementID)
+			}
+			// 机械 approved 推进经统一推进核（并行 join 判定 + flows 行锁已持）
+			advanceRes, advanceErr := s.adv.advanceAfterGateLockedTx(ctx, tx, flow, nodes, idx, now, auditByWhoPlugin, &advanceResult{NodeState: node.State})
 			if advanceErr != nil {
 				return advanceErr
 			}
-			resp.NextNodeId = nextNodeID
+			if advanceRes.Outcome == AdvanceOutcomeCross {
+				resp.NextNodeId = advanceRes.NextNodeID
+			}
 		}
 		return nil
 	})
@@ -266,6 +290,15 @@ func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.
 
 	resp := &api.DecisionResp{}
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
+		// 锁序①：flows 行锁（推进/回退统一锁序 flows → flow_nodes，拍板注记-C②）
+		flow, err := repo.GetFlowByRequirementIDLockTx(ctx, tx, req.RequirementId)
+		if err != nil {
+			return err
+		}
+		if flow == nil {
+			return notFound("需求 %q 无流程实例", req.RequirementId)
+		}
+		// 锁序②：节点行锁
 		node, err := repo.GetFlowNodeByRequirementAndNodeIDLockTx(ctx, tx, req.RequirementId, req.NodeId)
 		if err != nil {
 			return err
@@ -323,7 +356,7 @@ func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.
 			updates["feature_branch"] = req.Branch
 			audits = append(audits, reviewAudit(node, "featureBranch", "", req.Branch, auditByWhoUser))
 		}
-		if err := s.applyNodeUpdates(ctx, tx, node, updates, audits); err != nil {
+		if err := applyNodeUpdatesTx(ctx, s.repo, tx, node, updates, audits); err != nil {
 			return err
 		}
 
@@ -332,19 +365,23 @@ func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.
 		// 标记），下游节点 upstream-reject 联动重置，current_node_id 回退；
 		// 首渲染节点被拒（无上游）整体回滚（拍板不生效，blocked）。
 		if req.Verdict == domain.GateVerdictApproved {
-			nextNodeID, advanceErr := s.advanceApprovedNode(ctx, tx, node, now)
+			nodes, listErr := repo.ListFlowNodesByRequirementLockTx(ctx, tx, node.RequirementID)
+			if listErr != nil {
+				return listErr
+			}
+			idx := flowNodeIndex(nodes, node.NodeID)
+			if idx < 0 {
+				return notFound("节点 %q 不存在于需求 %q", node.NodeID, node.RequirementID)
+			}
+			// approved 推进经统一推进核（并行 join 判定；flows 行锁已持）
+			advanceRes, advanceErr := s.adv.advanceAfterGateLockedTx(ctx, tx, flow, nodes, idx, now, auditByWhoPlugin, &advanceResult{NodeState: node.State})
 			if advanceErr != nil {
 				return advanceErr
 			}
-			resp.NextNodeId = nextNodeID
+			if advanceRes.Outcome == AdvanceOutcomeCross {
+				resp.NextNodeId = advanceRes.NextNodeID
+			}
 		} else {
-			flow, flowErr := repo.GetFlowByRequirementIDTx(ctx, tx, node.RequirementID)
-			if flowErr != nil {
-				return flowErr
-			}
-			if flow == nil {
-				return notFound("需求 %q 无流程实例", node.RequirementID)
-			}
 			rollbackNodeID, rollbackErr := s.RollbackForRejectTx(ctx, tx, flow, node, now)
 			if rollbackErr != nil {
 				return rollbackErr
@@ -415,7 +452,7 @@ func (s *ReviewService) reenterReviewRoundLocked(ctx context.Context, tx *gormio
 		reviewAudit(node, "state", node.State, repo.PhaseReview, auditByWhoPlugin),
 		reviewAudit(node, "reviewResults", node.ReviewResults, resultsJSON, auditByWhoPlugin),
 	}
-	if err := s.applyNodeUpdates(ctx, tx, node, updates, audits); err != nil {
+	if err := applyNodeUpdatesTx(ctx, s.repo, tx, node, updates, audits); err != nil {
 		return nil, err
 	}
 	resetRoles := make([]string, 0, len(reentered))
@@ -425,106 +462,6 @@ func (s *ReviewService) reenterReviewRoundLocked(ctx context.Context, tx *gormio
 		}
 	}
 	return resetRoles, nil
-}
-
-// advanceApprovedNode 门禁 approved 节点推进（当前节点 gate 落定后调用）：
-// flows.current_node_id 前移到渲染序下一节点；下一节点按激活相位落 state
-// （domain.ActivationPhase——gate 驻留 entry、review 直入评审位、produce/align
-// 空转直过无挂载相位）+ entered_at 落值；review 相位激活时初始化评审轮
-// （全位 reviewing 轮 0）。尾节点（编排终点）current_node_id 保持驻留。
-// 注意：调用前当前节点 last_decision 须已由调用方落定（本函数不再写当前节点行）。
-// 并发注记：下一节点读取（GetNextFlowNodeTx）为非锁读（普通 SELECT）——并发双
-// collect 场景败者以 flows.current_node_id 乐观锁冲突 409 回滚收场，正确性安全
-// （胜者单写推进，无需在此升级为锁读）。
-func (s *ReviewService) advanceApprovedNode(ctx context.Context, tx *gormio.DB, node *repo.FlowNode, now int64) (string, error) {
-	flow, err := repo.GetFlowByRequirementIDTx(ctx, tx, node.RequirementID)
-	if err != nil {
-		return "", err
-	}
-	if flow == nil {
-		return "", notFound("需求 %q 无流程实例", node.RequirementID)
-	}
-	next, err := repo.GetNextFlowNodeTx(ctx, tx, node.RequirementID, node.NodeOrder)
-	if err != nil {
-		return "", err
-	}
-	if next == nil {
-		// 尾节点：编排终点，current_node_id 驻留（流程完成语义由后续工单收口）
-		return "", nil
-	}
-	defNode, err := repo.GetFlowDefNodeByTemplateIDTx(ctx, tx, next.DefNodeID)
-	if err != nil {
-		return "", err
-	}
-	if defNode == nil {
-		return "", notFound("定义节点 %q 缺失（seed 异常）", next.DefNodeID)
-	}
-	phase, err := domain.ActivationPhase(defNode.NodeType, defNode.NodeActions)
-	if err != nil {
-		return "", errs.Trace(err)
-	}
-
-	nextUpdates := map[string]any{
-		"state":      phase,
-		"entered_at": now,
-	}
-	nextAudits := []repo.AuditLog{
-		reviewAudit(next, "state", next.State, phase, auditByWhoPlugin),
-		reviewAudit(next, "enteredAt", "", formatMillis(now), auditByWhoPlugin),
-	}
-	if phase == repo.PhaseReview {
-		seeded, err := domain.InitReviewRound(next.Reviewers, 0, now)
-		if err != nil {
-			return "", errs.Trace(err)
-		}
-		seededJSON, err := utils.MarshalJSONText(seeded)
-		if err != nil {
-			return "", errs.Trace(err)
-		}
-		nextUpdates["review_results"] = seededJSON
-		nextAudits = append(nextAudits, reviewAudit(next, "reviewResults", next.ReviewResults, seededJSON, auditByWhoPlugin))
-	}
-	if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.FlowNode{}, next.ID, next.UpdatedAt, nextUpdates); err != nil {
-		return "", err
-	}
-	for i := range nextAudits {
-		if err := s.repo.InsertAuditLogWith(tx, &nextAudits[i]); err != nil {
-			return "", err
-		}
-	}
-	if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.Flow{}, flow.ID, flow.UpdatedAt, map[string]any{
-		"current_node_id": next.NodeID,
-	}); err != nil {
-		return "", err
-	}
-	if err := s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
-		Table:    "flows",
-		RowID:    flow.RequirementID,
-		Action:   "UPDATE",
-		Field:    utils.StrPtr("currentNodeId"),
-		OldValue: utils.StrPtr(derefString(flow.CurrentNodeID)),
-		NewValue: utils.StrPtr(next.NodeID),
-		ByWho:    auditByWhoPlugin,
-	}); err != nil {
-		return "", err
-	}
-	return next.NodeID, nil
-}
-
-// applyNodeUpdates 节点行乐观锁更新 + 逐字段审计（行锁事务内，基线=锁定行读取值；
-// 审计失败回滚业务事务——留痕一致口径）。
-func (s *ReviewService) applyNodeUpdates(ctx context.Context, tx *gormio.DB, node *repo.FlowNode, updates map[string]any, audits []repo.AuditLog) error {
-	if len(updates) > 0 {
-		if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.FlowNode{}, node.ID, node.UpdatedAt, updates); err != nil {
-			return err
-		}
-	}
-	for i := range audits {
-		if err := s.repo.InsertAuditLogWith(tx, &audits[i]); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // matchReviewerPosition 评审位声明校验：(role, capabilityId) 须在该节点实例评审位

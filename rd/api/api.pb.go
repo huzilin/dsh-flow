@@ -13,7 +13,8 @@
 //   int64 字段（时间戳 unix 毫秒 / 分页计数等）JSON 出参为**字符串**（如 "1730000000000"），
 //   入参接受字符串或数字两种形式；避免 JS Number 精度丢失（2^53），不改用 int32。
 //
-// 版本状态机（versions.state，单向）：待启动 → 进行中 → 已发布；任意阶段废弃=终态（已废弃）。
+// 版本状态机（versions.state，单向）：待启动 → 进行中 → 已发布；任意阶段废弃=终态（已废弃）；
+// 废弃时其下未开始需求解绑回待分配池（spec §1.2 拍板注记-A）。
 // 需求状态机（requirements.status）：待启动 / 进行中 / 已完成 / 已取消。
 // 类别（requirements.category，决定流程类型绑定，domain 层表驱动）：
 //   需求任务 → {business, tech, task}（默认 business）；
@@ -3235,7 +3236,8 @@ func (x *DeprecateVersionReq) GetUpdatedAt() int64 {
 }
 
 // DeprecateVersionResp POST /api/versions/:versionId/deprecate 出参。
-// 有引用（version_id 引用且状态非 已取消/已完成 的需求存在）时 blocked。
+// 条件解绑（spec §1.2 拍板注记-A）：其下任一需求已开始（编排已进入）→ 409 blocked；
+// 全部未开始 → 废弃成功并解绑全部需求回待分配池。
 type DeprecateVersionResp struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// ok 恒 true
@@ -5624,6 +5626,178 @@ func (x *DecisionResp) GetRollbackNodeId() string {
 	return ""
 }
 
+// AdvanceReq POST /api/requirements/:reqId/nodes/:nodeId/advance 入参
+// （wb_advance 编排推进：reqId/nodeId 取路径）。
+// 承载三类推进（spec §1.2 拍板注记-B）：①跨节点推进（exec 相位 complete 判据
+// 已通过 → 下一节点相位初始化）；②节点内 CR 轮转（dev→review，轮 0 重开）；
+// ③QA/门禁机械收口（collect rule4 空转语义）。wb_advance 自身幂等：重复调用
+// 时若推进已完成则返回当前状态不重复推进（noop=true）。
+type AdvanceReq struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// requirement_id 需求业务 id（reqId 取路径）
+	RequirementId string `protobuf:"bytes,1,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 实例节点 id（nodeId 取路径）
+	NodeId        string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdvanceReq) Reset() {
+	*x = AdvanceReq{}
+	mi := &file_api_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdvanceReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdvanceReq) ProtoMessage() {}
+
+func (x *AdvanceReq) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdvanceReq.ProtoReflect.Descriptor instead.
+func (*AdvanceReq) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *AdvanceReq) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *AdvanceReq) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+// AdvanceResp POST /api/requirements/:reqId/nodes/:nodeId/advance 出参。
+// 推进后聚合状态：节点相位 / flows.current_node_id / 迁移结果摘要。
+type AdvanceResp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ok 恒 true
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	// requirement_id 需求业务 id（回显）
+	RequirementId string `protobuf:"bytes,2,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
+	// node_id 实例节点 id（回显）
+	NodeId string `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// node_state 推进后该节点相位（""/entry/exec/review/respond）
+	NodeState string `protobuf:"bytes,4,opt,name=node_state,json=nodeState,proto3" json:"node_state,omitempty"`
+	// current_node_id 推进后 flows.current_node_id（空=未进入编排）
+	CurrentNodeId string `protobuf:"bytes,5,opt,name=current_node_id,json=currentNodeId,proto3" json:"current_node_id,omitempty"`
+	// next_node_id 本次跨节点推进落位的目标节点 id（未跨节点为空串）
+	NextNodeId string `protobuf:"bytes,6,opt,name=next_node_id,json=nextNodeId,proto3" json:"next_node_id,omitempty"`
+	// outcome 迁移结果摘要：rotate=节点内 CR 轮转（exec→review）/
+	// cross=跨节点推进（含并行组整组推进）/ wait=并行组本侧完成待对侧 /
+	// noop=幂等命中（推进已完成，返回当前态）
+	Outcome string `protobuf:"bytes,7,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	// noop true=幂等命中（推进已完成，库未变更）
+	Noop          bool `protobuf:"varint,8,opt,name=noop,proto3" json:"noop,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdvanceResp) Reset() {
+	*x = AdvanceResp{}
+	mi := &file_api_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdvanceResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdvanceResp) ProtoMessage() {}
+
+func (x *AdvanceResp) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdvanceResp.ProtoReflect.Descriptor instead.
+func (*AdvanceResp) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *AdvanceResp) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *AdvanceResp) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
+}
+
+func (x *AdvanceResp) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *AdvanceResp) GetNodeState() string {
+	if x != nil {
+		return x.NodeState
+	}
+	return ""
+}
+
+func (x *AdvanceResp) GetCurrentNodeId() string {
+	if x != nil {
+		return x.CurrentNodeId
+	}
+	return ""
+}
+
+func (x *AdvanceResp) GetNextNodeId() string {
+	if x != nil {
+		return x.NextNodeId
+	}
+	return ""
+}
+
+func (x *AdvanceResp) GetOutcome() string {
+	if x != nil {
+		return x.Outcome
+	}
+	return ""
+}
+
+func (x *AdvanceResp) GetNoop() bool {
+	if x != nil {
+		return x.Noop
+	}
+	return false
+}
+
 // ReprojectScopeReq POST /api/requirements/:reqId/reproject 入参。
 // 打回后范围重定（pending_scope 待重定标记的消费端点）：按新 scope 重投影
 // 持有 pending_scope 节点（回退目标）的下游节点集（复用 T4 投影函数：被裁
@@ -5642,7 +5816,7 @@ type ReprojectScopeReq struct {
 
 func (x *ReprojectScopeReq) Reset() {
 	*x = ReprojectScopeReq{}
-	mi := &file_api_proto_msgTypes[65]
+	mi := &file_api_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5654,7 +5828,7 @@ func (x *ReprojectScopeReq) String() string {
 func (*ReprojectScopeReq) ProtoMessage() {}
 
 func (x *ReprojectScopeReq) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[65]
+	mi := &file_api_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5667,7 +5841,7 @@ func (x *ReprojectScopeReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReprojectScopeReq.ProtoReflect.Descriptor instead.
 func (*ReprojectScopeReq) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{65}
+	return file_api_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ReprojectScopeReq) GetRequirementId() string {
@@ -5704,7 +5878,7 @@ type ReprojectScopeResp struct {
 
 func (x *ReprojectScopeResp) Reset() {
 	*x = ReprojectScopeResp{}
-	mi := &file_api_proto_msgTypes[66]
+	mi := &file_api_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5716,7 +5890,7 @@ func (x *ReprojectScopeResp) String() string {
 func (*ReprojectScopeResp) ProtoMessage() {}
 
 func (x *ReprojectScopeResp) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[66]
+	mi := &file_api_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5729,7 +5903,7 @@ func (x *ReprojectScopeResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReprojectScopeResp.ProtoReflect.Descriptor instead.
 func (*ReprojectScopeResp) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{66}
+	return file_api_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ReprojectScopeResp) GetOk() bool {
@@ -5786,7 +5960,7 @@ type EscalateReq struct {
 
 func (x *EscalateReq) Reset() {
 	*x = EscalateReq{}
-	mi := &file_api_proto_msgTypes[67]
+	mi := &file_api_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5798,7 +5972,7 @@ func (x *EscalateReq) String() string {
 func (*EscalateReq) ProtoMessage() {}
 
 func (x *EscalateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[67]
+	mi := &file_api_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5811,7 +5985,7 @@ func (x *EscalateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EscalateReq.ProtoReflect.Descriptor instead.
 func (*EscalateReq) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{67}
+	return file_api_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *EscalateReq) GetCommentId() string {
@@ -5856,7 +6030,7 @@ type EscalateResp struct {
 
 func (x *EscalateResp) Reset() {
 	*x = EscalateResp{}
-	mi := &file_api_proto_msgTypes[68]
+	mi := &file_api_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5868,7 +6042,7 @@ func (x *EscalateResp) String() string {
 func (*EscalateResp) ProtoMessage() {}
 
 func (x *EscalateResp) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[68]
+	mi := &file_api_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5881,7 +6055,7 @@ func (x *EscalateResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EscalateResp.ProtoReflect.Descriptor instead.
 func (*EscalateResp) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{68}
+	return file_api_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *EscalateResp) GetOk() bool {
@@ -5947,7 +6121,7 @@ type AdjudicateReq struct {
 
 func (x *AdjudicateReq) Reset() {
 	*x = AdjudicateReq{}
-	mi := &file_api_proto_msgTypes[69]
+	mi := &file_api_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5959,7 +6133,7 @@ func (x *AdjudicateReq) String() string {
 func (*AdjudicateReq) ProtoMessage() {}
 
 func (x *AdjudicateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[69]
+	mi := &file_api_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5972,7 +6146,7 @@ func (x *AdjudicateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdjudicateReq.ProtoReflect.Descriptor instead.
 func (*AdjudicateReq) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{69}
+	return file_api_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *AdjudicateReq) GetCommentId() string {
@@ -6027,7 +6201,7 @@ type AdjudicateResp struct {
 
 func (x *AdjudicateResp) Reset() {
 	*x = AdjudicateResp{}
-	mi := &file_api_proto_msgTypes[70]
+	mi := &file_api_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6039,7 +6213,7 @@ func (x *AdjudicateResp) String() string {
 func (*AdjudicateResp) ProtoMessage() {}
 
 func (x *AdjudicateResp) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[70]
+	mi := &file_api_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6052,7 +6226,7 @@ func (x *AdjudicateResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdjudicateResp.ProtoReflect.Descriptor instead.
 func (*AdjudicateResp) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{70}
+	return file_api_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *AdjudicateResp) GetOk() bool {
@@ -6125,7 +6299,7 @@ type ListInboxReq struct {
 
 func (x *ListInboxReq) Reset() {
 	*x = ListInboxReq{}
-	mi := &file_api_proto_msgTypes[71]
+	mi := &file_api_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6137,7 +6311,7 @@ func (x *ListInboxReq) String() string {
 func (*ListInboxReq) ProtoMessage() {}
 
 func (x *ListInboxReq) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[71]
+	mi := &file_api_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6150,7 +6324,7 @@ func (x *ListInboxReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInboxReq.ProtoReflect.Descriptor instead.
 func (*ListInboxReq) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{71}
+	return file_api_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *ListInboxReq) GetRole() string {
@@ -6235,7 +6409,7 @@ type InboxItem struct {
 
 func (x *InboxItem) Reset() {
 	*x = InboxItem{}
-	mi := &file_api_proto_msgTypes[72]
+	mi := &file_api_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6247,7 +6421,7 @@ func (x *InboxItem) String() string {
 func (*InboxItem) ProtoMessage() {}
 
 func (x *InboxItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[72]
+	mi := &file_api_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6260,7 +6434,7 @@ func (x *InboxItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InboxItem.ProtoReflect.Descriptor instead.
 func (*InboxItem) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{72}
+	return file_api_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *InboxItem) GetIssueId() string {
@@ -6373,7 +6547,7 @@ type TodoItem struct {
 
 func (x *TodoItem) Reset() {
 	*x = TodoItem{}
-	mi := &file_api_proto_msgTypes[73]
+	mi := &file_api_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6385,7 +6559,7 @@ func (x *TodoItem) String() string {
 func (*TodoItem) ProtoMessage() {}
 
 func (x *TodoItem) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[73]
+	mi := &file_api_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6398,7 +6572,7 @@ func (x *TodoItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TodoItem.ProtoReflect.Descriptor instead.
 func (*TodoItem) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{73}
+	return file_api_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *TodoItem) GetTaskId() string {
@@ -6475,7 +6649,7 @@ type ListInboxResp struct {
 
 func (x *ListInboxResp) Reset() {
 	*x = ListInboxResp{}
-	mi := &file_api_proto_msgTypes[74]
+	mi := &file_api_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6487,7 +6661,7 @@ func (x *ListInboxResp) String() string {
 func (*ListInboxResp) ProtoMessage() {}
 
 func (x *ListInboxResp) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[74]
+	mi := &file_api_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6500,7 +6674,7 @@ func (x *ListInboxResp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInboxResp.ProtoReflect.Descriptor instead.
 func (*ListInboxResp) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{74}
+	return file_api_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *ListInboxResp) GetOk() bool {
@@ -7026,7 +7200,22 @@ const file_api_proto_rawDesc = "" +
 	"\rlast_decision\x18\x05 \x01(\tR\flastDecision\x12 \n" +
 	"\fnext_node_id\x18\x06 \x01(\tR\n" +
 	"nextNodeId\x12(\n" +
-	"\x10rollback_node_id\x18\a \x01(\tR\x0erollbackNodeId\"P\n" +
+	"\x10rollback_node_id\x18\a \x01(\tR\x0erollbackNodeId\"L\n" +
+	"\n" +
+	"AdvanceReq\x12%\n" +
+	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\"\xf4\x01\n" +
+	"\vAdvanceResp\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12%\n" +
+	"\x0erequirement_id\x18\x02 \x01(\tR\rrequirementId\x12\x17\n" +
+	"\anode_id\x18\x03 \x01(\tR\x06nodeId\x12\x1d\n" +
+	"\n" +
+	"node_state\x18\x04 \x01(\tR\tnodeState\x12&\n" +
+	"\x0fcurrent_node_id\x18\x05 \x01(\tR\rcurrentNodeId\x12 \n" +
+	"\fnext_node_id\x18\x06 \x01(\tR\n" +
+	"nextNodeId\x12\x18\n" +
+	"\aoutcome\x18\a \x01(\tR\aoutcome\x12\x12\n" +
+	"\x04noop\x18\b \x01(\bR\x04noop\"P\n" +
 	"\x11ReprojectScopeReq\x12%\n" +
 	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x14\n" +
 	"\x05scope\x18\x02 \x01(\tR\x05scope\"\x94\x01\n" +
@@ -7122,7 +7311,7 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 77)
 var file_api_proto_goTypes = []any{
 	(*ErrorResp)(nil),              // 0: wbflow.api.v1.ErrorResp
 	(*ListRequirementsReq)(nil),    // 1: wbflow.api.v1.ListRequirementsReq
@@ -7189,16 +7378,18 @@ var file_api_proto_goTypes = []any{
 	(*ReviewResp)(nil),             // 62: wbflow.api.v1.ReviewResp
 	(*DecisionReq)(nil),            // 63: wbflow.api.v1.DecisionReq
 	(*DecisionResp)(nil),           // 64: wbflow.api.v1.DecisionResp
-	(*ReprojectScopeReq)(nil),      // 65: wbflow.api.v1.ReprojectScopeReq
-	(*ReprojectScopeResp)(nil),     // 66: wbflow.api.v1.ReprojectScopeResp
-	(*EscalateReq)(nil),            // 67: wbflow.api.v1.EscalateReq
-	(*EscalateResp)(nil),           // 68: wbflow.api.v1.EscalateResp
-	(*AdjudicateReq)(nil),          // 69: wbflow.api.v1.AdjudicateReq
-	(*AdjudicateResp)(nil),         // 70: wbflow.api.v1.AdjudicateResp
-	(*ListInboxReq)(nil),           // 71: wbflow.api.v1.ListInboxReq
-	(*InboxItem)(nil),              // 72: wbflow.api.v1.InboxItem
-	(*TodoItem)(nil),               // 73: wbflow.api.v1.TodoItem
-	(*ListInboxResp)(nil),          // 74: wbflow.api.v1.ListInboxResp
+	(*AdvanceReq)(nil),             // 65: wbflow.api.v1.AdvanceReq
+	(*AdvanceResp)(nil),            // 66: wbflow.api.v1.AdvanceResp
+	(*ReprojectScopeReq)(nil),      // 67: wbflow.api.v1.ReprojectScopeReq
+	(*ReprojectScopeResp)(nil),     // 68: wbflow.api.v1.ReprojectScopeResp
+	(*EscalateReq)(nil),            // 69: wbflow.api.v1.EscalateReq
+	(*EscalateResp)(nil),           // 70: wbflow.api.v1.EscalateResp
+	(*AdjudicateReq)(nil),          // 71: wbflow.api.v1.AdjudicateReq
+	(*AdjudicateResp)(nil),         // 72: wbflow.api.v1.AdjudicateResp
+	(*ListInboxReq)(nil),           // 73: wbflow.api.v1.ListInboxReq
+	(*InboxItem)(nil),              // 74: wbflow.api.v1.InboxItem
+	(*TodoItem)(nil),               // 75: wbflow.api.v1.TodoItem
+	(*ListInboxResp)(nil),          // 76: wbflow.api.v1.ListInboxResp
 }
 var file_api_proto_depIdxs = []int32{
 	2,  // 0: wbflow.api.v1.ListRequirementsResp.items:type_name -> wbflow.api.v1.RequirementItem
@@ -7237,8 +7428,8 @@ var file_api_proto_depIdxs = []int32{
 	56, // 33: wbflow.api.v1.TaskUpdateResp.task:type_name -> wbflow.api.v1.TaskItem
 	8,  // 34: wbflow.api.v1.EscalateResp.issue:type_name -> wbflow.api.v1.IssueItem
 	8,  // 35: wbflow.api.v1.AdjudicateResp.issue:type_name -> wbflow.api.v1.IssueItem
-	72, // 36: wbflow.api.v1.ListInboxResp.notifications:type_name -> wbflow.api.v1.InboxItem
-	73, // 37: wbflow.api.v1.ListInboxResp.todos:type_name -> wbflow.api.v1.TodoItem
+	74, // 36: wbflow.api.v1.ListInboxResp.notifications:type_name -> wbflow.api.v1.InboxItem
+	75, // 37: wbflow.api.v1.ListInboxResp.todos:type_name -> wbflow.api.v1.TodoItem
 	38, // [38:38] is the sub-list for method output_type
 	38, // [38:38] is the sub-list for method input_type
 	38, // [38:38] is the sub-list for extension type_name
@@ -7257,7 +7448,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   75,
+			NumMessages:   77,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -44,6 +44,7 @@ type Scanner struct {
 	repo     *repo.Repo
 	db       ScannerPinger
 	notifier *Notifier
+	adv      *AdvanceService
 	opts     ScannerOptions
 	now      func() int64
 	log      *zap.Logger
@@ -55,6 +56,7 @@ func NewScanner(r *repo.Repo, db ScannerPinger, opts ScannerOptions) *Scanner {
 		repo:     r,
 		db:       db,
 		notifier: NewNotifier(r),
+		adv:      NewAdvanceService(r),
 		opts:     opts,
 		now:      repo.NowMillis,
 		log:      zap.NewNop(),
@@ -87,6 +89,9 @@ type ScanReport struct {
 	Followups []string
 	// Intervenes 本轮新建介入通知（task_id）
 	Intervenes []string
+	// ParallelPushes 本轮并行组兜底补推命中的需求 id 集（2026-09-09 拍板-C③：
+	// 双侧均 complete 但组未推进的漏推自愈）
+	ParallelPushes []string
 }
 
 // RunOnce 单轮扫描：DB ping 失败降级返回（Degraded=true，无错误上抛——调用方
@@ -100,8 +105,9 @@ type ScanReport struct {
 // 扫描中途 IO 失败由 Run 循环捕获记日志、下轮续扫）。
 func (s *Scanner) RunOnce(ctx context.Context) (*ScanReport, error) {
 	report := &ScanReport{
-		Followups:  make([]string, 0),
-		Intervenes: make([]string, 0),
+		Followups:      make([]string, 0),
+		Intervenes:     make([]string, 0),
+		ParallelPushes: make([]string, 0),
 	}
 	if s.db != nil {
 		pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -155,6 +161,13 @@ func (s *Scanner) RunOnce(ctx context.Context) (*ScanReport, error) {
 			report.Intervenes = append(report.Intervenes, task.TaskID)
 		}
 	}
+	// 并行组兜底巡检（2026-09-09 拍板-C③）：「双侧均 complete 但组未推进」的
+	// 流程经同一推进核补推（同 flows 行锁 + 审计 by_who=system）——漏推自愈
+	pushed, err := s.adv.SweepParallelJoins(ctx)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	report.ParallelPushes = pushed
 	return report, nil
 }
 

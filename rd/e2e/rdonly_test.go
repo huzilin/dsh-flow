@@ -42,7 +42,7 @@ func TestE2E_BusinessRDOnly_Flow(t *testing.T) {
 	// ---- bus-02 产品设计 → 提评迁移 bus-03 ----
 	t.Log("bus-02 产品设计 → 提评迁移")
 	s.execute("bus-02", "product-design.produce", "pm", "product_doc")
-	s.activateNext("bus-02")
+	s.advanceNode("bus-02")
 	s.assertNode("bus-03", "review")
 
 	// ---- bus-03 产品设计评审（arch/rd 双位）→ User 拍板 ----
@@ -57,7 +57,7 @@ func TestE2E_BusinessRDOnly_Flow(t *testing.T) {
 	// ---- bus-04 RD 技术设计 → 提评迁移 bus-05 ----
 	t.Log("bus-04 RD 技术设计 → 提评迁移")
 	s.execute("bus-04", "backend-design.produce", "rd", "rd_design")
-	s.activateNext("bus-04")
+	s.advanceNode("bus-04")
 	s.assertNode("bus-05", "review")
 
 	// ---- bus-05 RD 技术评审（arch/qa/pm 三位）→ User 拍板 → 直达 bus-08 RD 开发 ----
@@ -74,7 +74,7 @@ func TestE2E_BusinessRDOnly_Flow(t *testing.T) {
 	// ---- bus-08 RD 开发（CR 内嵌）→ 机械 approved → 直达 bus-11 用户验收 ----
 	t.Log("bus-08 RD 开发：dev → CR agree 机械 approved（QA 节点不渲染直达用户验收）")
 	s.execute("bus-08", "backend-dev.dev", "rd", "dev_notes", "code_mr")
-	s.rotateSelf("bus-08")
+	s.advanceNode("bus-08")
 	s.assertNode("bus-08", "review")
 	s.reviewAndCarry("bus-08", [][2]string{{"cr", "code-review"}})
 	s.assertCurrent("bus-11")

@@ -31,6 +31,9 @@ type Deps struct {
 	Comments CommentAPI
 	// Reviews 评审门禁端点（wb_review / wb_decision）service；nil=不注册对应路由
 	Reviews ReviewAPI
+	// Advance 编排推进端点（wb_advance，2026-09-09 拍板-B）service；
+	// nil=不注册对应路由
+	Advance AdvanceAPI
 	// Escalations 冲突上升裁决链端点（wb_escalate / wb_adjudicate）service；
 	// nil=不注册对应路由
 	Escalations EscalationAPI
@@ -68,6 +71,9 @@ func NewRouter(deps *Deps) *gin.Engine {
 	}
 	if deps.Reviews != nil {
 		RegisterReviewRoutes(api.Group("/requirements"), deps.Reviews)
+	}
+	if deps.Advance != nil {
+		RegisterAdvanceRoutes(api.Group("/requirements"), deps.Advance)
 	}
 	if deps.Escalations != nil {
 		RegisterEscalationRoutes(api.Group("/comments"), deps.Escalations)

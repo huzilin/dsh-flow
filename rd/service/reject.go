@@ -116,7 +116,7 @@ func (s *ReviewService) RollbackForRejectTx(ctx context.Context, tx *gormio.DB, 
 	if lockedReview.ReviewResults != "[]" {
 		reviewAudits = append(reviewAudits, reviewAudit(lockedReview, "reviewResults", lockedReview.ReviewResults, "[]", auditByWhoPlugin))
 	}
-	if err := s.applyNodeUpdates(ctx, tx, lockedReview, reviewUpdates, reviewAudits); err != nil {
+	if err := applyNodeUpdatesTx(ctx, s.repo, tx, lockedReview, reviewUpdates, reviewAudits); err != nil {
 		return "", err
 	}
 
@@ -144,7 +144,7 @@ func (s *ReviewService) RollbackForRejectTx(ctx context.Context, tx *gormio.DB, 
 	if target.ReviewResults != "[]" {
 		targetAudits = append(targetAudits, reviewAudit(target, "reviewResults", target.ReviewResults, "[]", auditByWhoPlugin))
 	}
-	if err := s.applyNodeUpdates(ctx, tx, target, targetUpdates, targetAudits); err != nil {
+	if err := applyNodeUpdatesTx(ctx, s.repo, tx, target, targetUpdates, targetAudits); err != nil {
 		return "", err
 	}
 
@@ -179,7 +179,7 @@ func (s *ReviewService) RollbackForRejectTx(ctx context.Context, tx *gormio.DB, 
 		if node.ReviewResults != "[]" {
 			audits = append(audits, reviewAudit(node, "reviewResults", node.ReviewResults, "[]", auditByWhoPlugin))
 		}
-		if err := s.applyNodeUpdates(ctx, tx, node, updates, audits); err != nil {
+		if err := applyNodeUpdatesTx(ctx, s.repo, tx, node, updates, audits); err != nil {
 			return "", err
 		}
 	}

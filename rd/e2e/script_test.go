@@ -6,22 +6,19 @@
 // collect approved →（user_gate 时 decision 拍板）→ 推进下一节点；并断言节点推进/
 // 相位/review_results/收件箱变化。三条剧本（full / rd-only / task）复用本框架。
 //
-// 编排接缝口径：exec 完成后的节点轮转（提评迁移 exec→review、节点内 CR 轮转、
-// QA 机械收口 exec→entry）属 plugin 编排职责，本期无 HTTP 端点承载——演练以
-// scratch 库内 SQL 接缝模拟（T9/T12 IT 同口径，域函数 domain.ActivationPhase /
-// domain.InitReviewRound 复用，保证与 advanceApprovedNode 激活口径一致）。
+// 编排接缝口径（2026-09-09 拍板-B）：exec 完成后的节点轮转（提评迁移 exec→review、
+// QA 机械收口、节点内 CR 轮转）经 wb_advance HTTP 真调用承载——complete 判据通过
+// 后服务端内聚触发推进，剧本步再显式 wb_advance 幂等命中返回当前态（兼验证幂等
+// 语义）；原 scratch 库 SQL 接缝模拟（execSQL 的 rotateTo/rotateSelf）已删除。
 package e2e
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
-	"testing"
 
 	"gotest.tools/v3/assert"
 
 	"github.com/huzilin/wbflow/rd/domain"
-	"github.com/huzilin/wbflow/rd/repo"
 )
 
 // script 单条剧本：一条需求实例 + 节点索引 + 步骤计数（审计对账数据源）。
@@ -302,68 +299,16 @@ func (s *script) reviewAndCarry(defNodeID string, positions [][2]string) {
 	}
 }
 
-// activateNext 编排接缝：当前节点 exec 完成后的跨节点轮转（提评迁移 exec→review、
-// QA 机械收口 exec→gate entry）——plugin 职责本期无 HTTP 承载，scratch 库内 SQL
-// 模拟，激活口径复用 domain.ActivationPhase + domain.InitReviewRound（与
-// advanceApprovedNode 一致）。
-func (s *script) activateNext(fromDefNodeID string) {
+// advanceNode 编排推进步（wb_advance HTTP 真调用，2026-09-09 拍板-B）：当前节点
+// exec 完成（complete 判据通过已内聚触发推进）后的接缝驱动——跨节点轮转
+// （提评迁移 exec→review、QA 机械收口 exec→gate entry）与节点内 CR 轮转统一走
+// 本端点；重复调用幂等命中（noop）返回当前态，不重复推进。
+func (s *script) advanceNode(defNodeID string) {
 	s.h.t.Helper()
-	t := s.h.t
-	fromNodeID := s.node(fromDefNodeID)
-	fromOrder := 0
-	for i, nodeID := range s.order {
-		if nodeID == fromNodeID {
-			fromOrder = i
-			break
-		}
-	}
-	assert.Assert(t, fromOrder+1 < len(s.order), "节点 %s 无后继（尾节点不该走接缝）", fromDefNodeID)
-	nextNodeID := s.order[fromOrder+1]
-	nextDefID := s.defOf[nextNodeID]
-
-	nodeType := s.h.queryText(
-		"SELECT node_type FROM flow_def_nodes WHERE template_node_id = ?", nextDefID)
-	nodeActions := s.h.queryText(
-		"SELECT node_actions FROM flow_def_nodes WHERE template_node_id = ?", nextDefID)
-	reviewers := s.h.queryText(
-		"SELECT reviewers FROM flow_def_nodes WHERE template_node_id = ?", nextDefID)
-
-	phase, err := domain.ActivationPhase(nodeType, nodeActions)
-	assert.NilError(t, err)
-	now := repo.NowMillis()
-	if phase == repo.PhaseReview {
-		seeded, seedErr := domain.InitReviewRound(reviewers, 0, now)
-		assert.NilError(t, seedErr)
-		seededJSON := marshalJSON(t, seeded)
-		s.h.execSQL(
-			"UPDATE flow_nodes SET state = ?, entered_at = ?, review_results = ? WHERE requirement_id = ? AND node_id = ?",
-			phase, now, seededJSON, s.reqID, nextNodeID)
-	} else {
-		s.h.execSQL(
-			"UPDATE flow_nodes SET state = ?, entered_at = ? WHERE requirement_id = ? AND node_id = ?",
-			phase, now, s.reqID, nextNodeID)
-	}
-	s.h.execSQL("UPDATE flows SET current_node_id = ? WHERE requirement_id = ?", nextNodeID, s.reqID)
-	t.Logf("  [接缝] 编排轮转 %s → %s（state=%s）——exec 后跨节点推进 SQL 模拟（T9/T12 同口径）",
-		fromNodeID, nextNodeID, phase)
-}
-
-// rotateSelf 节点内 CR 轮转接缝：开发节点 exec 完成（提评登记判据通过）→ review
-// 相位本节点内重开（节点内评审异化，全位 reviewing 轮 0）——plugin 职责本期无
-// HTTP 承载，scratch 库内 SQL 模拟；current 不动（CR 机械 approved 后经
-// wb_review 内置推进迁移下一节点）。
-func (s *script) rotateSelf(defNodeID string) {
-	s.h.t.Helper()
-	nodeID := s.node(defNodeID)
-	reviewers := s.h.queryText(
-		"SELECT reviewers FROM flow_def_nodes WHERE template_node_id = ?", defNodeID)
-	now := repo.NowMillis()
-	seeded, err := domain.InitReviewRound(reviewers, 0, now)
-	assert.NilError(s.h.t, err)
-	s.h.execSQL(
-		"UPDATE flow_nodes SET state = ?, entered_at = ?, review_results = ? WHERE requirement_id = ? AND node_id = ?",
-		repo.PhaseReview, now, marshalJSON(s.h.t, seeded), s.reqID, nodeID)
-	s.h.t.Logf("  [接缝] 节点内 CR 轮转 %s exec → review——plugin 轮转 SQL 模拟（T9/T12 同口径）", nodeID)
+	r := s.h.ok(s.h.do("POST", "/api/requirements/"+s.reqID+"/nodes/"+s.node(defNodeID)+"/advance", map[string]any{
+		"requirementId": s.reqID, "nodeId": s.node(defNodeID),
+	}), "wb_advance "+defNodeID)
+	s.h.t.Logf("  [推进] wb_advance %s outcome=%s current=%s", defNodeID, r.str("outcome"), r.str("currentNodeId"))
 }
 
 // inboxKinds 收件箱按类别计数（按本需求过滤），断言通知触发与跳转口径数据源。
@@ -393,14 +338,6 @@ func (s *script) assertAuditField(table string, rowID string, field string, byWh
 	s.h.t.Helper()
 	got := s.h.auditFieldCountBy(table, rowID, field, byWho)
 	assert.Equal(s.h.t, got, want, "审计 %s.%s(%s) by %s", table, rowID, field, byWho)
-}
-
-// marshalJSON 紧凑 JSON 文本（接缝播种用）。
-func marshalJSON(t *testing.T, v any) string {
-	t.Helper()
-	data, err := json.Marshal(v)
-	assert.NilError(t, err)
-	return string(data)
 }
 
 // containsString 子串包含判定（review_results 留痕断言用）。

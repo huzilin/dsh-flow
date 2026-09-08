@@ -13,7 +13,8 @@
 //   int64 字段（时间戳 unix 毫秒 / 分页计数等）JSON 出参为**字符串**（如 "1730000000000"），
 //   入参接受字符串或数字两种形式；避免 JS Number 精度丢失（2^53），不改用 int32。
 //
-// 版本状态机（versions.state，单向）：待启动 → 进行中 → 已发布；任意阶段废弃=终态（已废弃）。
+// 版本状态机（versions.state，单向）：待启动 → 进行中 → 已发布；任意阶段废弃=终态（已废弃）；
+// 废弃时其下未开始需求解绑回待分配池（spec §1.2 拍板注记-A）。
 // 需求状态机（requirements.status）：待启动 / 进行中 / 已完成 / 已取消。
 // 类别（requirements.category，决定流程类型绑定，domain 层表驱动）：
 //   需求任务 → {business, tech, task}（默认 business）；
@@ -603,7 +604,8 @@ message DeprecateVersionReq {
 }
 
 // DeprecateVersionResp POST /api/versions/:versionId/deprecate 出参。
-// 有引用（version_id 引用且状态非 已取消/已完成 的需求存在）时 blocked。
+// 条件解绑（spec §1.2 拍板注记-A）：其下任一需求已开始（编排已进入）→ 409 blocked；
+// 全部未开始 → 废弃成功并解绑全部需求回待分配池。
 message DeprecateVersionResp {
   // ok 恒 true
   bool ok = 1;
@@ -1065,6 +1067,46 @@ message DecisionResp {
   // rollback_node_id rejected 后回退重入的节点 id（exec 重入 revise 语义，T9；
   // 未回退/重复拍板为空串）
   string rollback_node_id = 7;
+}
+
+// ---------------------------------------------------------------------------
+// advance（2026-09-09 拍板新增：wb_advance 编排推进端点，spec §1.2 注记-B/C）
+// ---------------------------------------------------------------------------
+
+// AdvanceReq POST /api/requirements/:reqId/nodes/:nodeId/advance 入参
+// （wb_advance 编排推进：reqId/nodeId 取路径）。
+// 承载三类推进（spec §1.2 拍板注记-B）：①跨节点推进（exec 相位 complete 判据
+// 已通过 → 下一节点相位初始化）；②节点内 CR 轮转（dev→review，轮 0 重开）；
+// ③QA/门禁机械收口（collect rule4 空转语义）。wb_advance 自身幂等：重复调用
+// 时若推进已完成则返回当前状态不重复推进（noop=true）。
+message AdvanceReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 实例节点 id（nodeId 取路径）
+  string node_id = 2;
+}
+
+// AdvanceResp POST /api/requirements/:reqId/nodes/:nodeId/advance 出参。
+// 推进后聚合状态：节点相位 / flows.current_node_id / 迁移结果摘要。
+message AdvanceResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement_id 需求业务 id（回显）
+  string requirement_id = 2;
+  // node_id 实例节点 id（回显）
+  string node_id = 3;
+  // node_state 推进后该节点相位（""/entry/exec/review/respond）
+  string node_state = 4;
+  // current_node_id 推进后 flows.current_node_id（空=未进入编排）
+  string current_node_id = 5;
+  // next_node_id 本次跨节点推进落位的目标节点 id（未跨节点为空串）
+  string next_node_id = 6;
+  // outcome 迁移结果摘要：rotate=节点内 CR 轮转（exec→review）/
+  // cross=跨节点推进（含并行组整组推进）/ wait=并行组本侧完成待对侧 /
+  // noop=幂等命中（推进已完成，返回当前态）
+  string outcome = 7;
+  // noop true=幂等命中（推进已完成，库未变更）
+  bool noop = 8;
 }
 
 // ---------------------------------------------------------------------------

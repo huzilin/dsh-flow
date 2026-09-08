@@ -86,6 +86,7 @@ func openRejectScratch(t *testing.T) (*gin.Engine, *database.DB, string) {
 		Tasks:     service.NewTaskService(r),
 		Comments:  service.NewIssueService(r, domain.DefaultEscalateLoopThreshold),
 		Reviews:   service.NewReviewService(r),
+		Advance:   service.NewAdvanceService(r),
 	})
 	return router, handles, docsRoot
 }

@@ -32,6 +32,7 @@ func handlerDepsForTest() *handler.Deps {
 		Escalations: service.NewEscalationService(repoHandle),
 		Inbox:       service.NewInboxService(repoHandle),
 		Reviews:     reviewSvc,
+		Advance:     service.NewAdvanceService(repoHandle),
 	}
 }
 

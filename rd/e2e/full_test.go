@@ -49,7 +49,7 @@ func TestE2E_BusinessFull_Flow(t *testing.T) {
 	}), "my_task pm@bus-02")
 	assert.Assert(t, len(myTask.arr(t, "activeActions")) > 0, "pm 在 exec 相位应有激活动作")
 	s.execute("bus-02", "product-design.produce", "pm", "product_doc")
-	s.activateNext("bus-02")
+	s.advanceNode("bus-02")
 	s.assertCurrent("bus-03")
 	s.assertNode("bus-03", "review")
 
@@ -78,7 +78,7 @@ func TestE2E_BusinessFull_Flow(t *testing.T) {
 	// ---- bus-04 RD 技术设计 → 提评迁移 bus-05 ----
 	t.Log("bus-04 RD 技术设计：backend-design.produce")
 	s.execute("bus-04", "backend-design.produce", "rd", "rd_design")
-	s.activateNext("bus-04")
+	s.advanceNode("bus-04")
 	s.assertNode("bus-05", "review")
 
 	// ---- bus-05 RD 技术评审：arch/fe/qa/pm 四位 straight agree → User 拍板 ----
@@ -98,7 +98,7 @@ func TestE2E_BusinessFull_Flow(t *testing.T) {
 	// ---- bus-06 FE 技术设计 → 提评迁移 bus-07 ----
 	t.Log("bus-06 FE 技术设计：frontend-design.produce")
 	s.execute("bus-06", "frontend-design.produce", "fe", "fe_design")
-	s.activateNext("bus-06")
+	s.advanceNode("bus-06")
 	s.assertNode("bus-07", "review")
 
 	// ---- bus-07 FE 设计评审：qa 单评审位，user_gate=0 机械 approved 即时推进 ----
@@ -109,19 +109,20 @@ func TestE2E_BusinessFull_Flow(t *testing.T) {
 	s.assertNode("bus-08", "exec")
 
 	// ---- bus-08 RD 开发（内嵌 CR——节点内评审异化） ----
-	t.Log("bus-08 RD 开发：backend-dev.dev → CR 轮转（节点内接缝）→ cr agree 机械 approved")
+	t.Log("bus-08 RD 开发：backend-dev.dev → CR 轮转（wb_advance 节点内轮转）→ cr agree 机械 approved")
 	s.execute("bus-08", "backend-dev.dev", "rd", "dev_notes", "code_mr")
-	s.rotateSelf("bus-08")
+	s.advanceNode("bus-08")
 	s.assertNode("bus-08", "review")
 	s.reviewAndCarry("bus-08", [][2]string{{"cr", "code-review"}})
 	s.assertLastDecision("bus-08", "approved")
 	s.assertCurrent("bus-09")
 	s.assertNode("bus-09", "exec")
 
-	// ---- bus-09 FE 开发（同构；RD∥FE 并行组按渲染序驱动，join=逐节点机械收口） ----
+	// ---- bus-09 FE 开发（同构；RD∥FE 并行组 join：bus-09 CR approved 时对侧
+	// bus-08 已 complete → 整组推进 bus-10，拍板-C 提交瞬间检查） ----
 	t.Log("bus-09 FE 开发：frontend-dev.dev → CR 轮转 → cr agree 机械 approved")
 	s.execute("bus-09", "frontend-dev.dev", "fe", "dev_notes", "code_mr")
-	s.rotateSelf("bus-09")
+	s.advanceNode("bus-09")
 	s.assertNode("bus-09", "review")
 	s.reviewAndCarry("bus-09", [][2]string{{"cr", "code-review"}})
 	s.assertLastDecision("bus-09", "approved")
@@ -131,7 +132,7 @@ func TestE2E_BusinessFull_Flow(t *testing.T) {
 	// ---- bus-10 QA 验收（仅 full 渲染）：acceptance-test.accept → 机械收口 → bus-11 ----
 	t.Log("bus-10 QA 验收：acceptance-test.accept（test_result+defect）→ 收口迁移 bus-11")
 	s.execute("bus-10", "acceptance-test.accept", "qa", "test_result", "defect")
-	s.activateNext("bus-10")
+	s.advanceNode("bus-10")
 	s.assertCurrent("bus-11")
 	s.assertNode("bus-11", "entry")
 

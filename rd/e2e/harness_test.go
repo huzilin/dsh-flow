@@ -3,7 +3,8 @@
 // T17 端到端演练 harness（roadmap P5「seed 注入 → HTTP 驱动全流程」）：
 //   - 每条剧本独立真实 MySQL scratch 库（wbflow_e2e_* 前缀，新建 → 迁移+seed →
 //     演练 → DROP，禁写 wbflow 库，天然可重复执行）；
-//   - httptest.NewServer 启动完整 Gin 栈（26 wb_* 端点全装配，T1-T16 能力面）；
+//   - httptest.NewServer 启动完整 Gin 栈（27 wb_* 端点全装配，T1-T16 能力面 +
+//     wb_advance 编排推进）；
 //   - HTTP client 携 Bearer token 以真实 HTTP 协议驱动。
 //
 // env 门控与注入（密码零落地）：WBFLOW_E2E=1 + WBFLOW_MYSQL_HOST/PORT/USER/PASSWORD。
@@ -13,7 +14,6 @@ package e2e
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -96,6 +96,7 @@ func startHarness(t *testing.T, label string) *harness {
 		Tasks:       service.NewTaskService(r),
 		Comments:    service.NewIssueService(r, 5),
 		Reviews:     service.NewReviewService(r),
+		Advance:     service.NewAdvanceService(r),
 		Escalations: service.NewEscalationService(r),
 		Inbox:       service.NewInboxService(r),
 	})
@@ -224,22 +225,9 @@ func (r resp) arr(t *testing.T, key string) []resp {
 	return out
 }
 
-// ---- scratch 库直读助手（编排接缝模拟 / 审计断言专用，绝不触 wbflow 库） ----
-
-// execSQL scratch 库内执行编排接缝 SQL。
-func (h *harness) execSQL(query string, args ...any) {
-	h.t.Helper()
-	assert.NilError(h.t, h.db.Gorm.WithContext(context.Background()).Exec(query, args...).Error)
-}
-
-// queryText scratch 库读单列文本（NULL=空串；仅内部字面量拼接，不收外部输入）。
-func (h *harness) queryText(query string, args ...any) string {
-	h.t.Helper()
-	var out sql.NullString
-	assert.NilError(h.t, h.db.Gorm.WithContext(context.Background()).
-		Raw(query, args...).Scan(&out).Error)
-	return out.String
-}
+// ---- scratch 库直读助手（审计断言专用，绝不触 wbflow 库） ----
+// 注：编排接缝 SQL 模拟助手（execSQL/queryText）已随 2026-09-09 拍板-B 删除——
+// 接缝轮转改经 wb_advance HTTP 真调用（script.advanceNode）。
 
 // auditCount 审计行计数（table_name+row_id+action 口径）。
 func (h *harness) auditCount(table string, rowID string, action string) int64 {

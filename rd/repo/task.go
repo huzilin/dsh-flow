@@ -97,6 +97,20 @@ func (r *Repo) ListInflightTasksByRequirementAndNode(ctx context.Context, requir
 	return items, nil
 }
 
+// ListTasksByRequirementAndNodeTx 事务内读该需求该节点全部任务（不限状态，id 升序）
+// ——wb_advance exec 相位 complete 判据事实（已完成/在途 exec 任务计数）。
+func ListTasksByRequirementAndNodeTx(ctx context.Context, tx *gormio.DB, requirementID string, nodeID string) ([]*Task, error) {
+	items := make([]*Task, 0)
+	err := tx.WithContext(ctx).
+		Where("requirement_id = ? AND node_id = ?", requirementID, nodeID).
+		Order("id").
+		Find(&items).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return items, nil
+}
+
 // AllocTaskIDTx 事务内取下一个任务业务 id（t-<ts>-<seq>，seq 全局递增）。
 //
 // 取号 SQL：MAX(SUBSTRING_INDEX(task_id, '-', -1) 数字后缀) FOR UPDATE，锁
