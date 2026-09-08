@@ -102,10 +102,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 8
 
-- [ ] §4.1 打回链路 AC 全链路 httptest 走通
-- [ ] entry/exec 多配置按 rolled_back_count 选择重入行为
-- [ ] QA retest 仅 full scope 节点触发
-- [ ] 回退重复上报幂等无害
+- [x] §4.1 打回链路 AC 全链路 httptest 走通
+- [x] entry/exec 多配置按 rolled_back_count 选择重入行为
+- [x] QA retest 仅 full scope 节点触发
+- [x] 回退重复上报幂等无害
 
 ## 10. 扫描器（催办 / 介入）+ 会话绑定
 
