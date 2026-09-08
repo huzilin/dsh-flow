@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { WEB_USER_ROLE } from "../api/constants";
@@ -17,9 +17,14 @@ import { formatTime } from "./RequirementPoolPage";
  * 节点详情五区分栏 + 产物阅读器（NodeDetail 内弹出）。
  * 数据源全部走聚合快照 GET /api/requirements/:reqId + my_task，不自拼接口。
  * 选中节点缺省=当前节点（flows.current_node_id；空=未进入编排不预选）。
+ * 收件箱跳转定位（T16）：?node=（选中节点）&focus=issue|task&issue=/task=（意见区/任务区锚点高亮）。
  */
 export function RequirementDetailPage() {
   const { reqId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const focusNodeId = searchParams.get("node") ?? "";
+  const focusIssueId = searchParams.get("issue") ?? "";
+  const focusTaskId = searchParams.get("task") ?? "";
   const detail = useRequirementQuery(reqId);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -29,8 +34,12 @@ export function RequirementDetailPage() {
   const issues = useMemo(() => detail.data?.issues ?? [], [detail.data]);
   const artifacts = useMemo(() => detail.data?.artifacts ?? [], [detail.data]);
 
+  // 收件箱 issue 锚点未带 node 参数时，从快照反查该意见挂载节点
+  const focusIssueNodeId = focusIssueId === "" ? "" : (issues.find((i) => i.issueId === focusIssueId)?.nodeId ?? "");
+  const paramNodeId = focusNodeId || focusIssueNodeId;
+
   const currentNodeId = flow?.currentNodeId ?? "";
-  const effectiveNodeId = selectedNodeId ?? currentNodeId;
+  const effectiveNodeId = selectedNodeId ?? (paramNodeId || currentNodeId);
   const myTask = useMyTaskQuery(reqId, effectiveNodeId === "" ? null : effectiveNodeId);
 
   const issuesByNode = useMemo(() => {
@@ -116,6 +125,8 @@ export function RequirementDetailPage() {
         artifacts={artifacts}
         issues={issues}
         requirementId={reqId}
+        focusIssueId={focusIssueId}
+        focusTaskId={focusTaskId}
       />
     </section>
   );

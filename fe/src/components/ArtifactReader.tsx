@@ -297,9 +297,12 @@ function AnchorCommentsAt({
 export function CommentThread({
   issues,
   requirementId,
+  highlightIssueId,
 }: {
   issues: IssueItem[];
   requirementId: string;
+  /** 收件箱跳转锚点高亮（T16：focus=issue 定位） */
+  highlightIssueId?: string;
 }) {
   if (issues.length === 0) return null;
   return (
@@ -308,7 +311,12 @@ export function CommentThread({
         .slice()
         .sort((a, b) => Number(a.createdAt) - Number(b.createdAt))
         .map((issue) => (
-          <CommentCard key={issue.issueId} requirementId={requirementId} issue={issue} />
+          <CommentCard
+            key={issue.issueId}
+            requirementId={requirementId}
+            issue={issue}
+            highlight={highlightIssueId === issue.issueId}
+          />
         ))}
     </div>
   );

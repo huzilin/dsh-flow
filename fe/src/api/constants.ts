@@ -86,6 +86,83 @@ export const RESOLVE_PATH_LABELS: Record<string, string> = {
 export const VERSION_STATES = ["待启动", "进行中", "已发布", "已废弃"] as const;
 
 /**
+ * 角色全集（roles 表 10 项，与 rd/migration/sql/0002_seed.sql 同源；仅作收件箱
+ * 角色/TODO 过滤选项，后端校验仍是真相源）。
+ */
+export const ROLES = [
+  "rd",
+  "fe",
+  "qa",
+  "arch",
+  "pm",
+  "cr",
+  "inv",
+  "leader",
+  "user",
+  "executor",
+] as const;
+
+/**
+ * 通知七类（issues.anchor_kind 复用列承载；rd/service/notifier.go 单一来源）。
+ * 通知规程 v3：gate_pending/re_review/need_intervene 收件=user 为主，其余按触发点。
+ */
+export const NOTIFICATION_KINDS = [
+  "gate_pending",
+  "clarify_task",
+  "re_review",
+  "stall_followup",
+  "need_intervene",
+  "escalation",
+  "session_message",
+] as const;
+
+/** 通知类别 → 展示名（ui-interaction-final §3.1 v3 词汇）。 */
+export const NOTIFICATION_KIND_LABELS: Record<string, string> = {
+  gate_pending: "待你拍板",
+  clarify_task: "澄清任务",
+  re_review: "重新表态请求",
+  stall_followup: "悬置催办",
+  need_intervene: "需你介入",
+  escalation: "冲突上升裁决",
+  session_message: "会话消息",
+};
+
+/** 通知类别 → 图标（双通道：符号承载色系语义，文本恒可读）。 */
+export const NOTIFICATION_KIND_ICONS: Record<string, string> = {
+  gate_pending: "🔔",
+  clarify_task: "❓",
+  re_review: "🔁",
+  stall_followup: "⏰",
+  need_intervene: "🛎",
+  escalation: "⚔",
+  session_message: "💬",
+};
+
+/** 通知类别 → 跳转目标类型（rd/service/notifier.go notificationTargetTypes 同源）。 */
+export const NOTIFICATION_KIND_TARGETS: Record<string, string> = {
+  gate_pending: "node",
+  clarify_task: "node",
+  re_review: "node",
+  stall_followup: "task",
+  need_intervene: "task",
+  escalation: "issue",
+  session_message: "session",
+};
+
+/** TODO 投影在途状态（tasks.status 在途三值；终态 completed/rejected/closed 不投影）。 */
+export const TODO_STATUS_LABELS: Record<string, string> = {
+  todo: "待认领",
+  "in-progress": "执行中",
+  "awaiting-reply": "待回复",
+};
+
+/** 仲裁结论（AdjudicateReq.verdict：uphold | override）。 */
+export const ADJUDICATE_VERDICT_LABELS: Record<string, string> = {
+  uphold: "维持议题",
+  override: "仲裁推翻",
+};
+
+/**
  * flow_defs_id → scope 徽标示意（需求卡/列表行）。
  * 需求 scope 实值由流程实例化按 scope_options 决定（T4 消费，T14 前无实例数据）；
  * 此处按 seed 的 flow_defs.scope_options 呈现：business/tech 集合 [full,rd,fe] 默认 full、

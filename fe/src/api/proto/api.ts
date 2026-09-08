@@ -1117,6 +1117,174 @@ export interface DecisionResp {
   nextNodeId: string;
 }
 
+/**
+ * EscalateReq POST /api/comments/:commentId/escalate 入参。
+ * 手动上升裁决：escalate 置位（幂等）+ 拉起裁决 session（sessions 表建绑，
+ * role=user 仲裁语义，dsh_ref 占位待 DSH 接入）+ 通知位（issues notification 行）。
+ * 自动上升（reopen 达 loop_threshold）只置标 + 通知；裁决 session 由本端点拉起
+ * （幂等：已有进行中裁决 session 时 noop=true 返回既有 session）。
+ */
+export interface EscalateReq {
+  /** comment_id 评论业务 id（commentId 取路径） */
+  commentId: string;
+  /** operator 上升操作者（冲突任一方；审计 by_who） */
+  operator: string;
+  /** reason 上升理由（可选；非空时追加 replies 上升条目） */
+  reason: string;
+}
+
+/** EscalateResp POST /api/comments/:commentId/escalate 出参。 */
+export interface EscalateResp {
+  /** ok 恒 true */
+  ok: boolean;
+  /** comment_id 评论业务 id（回显） */
+  commentId: string;
+  /** escalated true=本次调用新置位 escalate；false=建评/先行动作已置位 */
+  escalated: boolean;
+  /** noop true=已有进行中裁决 session（幂等 no-op，未重复建绑） */
+  noop: boolean;
+  /** session_id 裁决 session 业务 id（noop 时=既有进行中 session 回显） */
+  sessionId: string;
+  /** issue 上升后评论行 */
+  issue: IssueItem | undefined;
+}
+
+/**
+ * AdjudicateReq POST /api/comments/:commentId/adjudicate 入参。
+ * User 仲裁结论回填（裁决链第 3 拍）：replies 追加裁决条目（数据层留痕、节点可见）
+ * → verdict=override 时 wb_override 语义收编落 overridden 终态（resolve_path=ruling
+ * + resolve_note 引用结论）→ escalate 复位 → reviewer 重表态（评审轮重入新轮）。
+ */
+export interface AdjudicateReq {
+  /** comment_id 评论业务 id（commentId 取路径） */
+  commentId: string;
+  /**
+   * verdict 仲裁结论：uphold=维持议题（回正常澄清/修复链）| override=仲裁推翻
+   * （issue 落 overridden 终态，wb_override 语义收编）
+   */
+  verdict: string;
+  /** conclusion 裁决结论文本（必填；裁决条目 text 与 override 路径 resolve_note 同源） */
+  conclusion: string;
+  /** decided_by 仲裁人（恒 user；审计 by_who） */
+  decidedBy: string;
+}
+
+/** AdjudicateResp POST /api/comments/:commentId/adjudicate 出参。 */
+export interface AdjudicateResp {
+  /** ok 恒 true */
+  ok: boolean;
+  /** comment_id 评论业务 id（回显） */
+  commentId: string;
+  /** verdict 落库仲裁结论（uphold | override） */
+  verdict: string;
+  /** session_id 已终局裁决 session 业务 id（回显） */
+  sessionId: string;
+  /**
+   * reentered true=reviewer 重表态轮已拉起（评审轮重入新轮）；
+   * false=issue 挂载节点不在 review/respond 相位，轮重入 no-op
+   */
+  reentered: boolean;
+  /** round 重入后的评审轮（reentered=false 时为节点当前轮回显） */
+  round: string;
+  /** issue 回填后评论行 */
+  issue: IssueItem | undefined;
+}
+
+/** ListInboxReq GET /api/inbox 入参（query 绑定）。 */
+export interface ListInboxReq {
+  /** role 收件角色过滤：通知按 issues.assignee、TODO 按 tasks.role_id；空=不过滤 */
+  role: string;
+  /** read_filter 已读过滤：空=全部 / unread=未读（state=open）/ read=已读，越集 400 */
+  readFilter: string;
+  /** kind 通知类别筛选（七类枚举单值，见 InboxItem.kind）；空=全部 */
+  kind: string;
+  /** requirement_id 按需求过滤；空=跨需求全量 */
+  requirementId: string;
+  /** page 页码，1 起；0=按 1 处理 */
+  page: string;
+  /** page_size 页大小；0=默认 20，负值按默认处理 */
+  pageSize: string;
+}
+
+/**
+ * InboxItem 通知条目（载体=issues 行 issue_type=notification，列复用口径：
+ * anchor_kind=通知类别、anchor_artifact_id=跳转目标 id、assignee=收件角色、
+ * state=open 未读 / resolved 已读——设计权威 docs-tmp/ui-interaction-final.md
+ * §3.1 + capability-model-final §6.8 通知规程）。
+ */
+export interface InboxItem {
+  /** issue_id 通知行业务 id（cm-<ts>，issues 载体主键） */
+  issueId: string;
+  /**
+   * kind 通知类别（七类枚举）：gate_pending=待你拍板 / clarify_task=澄清任务 /
+   * re_review=重新表态请求 / stall_followup=悬置催办（扫描器，触发点 T10 预留）/
+   * need_intervene=需你介入（扫描器，触发点 T10 预留）/
+   * escalation=冲突上升裁决 / session_message=会话消息（会话通道，预留枚举位）
+   */
+  kind: string;
+  /** requirement_id 需求 id（跳转一级定位） */
+  requirementId: string;
+  /** node_id 节点 id（跳转二级定位；空=无节点上下文） */
+  nodeId: string;
+  /** target_type 跳转目标类型（由 kind 确定性映射）：node / task / issue / session */
+  targetType: string;
+  /**
+   * target_id 跳转目标业务 id（target_type 对应行 id；target_type=node 时空串，
+   * 定位取 node_id 列）
+   */
+  targetId: string;
+  /** text 通知文案（人类可读） */
+  text: string;
+  /** sender 派发者（触发动作执行者/系统标识） */
+  sender: string;
+  /** sender_role 派发者角色；plugin 系统投递固定 plugin */
+  senderRole: string;
+  /** recipient_role 收件角色（issues.assignee 复用列） */
+  recipientRole: string;
+  /** state open=未读 / resolved=已读（已读/未读读标记口径） */
+  state: string;
+  /** created_at 派发时间，unix 毫秒 */
+  createdAt: string;
+}
+
+/**
+ * TodoItem TODO 投影条目（数据源=tasks 表该角色在途任务同源投影——
+ * status NOT IN (completed/rejected/closed)，终态不残留；不双写、无独立投影表）。
+ */
+export interface TodoItem {
+  /** task_id 任务业务 id（跳转定位） */
+  taskId: string;
+  /** requirement_id 需求 id（跳转定位） */
+  requirementId: string;
+  /** node_id 节点 id（跳转定位） */
+  nodeId: string;
+  /** action_id 动作定位 */
+  actionId: string;
+  /** task_type 任务族：produce/dev/review/respond/accept/create_reqs */
+  taskType: string;
+  /** status 在途状态：todo / in-progress / awaiting-reply */
+  status: string;
+  /** goal 任务目标 */
+  goal: string;
+  /** created_at 创建时间，unix 毫秒 */
+  createdAt: string;
+}
+
+/**
+ * ListInboxResp GET /api/inbox 出参：通知列表 + TODO 投影同响应双通道
+ * （ui-interaction-final §3「收件箱/TODO = 通知枚举 + tasks 投影」）。
+ */
+export interface ListInboxResp {
+  /** ok 恒 true */
+  ok: boolean;
+  /** notifications 通知条目（未读优先，同组内新→旧） */
+  notifications: InboxItem[];
+  /** total 通知筛选后总数（分页口径） */
+  total: string;
+  /** todos TODO 投影（该角色全部在途任务，不参与通知分页） */
+  todos: TodoItem[];
+}
+
 function createBaseErrorResp(): ErrorResp {
   return { ok: false, error: "", code: "", blocked: false, missing: [] };
 }
@@ -10901,6 +11069,1354 @@ export const DecisionResp: MessageFns<DecisionResp> = {
     message.noop = object.noop ?? false;
     message.lastDecision = object.lastDecision ?? "";
     message.nextNodeId = object.nextNodeId ?? "";
+    return message;
+  },
+};
+
+function createBaseEscalateReq(): EscalateReq {
+  return { commentId: "", operator: "", reason: "" };
+}
+
+export const EscalateReq: MessageFns<EscalateReq> = {
+  encode(message: EscalateReq, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.commentId !== "") {
+      writer.uint32(10).string(message.commentId);
+    }
+    if (message.operator !== "") {
+      writer.uint32(18).string(message.operator);
+    }
+    if (message.reason !== "") {
+      writer.uint32(26).string(message.reason);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EscalateReq {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseEscalateReq();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.commentId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.operator = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.reason = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): EscalateReq {
+    return {
+      commentId: isSet(object.commentId)
+        ? globalThis.String(object.commentId)
+        : isSet(object.comment_id)
+        ? globalThis.String(object.comment_id)
+        : "",
+      operator: isSet(object.operator) ? globalThis.String(object.operator) : "",
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+    };
+  },
+
+  toJSON(message: EscalateReq): unknown {
+    const obj: any = {};
+    if (message.commentId !== "") {
+      obj.commentId = message.commentId;
+    }
+    if (message.operator !== "") {
+      obj.operator = message.operator;
+    }
+    if (message.reason !== "") {
+      obj.reason = message.reason;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<EscalateReq>, I>>(base?: I): EscalateReq {
+    return EscalateReq.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<EscalateReq>, I>>(object: I): EscalateReq {
+    const message = createBaseEscalateReq();
+    message.commentId = object.commentId ?? "";
+    message.operator = object.operator ?? "";
+    message.reason = object.reason ?? "";
+    return message;
+  },
+};
+
+function createBaseEscalateResp(): EscalateResp {
+  return { ok: false, commentId: "", escalated: false, noop: false, sessionId: "", issue: undefined };
+}
+
+export const EscalateResp: MessageFns<EscalateResp> = {
+  encode(message: EscalateResp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ok !== false) {
+      writer.uint32(8).bool(message.ok);
+    }
+    if (message.commentId !== "") {
+      writer.uint32(18).string(message.commentId);
+    }
+    if (message.escalated !== false) {
+      writer.uint32(24).bool(message.escalated);
+    }
+    if (message.noop !== false) {
+      writer.uint32(32).bool(message.noop);
+    }
+    if (message.sessionId !== "") {
+      writer.uint32(42).string(message.sessionId);
+    }
+    if (message.issue !== undefined) {
+      IssueItem.encode(message.issue, writer.uint32(50).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EscalateResp {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseEscalateResp();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.ok = reader.bool();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.commentId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.escalated = reader.bool();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.noop = reader.bool();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.sessionId = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.issue = IssueItem.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): EscalateResp {
+    return {
+      ok: isSet(object.ok) ? globalThis.Boolean(object.ok) : false,
+      commentId: isSet(object.commentId)
+        ? globalThis.String(object.commentId)
+        : isSet(object.comment_id)
+        ? globalThis.String(object.comment_id)
+        : "",
+      escalated: isSet(object.escalated) ? globalThis.Boolean(object.escalated) : false,
+      noop: isSet(object.noop) ? globalThis.Boolean(object.noop) : false,
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      issue: isSet(object.issue) ? IssueItem.fromJSON(object.issue) : undefined,
+    };
+  },
+
+  toJSON(message: EscalateResp): unknown {
+    const obj: any = {};
+    if (message.ok !== false) {
+      obj.ok = message.ok;
+    }
+    if (message.commentId !== "") {
+      obj.commentId = message.commentId;
+    }
+    if (message.escalated !== false) {
+      obj.escalated = message.escalated;
+    }
+    if (message.noop !== false) {
+      obj.noop = message.noop;
+    }
+    if (message.sessionId !== "") {
+      obj.sessionId = message.sessionId;
+    }
+    if (message.issue !== undefined) {
+      obj.issue = IssueItem.toJSON(message.issue);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<EscalateResp>, I>>(base?: I): EscalateResp {
+    return EscalateResp.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<EscalateResp>, I>>(object: I): EscalateResp {
+    const message = createBaseEscalateResp();
+    message.ok = object.ok ?? false;
+    message.commentId = object.commentId ?? "";
+    message.escalated = object.escalated ?? false;
+    message.noop = object.noop ?? false;
+    message.sessionId = object.sessionId ?? "";
+    message.issue = (object.issue !== undefined && object.issue !== null)
+      ? IssueItem.fromPartial(object.issue)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseAdjudicateReq(): AdjudicateReq {
+  return { commentId: "", verdict: "", conclusion: "", decidedBy: "" };
+}
+
+export const AdjudicateReq: MessageFns<AdjudicateReq> = {
+  encode(message: AdjudicateReq, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.commentId !== "") {
+      writer.uint32(10).string(message.commentId);
+    }
+    if (message.verdict !== "") {
+      writer.uint32(18).string(message.verdict);
+    }
+    if (message.conclusion !== "") {
+      writer.uint32(26).string(message.conclusion);
+    }
+    if (message.decidedBy !== "") {
+      writer.uint32(34).string(message.decidedBy);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdjudicateReq {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdjudicateReq();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.commentId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.verdict = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.conclusion = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.decidedBy = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdjudicateReq {
+    return {
+      commentId: isSet(object.commentId)
+        ? globalThis.String(object.commentId)
+        : isSet(object.comment_id)
+        ? globalThis.String(object.comment_id)
+        : "",
+      verdict: isSet(object.verdict) ? globalThis.String(object.verdict) : "",
+      conclusion: isSet(object.conclusion) ? globalThis.String(object.conclusion) : "",
+      decidedBy: isSet(object.decidedBy)
+        ? globalThis.String(object.decidedBy)
+        : isSet(object.decided_by)
+        ? globalThis.String(object.decided_by)
+        : "",
+    };
+  },
+
+  toJSON(message: AdjudicateReq): unknown {
+    const obj: any = {};
+    if (message.commentId !== "") {
+      obj.commentId = message.commentId;
+    }
+    if (message.verdict !== "") {
+      obj.verdict = message.verdict;
+    }
+    if (message.conclusion !== "") {
+      obj.conclusion = message.conclusion;
+    }
+    if (message.decidedBy !== "") {
+      obj.decidedBy = message.decidedBy;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdjudicateReq>, I>>(base?: I): AdjudicateReq {
+    return AdjudicateReq.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdjudicateReq>, I>>(object: I): AdjudicateReq {
+    const message = createBaseAdjudicateReq();
+    message.commentId = object.commentId ?? "";
+    message.verdict = object.verdict ?? "";
+    message.conclusion = object.conclusion ?? "";
+    message.decidedBy = object.decidedBy ?? "";
+    return message;
+  },
+};
+
+function createBaseAdjudicateResp(): AdjudicateResp {
+  return { ok: false, commentId: "", verdict: "", sessionId: "", reentered: false, round: "0", issue: undefined };
+}
+
+export const AdjudicateResp: MessageFns<AdjudicateResp> = {
+  encode(message: AdjudicateResp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ok !== false) {
+      writer.uint32(8).bool(message.ok);
+    }
+    if (message.commentId !== "") {
+      writer.uint32(18).string(message.commentId);
+    }
+    if (message.verdict !== "") {
+      writer.uint32(26).string(message.verdict);
+    }
+    if (message.sessionId !== "") {
+      writer.uint32(34).string(message.sessionId);
+    }
+    if (message.reentered !== false) {
+      writer.uint32(40).bool(message.reentered);
+    }
+    if (message.round !== "0") {
+      writer.uint32(48).int64(message.round);
+    }
+    if (message.issue !== undefined) {
+      IssueItem.encode(message.issue, writer.uint32(58).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdjudicateResp {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdjudicateResp();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.ok = reader.bool();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.commentId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.verdict = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.sessionId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.reentered = reader.bool();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.round = reader.int64().toString();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.issue = IssueItem.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdjudicateResp {
+    return {
+      ok: isSet(object.ok) ? globalThis.Boolean(object.ok) : false,
+      commentId: isSet(object.commentId)
+        ? globalThis.String(object.commentId)
+        : isSet(object.comment_id)
+        ? globalThis.String(object.comment_id)
+        : "",
+      verdict: isSet(object.verdict) ? globalThis.String(object.verdict) : "",
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      reentered: isSet(object.reentered) ? globalThis.Boolean(object.reentered) : false,
+      round: isSet(object.round) ? globalThis.String(object.round) : "0",
+      issue: isSet(object.issue) ? IssueItem.fromJSON(object.issue) : undefined,
+    };
+  },
+
+  toJSON(message: AdjudicateResp): unknown {
+    const obj: any = {};
+    if (message.ok !== false) {
+      obj.ok = message.ok;
+    }
+    if (message.commentId !== "") {
+      obj.commentId = message.commentId;
+    }
+    if (message.verdict !== "") {
+      obj.verdict = message.verdict;
+    }
+    if (message.sessionId !== "") {
+      obj.sessionId = message.sessionId;
+    }
+    if (message.reentered !== false) {
+      obj.reentered = message.reentered;
+    }
+    if (message.round !== "0") {
+      obj.round = message.round;
+    }
+    if (message.issue !== undefined) {
+      obj.issue = IssueItem.toJSON(message.issue);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdjudicateResp>, I>>(base?: I): AdjudicateResp {
+    return AdjudicateResp.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdjudicateResp>, I>>(object: I): AdjudicateResp {
+    const message = createBaseAdjudicateResp();
+    message.ok = object.ok ?? false;
+    message.commentId = object.commentId ?? "";
+    message.verdict = object.verdict ?? "";
+    message.sessionId = object.sessionId ?? "";
+    message.reentered = object.reentered ?? false;
+    message.round = object.round ?? "0";
+    message.issue = (object.issue !== undefined && object.issue !== null)
+      ? IssueItem.fromPartial(object.issue)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseListInboxReq(): ListInboxReq {
+  return { role: "", readFilter: "", kind: "", requirementId: "", page: "0", pageSize: "0" };
+}
+
+export const ListInboxReq: MessageFns<ListInboxReq> = {
+  encode(message: ListInboxReq, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.role !== "") {
+      writer.uint32(10).string(message.role);
+    }
+    if (message.readFilter !== "") {
+      writer.uint32(18).string(message.readFilter);
+    }
+    if (message.kind !== "") {
+      writer.uint32(26).string(message.kind);
+    }
+    if (message.requirementId !== "") {
+      writer.uint32(34).string(message.requirementId);
+    }
+    if (message.page !== "0") {
+      writer.uint32(40).int64(message.page);
+    }
+    if (message.pageSize !== "0") {
+      writer.uint32(48).int64(message.pageSize);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListInboxReq {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseListInboxReq();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.role = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.readFilter = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.kind = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.page = reader.int64().toString();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.pageSize = reader.int64().toString();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ListInboxReq {
+    return {
+      role: isSet(object.role) ? globalThis.String(object.role) : "",
+      readFilter: isSet(object.readFilter)
+        ? globalThis.String(object.readFilter)
+        : isSet(object.read_filter)
+        ? globalThis.String(object.read_filter)
+        : "",
+      kind: isSet(object.kind) ? globalThis.String(object.kind) : "",
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+      page: isSet(object.page) ? globalThis.String(object.page) : "0",
+      pageSize: isSet(object.pageSize)
+        ? globalThis.String(object.pageSize)
+        : isSet(object.page_size)
+        ? globalThis.String(object.page_size)
+        : "0",
+    };
+  },
+
+  toJSON(message: ListInboxReq): unknown {
+    const obj: any = {};
+    if (message.role !== "") {
+      obj.role = message.role;
+    }
+    if (message.readFilter !== "") {
+      obj.readFilter = message.readFilter;
+    }
+    if (message.kind !== "") {
+      obj.kind = message.kind;
+    }
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    if (message.page !== "0") {
+      obj.page = message.page;
+    }
+    if (message.pageSize !== "0") {
+      obj.pageSize = message.pageSize;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListInboxReq>, I>>(base?: I): ListInboxReq {
+    return ListInboxReq.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListInboxReq>, I>>(object: I): ListInboxReq {
+    const message = createBaseListInboxReq();
+    message.role = object.role ?? "";
+    message.readFilter = object.readFilter ?? "";
+    message.kind = object.kind ?? "";
+    message.requirementId = object.requirementId ?? "";
+    message.page = object.page ?? "0";
+    message.pageSize = object.pageSize ?? "0";
+    return message;
+  },
+};
+
+function createBaseInboxItem(): InboxItem {
+  return {
+    issueId: "",
+    kind: "",
+    requirementId: "",
+    nodeId: "",
+    targetType: "",
+    targetId: "",
+    text: "",
+    sender: "",
+    senderRole: "",
+    recipientRole: "",
+    state: "",
+    createdAt: "0",
+  };
+}
+
+export const InboxItem: MessageFns<InboxItem> = {
+  encode(message: InboxItem, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.issueId !== "") {
+      writer.uint32(10).string(message.issueId);
+    }
+    if (message.kind !== "") {
+      writer.uint32(18).string(message.kind);
+    }
+    if (message.requirementId !== "") {
+      writer.uint32(26).string(message.requirementId);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(34).string(message.nodeId);
+    }
+    if (message.targetType !== "") {
+      writer.uint32(42).string(message.targetType);
+    }
+    if (message.targetId !== "") {
+      writer.uint32(50).string(message.targetId);
+    }
+    if (message.text !== "") {
+      writer.uint32(58).string(message.text);
+    }
+    if (message.sender !== "") {
+      writer.uint32(66).string(message.sender);
+    }
+    if (message.senderRole !== "") {
+      writer.uint32(74).string(message.senderRole);
+    }
+    if (message.recipientRole !== "") {
+      writer.uint32(82).string(message.recipientRole);
+    }
+    if (message.state !== "") {
+      writer.uint32(90).string(message.state);
+    }
+    if (message.createdAt !== "0") {
+      writer.uint32(96).int64(message.createdAt);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): InboxItem {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseInboxItem();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.issueId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.kind = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.targetType = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.targetId = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.text = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.sender = reader.string();
+            continue;
+          }
+          case 9: {
+            if (tag !== 74) {
+              break;
+            }
+
+            message.senderRole = reader.string();
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.recipientRole = reader.string();
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.state = reader.string();
+            continue;
+          }
+          case 12: {
+            if (tag !== 96) {
+              break;
+            }
+
+            message.createdAt = reader.int64().toString();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): InboxItem {
+    return {
+      issueId: isSet(object.issueId)
+        ? globalThis.String(object.issueId)
+        : isSet(object.issue_id)
+        ? globalThis.String(object.issue_id)
+        : "",
+      kind: isSet(object.kind) ? globalThis.String(object.kind) : "",
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      targetType: isSet(object.targetType)
+        ? globalThis.String(object.targetType)
+        : isSet(object.target_type)
+        ? globalThis.String(object.target_type)
+        : "",
+      targetId: isSet(object.targetId)
+        ? globalThis.String(object.targetId)
+        : isSet(object.target_id)
+        ? globalThis.String(object.target_id)
+        : "",
+      text: isSet(object.text) ? globalThis.String(object.text) : "",
+      sender: isSet(object.sender) ? globalThis.String(object.sender) : "",
+      senderRole: isSet(object.senderRole)
+        ? globalThis.String(object.senderRole)
+        : isSet(object.sender_role)
+        ? globalThis.String(object.sender_role)
+        : "",
+      recipientRole: isSet(object.recipientRole)
+        ? globalThis.String(object.recipientRole)
+        : isSet(object.recipient_role)
+        ? globalThis.String(object.recipient_role)
+        : "",
+      state: isSet(object.state) ? globalThis.String(object.state) : "",
+      createdAt: isSet(object.createdAt)
+        ? globalThis.String(object.createdAt)
+        : isSet(object.created_at)
+        ? globalThis.String(object.created_at)
+        : "0",
+    };
+  },
+
+  toJSON(message: InboxItem): unknown {
+    const obj: any = {};
+    if (message.issueId !== "") {
+      obj.issueId = message.issueId;
+    }
+    if (message.kind !== "") {
+      obj.kind = message.kind;
+    }
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    if (message.targetType !== "") {
+      obj.targetType = message.targetType;
+    }
+    if (message.targetId !== "") {
+      obj.targetId = message.targetId;
+    }
+    if (message.text !== "") {
+      obj.text = message.text;
+    }
+    if (message.sender !== "") {
+      obj.sender = message.sender;
+    }
+    if (message.senderRole !== "") {
+      obj.senderRole = message.senderRole;
+    }
+    if (message.recipientRole !== "") {
+      obj.recipientRole = message.recipientRole;
+    }
+    if (message.state !== "") {
+      obj.state = message.state;
+    }
+    if (message.createdAt !== "0") {
+      obj.createdAt = message.createdAt;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<InboxItem>, I>>(base?: I): InboxItem {
+    return InboxItem.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<InboxItem>, I>>(object: I): InboxItem {
+    const message = createBaseInboxItem();
+    message.issueId = object.issueId ?? "";
+    message.kind = object.kind ?? "";
+    message.requirementId = object.requirementId ?? "";
+    message.nodeId = object.nodeId ?? "";
+    message.targetType = object.targetType ?? "";
+    message.targetId = object.targetId ?? "";
+    message.text = object.text ?? "";
+    message.sender = object.sender ?? "";
+    message.senderRole = object.senderRole ?? "";
+    message.recipientRole = object.recipientRole ?? "";
+    message.state = object.state ?? "";
+    message.createdAt = object.createdAt ?? "0";
+    return message;
+  },
+};
+
+function createBaseTodoItem(): TodoItem {
+  return {
+    taskId: "",
+    requirementId: "",
+    nodeId: "",
+    actionId: "",
+    taskType: "",
+    status: "",
+    goal: "",
+    createdAt: "0",
+  };
+}
+
+export const TodoItem: MessageFns<TodoItem> = {
+  encode(message: TodoItem, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.taskId !== "") {
+      writer.uint32(10).string(message.taskId);
+    }
+    if (message.requirementId !== "") {
+      writer.uint32(18).string(message.requirementId);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(26).string(message.nodeId);
+    }
+    if (message.actionId !== "") {
+      writer.uint32(34).string(message.actionId);
+    }
+    if (message.taskType !== "") {
+      writer.uint32(42).string(message.taskType);
+    }
+    if (message.status !== "") {
+      writer.uint32(50).string(message.status);
+    }
+    if (message.goal !== "") {
+      writer.uint32(58).string(message.goal);
+    }
+    if (message.createdAt !== "0") {
+      writer.uint32(64).int64(message.createdAt);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TodoItem {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseTodoItem();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.taskId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.actionId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.taskType = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.status = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.goal = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 64) {
+              break;
+            }
+
+            message.createdAt = reader.int64().toString();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): TodoItem {
+    return {
+      taskId: isSet(object.taskId)
+        ? globalThis.String(object.taskId)
+        : isSet(object.task_id)
+        ? globalThis.String(object.task_id)
+        : "",
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      actionId: isSet(object.actionId)
+        ? globalThis.String(object.actionId)
+        : isSet(object.action_id)
+        ? globalThis.String(object.action_id)
+        : "",
+      taskType: isSet(object.taskType)
+        ? globalThis.String(object.taskType)
+        : isSet(object.task_type)
+        ? globalThis.String(object.task_type)
+        : "",
+      status: isSet(object.status) ? globalThis.String(object.status) : "",
+      goal: isSet(object.goal) ? globalThis.String(object.goal) : "",
+      createdAt: isSet(object.createdAt)
+        ? globalThis.String(object.createdAt)
+        : isSet(object.created_at)
+        ? globalThis.String(object.created_at)
+        : "0",
+    };
+  },
+
+  toJSON(message: TodoItem): unknown {
+    const obj: any = {};
+    if (message.taskId !== "") {
+      obj.taskId = message.taskId;
+    }
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    if (message.actionId !== "") {
+      obj.actionId = message.actionId;
+    }
+    if (message.taskType !== "") {
+      obj.taskType = message.taskType;
+    }
+    if (message.status !== "") {
+      obj.status = message.status;
+    }
+    if (message.goal !== "") {
+      obj.goal = message.goal;
+    }
+    if (message.createdAt !== "0") {
+      obj.createdAt = message.createdAt;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TodoItem>, I>>(base?: I): TodoItem {
+    return TodoItem.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TodoItem>, I>>(object: I): TodoItem {
+    const message = createBaseTodoItem();
+    message.taskId = object.taskId ?? "";
+    message.requirementId = object.requirementId ?? "";
+    message.nodeId = object.nodeId ?? "";
+    message.actionId = object.actionId ?? "";
+    message.taskType = object.taskType ?? "";
+    message.status = object.status ?? "";
+    message.goal = object.goal ?? "";
+    message.createdAt = object.createdAt ?? "0";
+    return message;
+  },
+};
+
+function createBaseListInboxResp(): ListInboxResp {
+  return { ok: false, notifications: [], total: "0", todos: [] };
+}
+
+export const ListInboxResp: MessageFns<ListInboxResp> = {
+  encode(message: ListInboxResp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ok !== false) {
+      writer.uint32(8).bool(message.ok);
+    }
+    for (const v of message.notifications) {
+      InboxItem.encode(v!, writer.uint32(18).fork()).join();
+    }
+    if (message.total !== "0") {
+      writer.uint32(24).int64(message.total);
+    }
+    for (const v of message.todos) {
+      TodoItem.encode(v!, writer.uint32(34).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListInboxResp {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseListInboxResp();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.ok = reader.bool();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.notifications.push(InboxItem.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.total = reader.int64().toString();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.todos.push(TodoItem.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ListInboxResp {
+    return {
+      ok: isSet(object.ok) ? globalThis.Boolean(object.ok) : false,
+      notifications: globalThis.Array.isArray(object?.notifications)
+        ? object.notifications.map((e: any) => InboxItem.fromJSON(e))
+        : [],
+      total: isSet(object.total) ? globalThis.String(object.total) : "0",
+      todos: globalThis.Array.isArray(object?.todos) ? object.todos.map((e: any) => TodoItem.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: ListInboxResp): unknown {
+    const obj: any = {};
+    if (message.ok !== false) {
+      obj.ok = message.ok;
+    }
+    if (message.notifications?.length) {
+      obj.notifications = message.notifications.map((e) => InboxItem.toJSON(e));
+    }
+    if (message.total !== "0") {
+      obj.total = message.total;
+    }
+    if (message.todos?.length) {
+      obj.todos = message.todos.map((e) => TodoItem.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListInboxResp>, I>>(base?: I): ListInboxResp {
+    return ListInboxResp.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListInboxResp>, I>>(object: I): ListInboxResp {
+    const message = createBaseListInboxResp();
+    message.ok = object.ok ?? false;
+    message.notifications = object.notifications?.map((e) => InboxItem.fromPartial(e)) || [];
+    message.total = object.total ?? "0";
+    message.todos = object.todos?.map((e) => TodoItem.fromPartial(e)) || [];
     return message;
   },
 };

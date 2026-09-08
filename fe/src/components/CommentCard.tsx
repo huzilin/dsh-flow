@@ -22,11 +22,14 @@ export function CommentCard({
   requirementId,
   issue,
   showAnchor = true,
+  highlight = false,
 }: {
   requirementId: string;
   issue: IssueItem;
   /** 阅读器锚定场景已带产物语境，可隐藏锚点摘要行 */
   showAnchor?: boolean;
+  /** 收件箱跳转锚点高亮（T16：focus=issue 定位） */
+  highlight?: boolean;
 }) {
   const reply = useReplyMutation(requirementId);
   const resolve = useResolveMutation(requirementId);
@@ -49,7 +52,12 @@ export function CommentCard({
   const actionError = reply.error ?? resolve.error ?? confirm.error ?? reopen.error;
 
   return (
-    <article className="comment-card" data-issue-id={issue.issueId} data-state={issue.state}>
+    <article
+      className={`comment-card${highlight ? " focus-flash" : ""}`}
+      data-issue-id={issue.issueId}
+      data-state={issue.state}
+      data-focus-flash={highlight ? "1" : undefined}
+    >
       <header className="comment-head">
         <IssueStateBadge state={issue.state} />
         {issue.issueType !== "" && issue.issueType !== "issue" && (

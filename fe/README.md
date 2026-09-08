@@ -6,7 +6,9 @@ wbflow 前端。React 19 + Vite 8 + TypeScript（严格模式）+ react-router 7
 
 - **T14 模块 I**：需求池（筛选/分页/新建）、看板（状态四泳道）、版本管理（创建/改名/推进/废弃）。
 - **T15 模块 II**：需求详情页=流程树（SVG 纵向全节点渲染：nodeKey/相位/gate/user_gate/评审轮计数/current 高亮，被裁节点不渲染不占位，scope 徽标呈现 `flows.scope` 实值）+ **节点详情五区分栏**（① 状态卡 ② 评审状态药丸 ③ 产物区 ④ 意见区 ⑤ 门禁/拍板卡只读态）+ **产物阅读器**（行号渲染 + 懒加载分段 200 行/段 + link 外链卡）+ **锚点评论**（document/line/range/block 四级装配，T15 起四级全部可用：block 按围栏扫描代码块「⬚ 选代码块」整块选取）+ 评论操作矩阵（回复恒可、resolve=assignee、confirm/reopen=提评者，Web 身份=`user`）+ 删除需求入口（confirm=true 显式弹窗）+ 会话通道占位按钮（disabled，DSH 嵌入期开放）。
-- 模块 III/IV 收件箱/TODO + 拍板卡三态切换/冲突卡属 T16，未实现（拍板卡留 `actions` 插槽接缝）。
+- **T16 模块 III/IV**：收件箱页（`/inbox`：七类通知 kind 图标/标签对齐 `constants.ts` 单一来源、未读优先、角色×类别×已读三筛选、分页、跳转定位 node→节点高亮 / task→任务区 / issue→意见区锚点）+ 顶栏入口未读 badge（MVP 轮询口径 30s，`VITE_INBOX_POLL_MS` 可配，TanStack Query `refetchInterval` 失效）+ TODO 投影区（tasks 在途任务同源投影，completed/rejected 不残留——后端同源，FE 只呈现）+ 全局冲突入口（escalation 未读聚合区）。
+- **T16 拍板卡三态**（复用 T15 `DecisionCard` 的 `actions` 插槽）：进度只读 → agreed 迎宾呈现（各评审位结论 + resolved 摘要 + 产物链接 + 建议 + 通过/打回按钮组 + ↗ 流程树跳转）→ 已裁决（verdict 徽标 + 结论摘要；rejected 呈 T9 重入相位提示）；wb_decision 409 改判冲突提示 + 失效刷新。
+- **T16 冲突卡**：escalate=1 工单聚合于节点详情意见区顶部；正反对照两栏（正方=review_results 最新反对位 / 反方=issue replies 普通条目）；裁决动作（wb_escalate 拉起幂等 / wb_adjudicate uphold|override 表单，user 角色可见）；裁决回填 replies 留痕呈现 + ↗ 节点/issue 跳转。
 
 五区分栏口径对照（`docs-tmp/ui-interaction-final.md` §1.2）：① 状态卡=双行（执行行：相位徽标+my_task 激活动作；审批行：表态计数）② 评审状态行=per-agent 药丸（轮内完整时间线属暂缓项 P2）③ 产物区=文件行+💬N+外链 ④ 意见区=评论列表+escalate 标记+在途任务投影（冲突卡聚合属 T16）⑤ 拍板卡=进度只读态（评审轮进行中/agreed 待拍板提示/已裁决 verdict）。数据源全部走聚合快照 + my_task（role=user），不自拼接口。
 
@@ -119,3 +121,55 @@ UI 侧冒烟路径：`需求池 → 点击需求进详情`：核对流程树节�
 - **block 锚点**：按围栏（```/~~~）扫描代码块，块首行「⬚ 选代码块」整块选取；无围栏文档无 block 入口（后端要求 lang 非空）。
 - **拍板卡只读态**：agreed 判定为「评审位齐且无反对无待表态」（`deriveGateView`）；三态切换按钮组属 T16（`DecisionCard` 已留 `actions` 插槽）。
 - **看板分页上限**：后端强制分页（page_size 上限 100），看板取单页 100；超出时提示条说明。
+
+## 模块 III/IV 联调指引（T16：收件箱 / 拍板卡三态 / 冲突卡）
+
+### 造数路径（curl，接续模块 II 的 REQ/节点/产物/评论造数）
+
+```bash
+T=<token>; H="-H "Authorization: Bearer $T" -H Content-Type:application/json"
+
+# 1) 评审表态造数（对某 review 相位 + user_gate=1 节点，如 business 的 n-04 产品设计评审）：
+#    逐角色 agree → collect=approved 触发 gate_pending 通知（收件箱「待你拍板」）+ 拍板卡 agreed 迎宾态
+curl -s $H -X POST localhost:8080/api/requirements/$REQ/nodes/n-04/review -d '{
+  "role":"arch","capabilityId":"arch.prd-review","state":"agree"}'
+#    同理补齐该节点 reviewers 声明的其余评审位；unagree 则触发 clarify_task 通知（owner 澄清循环）
+
+# 2) 收件箱读端点（七类通知 + TODO 投影双通道；未读优先，int64 计数为 string）
+curl -s $H "localhost:8080/api/inbox?role=user&read_filter=unread" | jq '{total, kinds:[.notifications[].kind], todos}'
+
+# 3) 拍板（agreed 后）：approved 前移下一节点；rejected 必填 reason（T9 重入语义，
+#    拍板卡呈现「已打回，等待 exec 重入」——重入状态从快照相位读取）
+curl -s $H -X POST localhost:8080/api/requirements/$REQ/nodes/n-04/decision -d '{
+  "verdict":"approved","reason":"评审齐备","branch":"feat/x"}'
+#    重复拍板同 verdict 幂等 noop=true；改判 409 IDEMPOTENT_CONFLICT（UI 提示+刷新）
+#    评审未全 agree 时拍板 → 409 GATE_BLOCKED（进度态按钮组不渲染，后端兜底）
+
+# 4) 冲突上升裁决链：评论 → 反复 reopen（或显式上升）→ escalate 置位 + escalation 通知
+curl -s $H -X POST localhost:8080/api/comments/$CM/escalate -d '{
+  "operator":"user","reason":"reopen 拉锯不收敛"}'
+#    幂等：已有进行中裁决 session 时 noop=true 回显 session_id
+curl -s $H "localhost:8080/api/inbox?kind=escalation&read_filter=unread" | jq '.notifications'
+
+# 5) User 仲裁回填：uphold=维持议题（回澄清/修复链）/ override=推翻（issue 落 overridden 终态，
+#    escalate 复位 + reviewer 重表态新轮 reentered=true）；结论经 replies kind=adjudication 留痕
+curl -s $H -X POST localhost:8080/api/comments/$CM/adjudicate -d '{
+  "verdict":"uphold","conclusion":"按含降级路径口径执行","decidedBy":"user"}'
+#    escalate=0 时回填 → 409 GATE_BLOCKED
+```
+
+UI 冒烟路径：`顶栏收件箱（badge 未读数）→ /inbox`：七类 kind 标签/图标、未读优先、筛选与分页 →
+点「待你拍板」通知跳详情并选中节点（拍板卡呈 agreed 迎宾态：评审位结论/工单摘要/产物/建议）→
+「通过/打回」提交（409 改判时提示并刷新为已裁决态）→ 「冲突上升裁决」通知跳意见区顶部冲突卡
+（正反对照两栏）→ 仲裁表单提交 → 回填条目与轮重入提示呈现。TODO 投影区核对在途任务
+（completed/rejected 不残留由后端同源保证）。
+
+### 口径备注（模块 III/IV）
+
+- **通知载体**：issues 行 issue_type=notification（anchor_kind=类别复用列）；已读/未读=state open/resolved；
+  排序与分页全在后端（未读优先、同组新→旧），FE 不重排。
+- **badge 轮询**：独立轻量查询 `read_filter=unread&page_size=1` 只取 total；与收件箱页同频率独立轮询，
+  mutate/裁决后经 `invalidateQueries({queryKey:["inbox"]})` 族失效即时刷新。
+- **拍板双通道**：收件箱 gate_pending=系统投递（plugin）、拍板卡迎宾态=快照派生呈现，二者同源不双写。
+- **冲突卡数据装配**：正方=快照 flow_nodes.review_results 该位最新表态=unagree（后轮 agree 覆盖）；
+  反方=replies 非 voided 普通条目；裁决回填=replies kind=adjudication（含 verdict/sessionId）。
