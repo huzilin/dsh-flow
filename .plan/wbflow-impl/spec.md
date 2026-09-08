@@ -404,7 +404,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 ### 4.1 版本级（roadmap P1–P6 全链路）
 
 - [ ] 新会话以 team preset + 团队制度启动，wb_* 26 工具（HTTP 版）对 agent 可用（P1）
-- [ ] MySQL v0.29 全量表 + seed（四流程 41 定义节点 + 21 能力）初始化通过（P2）
+- [ ] MySQL v0.29 全量表 + seed（四流程 40 定义节点 + 21 能力）初始化通过（P2）
 - [ ] 一条 full 需求端到端：对齐（to-brd）→ 产品设计 → 三轮评审（per-agent 表态/澄清/复核/agreed→approved）→ RD∥FE 并行开发（CR 内嵌）→ QA 验收（仅 full 渲染）→ 用户验收 → 完成，全流程无阻塞（P5）
 - [ ] 一条 rd-only 需求：流程树动态重排为 9 节点（FE 侧与 QA 不渲染、不占位），走通至用户验收（P5）
 - [ ] 一条 task 需求（7 节点无 QA）：走通至用户验收，报障直连开发执行者（P5）
