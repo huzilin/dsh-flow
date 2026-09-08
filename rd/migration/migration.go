@@ -165,10 +165,15 @@ func currentVersion(ctx context.Context, g *gorm.DB) (int64, error) {
 
 // applyStep 执行单版本：拆语句逐条执行后推进账本（DDL 隐式提交，无法包事务；
 // 中断重跑安全性由各版本 SQL 自带幂等保证——0001 CREATE TABLE IF NOT EXISTS /
-// 0002 INSERT IGNORE / 0003 INFORMATION_SCHEMA 条件 DDL，见各 SQL 文件头注）。
+// 0002 INSERT IGNORE / 0003 裸 ALTER + 本函数对「已存在」类错误宽容，见各 SQL 文件头注）。
+// 宽容口径：迁移 SQL 受「只增不改，禁止 DROP」约束，1060/1061 唯一来源是重复应用
+// （列/索引已在）＝该语句已生效，跳过继续，账本正常推进。
 func applyStep(ctx context.Context, g *gorm.DB, s step) error {
 	for _, stmt := range splitStatements(s.sql) {
 		if execErr := g.WithContext(ctx).Exec(stmt).Error; execErr != nil {
+			if isDuplicateObjErr(execErr) {
+				continue
+			}
 			return errs.Trace(fmt.Errorf("迁移 v%d(%s) 语句执行失败: %w", s.version, s.name, execErr))
 		}
 	}
@@ -198,6 +203,15 @@ func gormNowExpr(_ *gorm.DB) string {
 func isTableMissingErr(err error) bool {
 	var mysqlErr *mysql.MySQLError
 	return asMySQLError(err, &mysqlErr) && mysqlErr.Number == 1146
+}
+
+// isDuplicateObjErr 判定 MySQL「对象已存在」类错误：1060（重复列名）/ 1061（重复索引名）。
+// 迁移重跑幂等的实现基础（0003 裸 ALTER 重跑场景）；若未来版本引入 ADD INDEX 等新
+// 已存在形态，扩充此判定即可，SQL 文件无需回改。
+func isDuplicateObjErr(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	return asMySQLError(err, &mysqlErr) &&
+		(mysqlErr.Number == 1060 || mysqlErr.Number == 1061)
 }
 
 // asMySQLError errors.As 薄封装（收拢依赖）。
