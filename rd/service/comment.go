@@ -527,7 +527,32 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 	if escalateSet {
 		s.dispatchEscalationNotification(ctx, row)
 	}
+	// 修复提交（resolve path=fix → fixed）→ retest 通知（spec §1.2 注记-D1/N1：
+	// re_review retest 子型，请提评者回到评审循环复核）
+	if in.action == domain.IssueActionResolve && in.resolve == domain.IssueResolvePathFix && row.State == repo.IssueStateFixed {
+		s.dispatchRetestNotification(ctx, row)
+	}
 	return row, nil
+}
+
+// dispatchRetestNotification 修复提交通知派发（注记-D1/N1：resolve path=fix 写入
+// fixed 后调用，事务外落库，失败不阻断业务）——re_review retest 子型：请提评者
+// 回到评审循环复核（target_id=缺陷 issueId 复核锚点，FE「待复验」投影按
+// target_id 非空区分子型）。收件=提评者角色（issues.reviewer_role）；
+// 非评审评论（reviewer_role 空）不派发——修复闭环仅评审链路语义。
+func (s *IssueService) dispatchRetestNotification(ctx context.Context, row *repo.Issue) {
+	recipient := derefString(row.ReviewerRole)
+	if recipient == "" {
+		return
+	}
+	Dispatch(s.notifier, NotificationSpec{
+		Kind:          NotificationKindReReview,
+		RequirementID: row.RequirementID,
+		NodeID:        row.NodeID,
+		TargetID:      row.IssueID,
+		RecipientRole: recipient,
+		Text:          fmt.Sprintf("缺陷 %s 已修复提交（fixed），待你复核", row.IssueID),
+	})
 }
 
 // issueAudit issue UPDATE 审计行装配（field 级留痕，old/new 文本化）。

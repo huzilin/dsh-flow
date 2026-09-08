@@ -1,6 +1,6 @@
-// Package handler Gin 路由薄壳。本文件：requirements 五端点
-// （wb_list / wb_create / wb_get / wb_update / wb_delete_requirement）——
-// 参数绑定 + 转发 service，业务编排一律在 service 层。
+// Package handler Gin 路由薄壳。本文件：requirements 六端点
+// （wb_list / wb_create / wb_get / wb_update / wb_delete_requirement /
+// wb_list_requirement_history）——参数绑定 + 转发 service，业务编排一律在 service 层。
 package handler
 
 import (
@@ -26,6 +26,8 @@ type RequirementAPI interface {
 	Update(ctx context.Context, req *api.UpdateRequirementReq) (*api.UpdateRequirementResp, error)
 	// Delete wb_delete_requirement ⚠️（需 User 明确指令口径）
 	Delete(ctx context.Context, req *api.DeleteRequirementReq) (*api.DeleteRequirementResp, error)
+	// ListHistory wb_list_requirement_history（需求字段变更历史，注记-D3/N6）
+	ListHistory(ctx context.Context, req *api.ListRequirementHistoryReq) (*api.ListRequirementHistoryResp, error)
 }
 
 // RegisterRequirementRoutes 注册 requirements 路由（group 形如 /api/requirements）。
@@ -33,6 +35,7 @@ func RegisterRequirementRoutes(group *gin.RouterGroup, svc RequirementAPI) {
 	group.GET("", ListRequirements(svc))
 	group.POST("", CreateRequirement(svc))
 	group.GET("/:reqId", GetRequirement(svc))
+	group.GET("/:reqId/history", ListRequirementHistory(svc))
 	group.PUT("/:reqId", UpdateRequirement(svc))
 	group.DELETE("/:reqId", DeleteRequirement(svc))
 }
@@ -114,6 +117,19 @@ func DeleteRequirement(svc RequirementAPI) gin.HandlerFunc {
 			Confirm:       c.Query("confirm") == "true",
 		}
 		resp, err := svc.Delete(c.Request.Context(), req)
+		if err != nil {
+			AbortWithErr(c, err)
+			return
+		}
+		respondProto(c, http.StatusOK, resp)
+	}
+}
+
+// ListRequirementHistory GET /api/requirements/:reqId/history（只读，无入参绑定）。
+func ListRequirementHistory(svc RequirementAPI) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		req := &api.ListRequirementHistoryReq{RequirementId: c.Param("reqId")}
+		resp, err := svc.ListHistory(c.Request.Context(), req)
 		if err != nil {
 			AbortWithErr(c, err)
 			return

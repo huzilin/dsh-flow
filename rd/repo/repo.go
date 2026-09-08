@@ -88,3 +88,23 @@ func (r *Repo) InsertAuditLogWith(tx *gorm.DB, entry *AuditLog) error {
 	}
 	return nil
 }
+
+// ListAuditByRow 按表名+行业务 id 读审计行（created_at DESC、id DESC——
+// 同毫秒多字段变更按写入倒序；history 读侧，spec §1.2 注记-D3）。
+//
+// limit 兜底上限（append-only 行数无界，读侧截断防快照膨胀；≤0 视为默认 200）。
+func (r *Repo) ListAuditByRow(ctx context.Context, table string, rowID string, limit int64) ([]*AuditLog, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows := make([]*AuditLog, 0, 8)
+	err := r.g.WithContext(ctx).
+		Where("table_name = ? AND row_id = ?", table, rowID).
+		Order("created_at DESC, id DESC").
+		Limit(int(limit)).
+		Find(&rows).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return rows, nil
+}

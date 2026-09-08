@@ -31,6 +31,23 @@ func (r *Repo) GetFlowByRequirementID(ctx context.Context, requirementID string)
 	return row, nil
 }
 
+// ListFlowsByRequirementIDs 批量按需求 id 取流程实例行（需求列表页
+// dependencies 字段填充，spec §1.2 注记-D4；免逐行 N+1 点查）。
+// ids 空集返回空集不查库。
+func (r *Repo) ListFlowsByRequirementIDs(ctx context.Context, requirementIDs []string) ([]*Flow, error) {
+	if len(requirementIDs) == 0 {
+		return []*Flow{}, nil
+	}
+	rows := make([]*Flow, 0, len(requirementIDs))
+	err := r.g.WithContext(ctx).
+		Where("requirement_id IN ?", requirementIDs).
+		Find(&rows).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return rows, nil
+}
+
 // GetFlowNodeByRequirementAndNodeID 读需求下指定实例节点；未命中返回 (nil, nil)。
 func (r *Repo) GetFlowNodeByRequirementAndNodeID(ctx context.Context, requirementID string, nodeID string) (*FlowNode, error) {
 	row := &FlowNode{}

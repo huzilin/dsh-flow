@@ -60,17 +60,16 @@ func TestUnit_NotifierNotifyValidation(t *testing.T) {
 }
 
 // TestUnit_NotifierNotifyAssembly 行装配：七类载体字段与跳转定位映射
-// （anchor_kind=类别、target_type=node 时空 target、task/issue 类落目标 id、
-// 派发者缺省 plugin、state=未读、issue_type=notification）。
+// （anchor_kind=类别、target_type=node 未传锚点时空 target、task/issue 类落
+// 目标 id、派发者缺省 plugin、state=未读、issue_type=notification）。
 func TestUnit_NotifierNotifyAssembly(t *testing.T) {
-	// node 类：gate_pending——target_id 置空（定位取 node_id 列）
+	// node 类：gate_pending——未传锚点，target_id 列位空（定位取 node_id 列）
 	store := &fakeStore{issueID: "cm-100"}
 	n := &Notifier{store: store}
 	row, err := n.Notify(context.Background(), NotificationSpec{
 		Kind:          NotificationKindGatePending,
 		RequirementID: "req-001",
 		NodeID:        "n-04",
-		TargetID:      "should-be-cleared",
 		RecipientRole: "pm",
 	})
 	assert.NilError(t, err)
@@ -84,6 +83,19 @@ func TestUnit_NotifierNotifyAssembly(t *testing.T) {
 	assert.Equal(t, store.captured.Author, "plugin", "派发者缺省 plugin")
 	assert.Equal(t, store.captured.RoleID, "plugin", "派发角色缺省 plugin")
 	assert.Equal(t, store.captured.Replies, "[]")
+
+	// node 类显式锚点（注记-D1：re_review retest 子型传 issueId）——保留不置空
+	storeRt := &fakeStore{issueID: "cm-102"}
+	_, err = (&Notifier{store: storeRt}).Notify(context.Background(), NotificationSpec{
+		Kind:          NotificationKindReReview,
+		RequirementID: "req-001",
+		NodeID:        "n-04",
+		TargetID:      "cm-101",
+		RecipientRole: "arch",
+	})
+	assert.NilError(t, err)
+	assert.Assert(t, storeRt.captured.AnchorArtifactID != nil, "显式锚点保留（retest 子型）")
+	assert.Equal(t, *storeRt.captured.AnchorArtifactID, "cm-101")
 
 	// task 类：悬置催办——target id 落 anchor_artifact_id
 	store2 := &fakeStore{issueID: "cm-101"}
