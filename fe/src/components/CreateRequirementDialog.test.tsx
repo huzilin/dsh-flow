@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CreateRequirementDialog } from "./CreateRequirementDialog";
-import type { CreateRequirementReq, VersionItem } from "../api/proto/api";
+import type { CreateRequirementReq, RequirementItem, VersionItem } from "../api/proto/api";
 
 /**
  * 创建需求对话框表驱动测试（T14 验收口径：类别→flow_defs_id 允许集显式选择 +
@@ -125,5 +125,85 @@ describe("CreateRequirementDialog（表驱动）", () => {
     await fillRequired(user);
     await user.click(screen.getByRole("button", { name: "保存" }));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ versionId: "" }));
+  });
+});
+
+/** 编辑模式基线行（RequirementModal §6 N4：编辑复用同弹窗）。 */
+function makeRequirement(): RequirementItem {
+  return {
+    requirementId: "req-001",
+    title: "交易对账明细导出",
+    description: "按日期范围导出",
+    category: "需求任务",
+    flowDefsId: "business",
+    versionId: "v-1",
+    priority: "P1",
+    status: "进行中",
+    owner: "rd",
+    createdBy: "user",
+    createdAt: "1",
+    updatedAt: "100",
+    dependencies: [],
+  };
+}
+
+function renderEditDialog(overrides?: {
+  onUpdate?: (req: { title: string; updatedAt: string; status: string }) => void;
+  initial?: RequirementItem;
+  initialScope?: string;
+}) {
+  const onUpdate = overrides?.onUpdate ?? vi.fn();
+  const initial = overrides?.initial ?? makeRequirement();
+  render(
+    <CreateRequirementDialog
+      open
+      mode="edit"
+      initial={initial}
+      initialScope={overrides?.initialScope ?? "full"}
+      versions={[makeVersion("v-1", "V1.0")]}
+      onClose={() => undefined}
+      onUpdate={onUpdate}
+    />,
+  );
+  return { onUpdate, initial };
+}
+
+describe("RequirementModal 编辑模式（§6 N4）", () => {
+  it("基线回填；提交载体含 updatedAt 乐观锁基线与改后字段", async () => {
+    const user = userEvent.setup();
+    const { onUpdate } = renderEditDialog();
+    expect(screen.getByLabelText(/^标题/)).toHaveValue("交易对账明细导出");
+    await user.clear(screen.getByLabelText(/^标题/));
+    await user.type(screen.getByLabelText(/^标题/), "交易对账明细导出 v2");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "交易对账明细导出 v2", updatedAt: "100", status: "进行中" }),
+    );
+  });
+
+  it("类别/流程类型/scope 编辑模式只读（重投影与 scope 主动切换不支持口径）", () => {
+    renderEditDialog();
+    expect(screen.getByLabelText(/^类别/)).toBeDisabled();
+    expect(screen.getByLabelText(/^流程类型/)).toBeDisabled();
+    expect(screen.getByLabelText(/^scope/)).toBeDisabled();
+    expect(screen.getByLabelText(/^scope/)).toHaveValue("full");
+  });
+
+  it("创建模式：scope 下拉随流程类型派生三值，空值=默认首值", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.selectOptions(screen.getByLabelText(/^类别/), "需求任务");
+    const scopeSelect = screen.getByLabelText(/scope/);
+    const texts = Array.from((scopeSelect as HTMLSelectElement).options).map((o) => o.text);
+    expect(texts).toEqual(["默认（full）", "full", "rd", "fe"]);
+  });
+
+  it("创建模式：plan 流程 scope 禁用置 —（N4）", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.selectOptions(screen.getByLabelText(/^类别/), "规划审批任务");
+    const scopeSelect = screen.getByLabelText(/scope/);
+    expect(scopeSelect).toBeDisabled();
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 });

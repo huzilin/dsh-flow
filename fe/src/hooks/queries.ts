@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ListRequirementsParams } from "../api/requirements";
-import { getRequirement, listRequirements } from "../api/requirements";
+import {
+  getRequirement,
+  listRequirementHistory,
+  listRequirements,
+} from "../api/requirements";
 import { listVersions } from "../api/versions";
 import { myTask } from "../api/flows";
 import { getArtifactContent } from "../api/artifacts";
@@ -36,6 +40,15 @@ export function useRequirementQuery(requirementId: string) {
   return useQuery({
     queryKey: ["requirement", requirementId],
     queryFn: () => getRequirement(api, requirementId),
+  });
+}
+
+/** 需求字段变更历史（spec §1.2 注记-D3/N6：详情页补遗卡 histPanel 数据源）。 */
+export function useRequirementHistoryQuery(requirementId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["requirementHistory", requirementId],
+    queryFn: () => listRequirementHistory(api, requirementId),
+    enabled: enabled && requirementId !== "",
   });
 }
 

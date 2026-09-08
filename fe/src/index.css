@@ -1126,3 +1126,69 @@ input.invalid {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── 详情补遗卡（§6 N6：描述折叠+元信息行+变更历史）── */
+.footnote-card {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px dashed #d0d5dd;
+  border-radius: 10px;
+  background: #fcfcfd;
+}
+.footnote-card .footnote-meta {
+  margin-top: 8px;
+}
+.footnote-history {
+  margin-top: 10px;
+}
+.history-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.history-row {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  border-bottom: 1px dashed #eaecf0;
+}
+.history-row:last-child {
+  border-bottom: none;
+}
+
+/* ── ⑥ 会话 tab（§6 N5）── */
+.session-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.session-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px dashed #eaecf0;
+}
+.session-row:last-child {
+  border-bottom: none;
+}
+.session-role {
+  font-size: 13px;
+  font-weight: 600;
+}
+.session-id {
+  font-family: ui-monospace, monospace;
+}
+.session-status-active {
+  background: rgba(88, 192, 122, 0.13);
+  color: #1c7c3c;
+}
+.session-status-ended {
+  background: rgba(138, 144, 163, 0.15);
+  color: #475467;
+}
+.session-status-disposed {
+  background: rgba(217, 128, 128, 0.12);
+  color: #b42318;
+}
