@@ -55,25 +55,11 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 		if err != nil {
 			return err
 		}
-		var carrier *repo.FlowNode
-		for _, node := range nodes {
-			if node.PendingScope != nil {
-				carrier = node
-				break
-			}
-		}
-		if carrier == nil {
-			// 无待重定标记：幂等 no-op（重复重投影/未打回）
-			resp.Ok = true
-			resp.Scope = flow.Scope
-			resp.Noop = true
-			return nil
-		}
 
+		// scope 校验前置：越出 scope_options 属入参非法，与是否持有 pending_scope
+		// 无关——先于幂等 no-op 判定拦截，非法入参不得借道 no-op 溜过
 		newScope := req.Scope
-		if newScope == "" {
-			newScope = flow.Scope
-		} else {
+		if newScope != "" {
 			flowDef, err := s.repo.GetFlowDefByID(ctx, flow.FlowDefsID)
 			if err != nil {
 				return err
@@ -95,6 +81,25 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 			if !valid {
 				return invalidArg("scope %q 越出可选集 %v", newScope, options)
 			}
+		}
+
+		var carrier *repo.FlowNode
+		for _, node := range nodes {
+			if node.PendingScope != nil {
+				carrier = node
+				break
+			}
+		}
+		if carrier == nil {
+			// 无待重定标记：幂等 no-op（重复重投影/未打回）
+			resp.Ok = true
+			resp.Scope = flow.Scope
+			resp.Noop = true
+			return nil
+		}
+
+		if newScope == "" {
+			newScope = flow.Scope
 		}
 
 		defPtrs, err := s.repo.ListFlowDefNodesByFlowDefsID(ctx, flow.FlowDefsID)

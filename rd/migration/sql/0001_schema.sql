@@ -7,7 +7,7 @@
 -- =====================================================================
 
 -- 1. 能力注册表
-CREATE TABLE capabilities (
+CREATE TABLE IF NOT EXISTS capabilities (
   id           BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   capability_id  VARCHAR(64)  NOT NULL COMMENT '能力唯一标识，如 backend-dev / arch.prd-review',
   name           VARCHAR(128) NOT NULL COMMENT '能力显示名',
@@ -23,7 +23,7 @@ CREATE TABLE capabilities (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='能力注册表';
 
 -- 2. 角色注册表
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
   id           BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   role_id      VARCHAR(32)  NOT NULL COMMENT '角色标识：rd/fe/qa/arch/pm/cr/inv/leader/user/executor',
   name         VARCHAR(64)  NOT NULL COMMENT '角色显示名',
@@ -35,7 +35,7 @@ CREATE TABLE roles (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色注册表';
 
 -- 3. 流程定义（原 flow_templates）
-CREATE TABLE flow_defs (
+CREATE TABLE IF NOT EXISTS flow_defs (
   id            BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   flow_defs_id  VARCHAR(32) NOT NULL COMMENT '流程类型：business/tech/task/plan',
   scope_options TEXT        NOT NULL COMMENT '可选 scope 集合 JSON 文本：business/tech=["full","rd","fe"]，task=["rd","fe"]，plan=[]',
@@ -46,7 +46,7 @@ CREATE TABLE flow_defs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='流程定义表';
 
 -- 4. 定义节点（原 flow_template_nodes）
-CREATE TABLE flow_def_nodes (
+CREATE TABLE IF NOT EXISTS flow_def_nodes (
   id               BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   flow_defs_id     VARCHAR(32) NOT NULL COMMENT '所属流程，逻辑引用 flow_defs.flow_defs_id',
   template_node_id VARCHAR(32) NOT NULL COMMENT '定义节点稳定 id，如 bus-03',
@@ -68,7 +68,7 @@ CREATE TABLE flow_def_nodes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='定义节点表';
 
 -- 5. 流程实例
-CREATE TABLE flows (
+CREATE TABLE IF NOT EXISTS flows (
   id              BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   requirement_id  VARCHAR(32) NOT NULL COMMENT '需求 id，逻辑引用 requirements.requirement_id',
   flow_defs_id    VARCHAR(32) NOT NULL COMMENT '流程类型，逻辑引用 flow_defs.flow_defs_id',
@@ -81,7 +81,7 @@ CREATE TABLE flows (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='流程实例表';
 
 -- 6. 实例节点
-CREATE TABLE flow_nodes (
+CREATE TABLE IF NOT EXISTS flow_nodes (
   id                 BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   requirement_id     VARCHAR(32) NOT NULL COMMENT '需求 id，逻辑引用 flows.requirement_id',
   node_id            VARCHAR(32) NOT NULL COMMENT '实例节点 id，如 n-05',
@@ -106,7 +106,7 @@ CREATE TABLE flow_nodes (
 -- 注：门禁裁决 approved/rejected 由 last_decision JSON 承载（见 flow_nodes 扩展或独立列，见 §0.3 补充列）
 
 -- 7. 任务（唯一待办总线）
-CREATE TABLE tasks (
+CREATE TABLE IF NOT EXISTS tasks (
   id             BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   task_id        VARCHAR(40) NOT NULL COMMENT '任务业务 id，如 t-<ts>-<seq>',
   requirement_id VARCHAR(32) NOT NULL COMMENT '需求 id',
@@ -141,7 +141,7 @@ CREATE TABLE tasks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务待办总线';
 
 -- 8. 产物
-CREATE TABLE artifacts (
+CREATE TABLE IF NOT EXISTS artifacts (
   id             BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   artifact_id    VARCHAR(32)  NOT NULL COMMENT '产物业务 id，如 art-<ts>',
   requirement_id VARCHAR(32)  NOT NULL COMMENT '需求 id',
@@ -161,7 +161,7 @@ CREATE TABLE artifacts (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='产物表';
 
 -- 9. 评论/问题（issue 状态机 v2）
-CREATE TABLE issues (
+CREATE TABLE IF NOT EXISTS issues (
   id              BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   issue_id        VARCHAR(32) NOT NULL COMMENT '评论业务 id，如 cm-<ts>',
   requirement_id  VARCHAR(32) NOT NULL COMMENT '需求 id',
@@ -204,7 +204,7 @@ CREATE TABLE issues (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评论/问题表（issue 状态机：open→pending-confirm→resolved/to-fix/open（澄清，reopen 计数）；to-fix→fixed→复核→resolved/to-fix（修复，revise 计数））';
 
 -- 10. 会话（flow↔session 绑定 + 按需会话通道）
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
   id             BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   session_id     VARCHAR(64) NOT NULL COMMENT '会话业务 id',
   requirement_id VARCHAR(32) NOT NULL DEFAULT '' COMMENT '关联需求；空串=无',
@@ -221,7 +221,7 @@ CREATE TABLE sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话绑定表';
 
 -- 11. 审计（append-only：created_at=updated_at 恒同值）
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
   id         BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   table_name VARCHAR(32) NOT NULL COMMENT '被变更表名',
   row_id     VARCHAR(64) NOT NULL COMMENT '业务主键值',
@@ -237,7 +237,7 @@ CREATE TABLE audit_log (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审计日志（append-only）';
 
 -- 12. 元信息
-CREATE TABLE meta (
+CREATE TABLE IF NOT EXISTS meta (
   id         BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   meta_key   VARCHAR(64) NOT NULL COMMENT '元信息键，如 schema_version',
   meta_value TEXT        NOT NULL COMMENT '元信息值',
@@ -248,7 +248,7 @@ CREATE TABLE meta (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='元信息表';
 
 -- 13. 需求（原 requirements.json 收编）
-CREATE TABLE requirements (
+CREATE TABLE IF NOT EXISTS requirements (
   id              BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   requirement_id  VARCHAR(32)  NOT NULL COMMENT '需求业务 id，如 req-001',
   title           VARCHAR(256) NOT NULL COMMENT '标题',
@@ -269,7 +269,7 @@ CREATE TABLE requirements (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='需求表';
 
 -- 14. 版本（原 versions.json 收编）
-CREATE TABLE versions (
+CREATE TABLE IF NOT EXISTS versions (
   id          BIGINT UNSIGNED AUTO_INCREMENT COMMENT '纯自增主键',
   version_id  VARCHAR(32) NOT NULL COMMENT '版本业务 id，如 v-1',
   name        VARCHAR(64) NOT NULL COMMENT '版本名（自由文本）',
