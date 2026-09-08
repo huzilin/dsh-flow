@@ -18,7 +18,17 @@
 - 本机 8080 被占（冒烟用 18080）；分支名必须扁平（带 `/` 与 `wbflow-impl` 嵌套冲突）
 - subagent 约定：prompt 开头 `Load the "caveman" skill and follow it.`；实现者各占独立 worktree/分支，合并者串行占 `.worktrees/wbflow-impl`；api.proto/生成物冲突=proto 取并集后 `cd docs/api/v1 && buf generate` 重生成，生成物不手解
 
-## 当前状态：CR 第 1 轮进行中
+## 当前状态：CR 复审循环已清零（2026-09-08 晚，第 2 次更新），待实证收尾
+
+> **本轮进展（2026-09-08 晚会话）**：R4 三轴复审（Standards + Spec A/B）→ 实现者修复 10 项 → R5 合轴复核清零。`wbflow-impl` 已快进至 `a31d9b1`（含 CR#1-#17 修复 + R4 十项 + R5 备注，共 16 提交）；main 新增 `59f3f0a`（spec §4.1 计数 41→40）。本地闸门（gofmt/build/vet/test）全绿。
+>
+> **R4 修复内容**：scanner `Scanned int64`（硬违规）、idAllocRetryLimit 同址、strPtr/boolToInt64 迁 `pkg/utils/ptr.go` + README 对齐、deriveOwnerRole 未导出、0003 迁移 INFORMATION_SCHEMA 条件 DDL 幂等、scope 筛选 IT 四分支、级联删除补 DELETE 审计 + 无孤儿断言、陈旧注释如实化、e2e README 26、SplitCapabilityAction id 约定注释（action_id 不含点、capability_id 可含点，实现者纠正了 CR 原文的错误约定表述）。
+>
+> **R5 复核两条非阻断备忘**：IT 删除用例硬编码 13 节点（seed 变更会碎，既有风格）；README helper 名大小写已随手修（`a31d9b1`）。
+>
+> **剩余步骤（需 User 输入）**：① MySQL root 凭据 → 集中 IT 复跑 + e2e 三剧本复跑 + FE 浏览器冒烟（本会话已查实 env/shell 配置无 WBFLOW_MYSQL 通道）；② 裁决 A-E；③ 若要 → 推 origin/建 MR；④ 全部通过后清理 `.worktrees/t*` 与 `/tmp/wbflow-base`（prunable）。
+
+### 以下为第 1 轮记录（存档，修复情况以本轮为准）
 
 ### Standards 轴（已完成）
 - 硬违规 1：`rd/service/scanner.go:85` `Scanned int` 违反「int 统一 int64」
