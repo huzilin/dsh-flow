@@ -150,12 +150,21 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 		NodeType:  nodeType,
 		State:     node.State,
 		Reviewers: node.Reviewers,
+		// T9 重入上下文：exec 首产/返工配置选择依据 + 重开来源 + 评审敲定分支
+		RolledBackCount: node.RolledBackCount,
+		ReopenSource:    node.ReopenSource,
+		FeatureBranch:   derefString(node.FeatureBranch),
 	}
 	resp.CurrentPhase = node.State
 
 	active, err := domain.ActiveActionsFor(req.Role, node.State, nodeActions, capabilityInfos)
 	if err != nil {
 		return nil, errs.Trace(err)
+	}
+	// exec 相位首产/返工配置选择（T9）：rolled_back_count=0 → 首产集（produce/dev/
+	// accept）；≥1 → 返工集（revise/diagnosing-bugs/retest）；集合外动作不受影响
+	if node.State == repo.PhaseExec {
+		active = domain.FilterExecActionsByReentry(active, node.RolledBackCount)
 	}
 	activeItems := make([]*api.MyTaskActionItem, 0, len(active))
 	for _, action := range active {
