@@ -1,7 +1,7 @@
 # 交互层 v3 增补稿（模块 I / II / III·IV · diff 层）
 
 > **定位**：既有 PRD（`docs/v1.0/01-module-board`、`02-module-flow-tree`、`03-module-inbox-todo`）为**基线，不动**；本文 = v3 编排模型（capability-model-final v3.1）+ scope 体系 + 评审轮 per-agent 语义在 UI 上的**增补层**——只写「改什么、加什么」，未提及处基线照旧。
-> **原型**：`docs-tmp/diagrams/ui-prototype-v3.html`（六面板已 review：P1/P4/P5/P6 确认，P5/P4/P6 已补节点跳转；P2/P3 视图暂缓开发——设计保留实现靠后）。
+> **原型**：`docs-tmp/diagrams/ui-prototype-v3.html`（六面板已 review：P1/P4/P5/P6 确认，P5/P4/P6 已补节点跳转；P2/P3 视图暂缓开发——设计保留实现靠后）。**P8–P11（2026-09-09 补齐，待 review）**：模块 I 看板/需求池（P8 四泳道+scope 徽标+列表视图+RequirementModal）、版本管理（P9 状态机+依赖树按需拉取+并发调度预留）、模块 III 收件箱（P10 通知七类）、模块 IV TODO（P11 五分类投影）；跳转闭环已接线（看板↔节点详情、拍板卡↔收件箱双通道、冲突卡/TODO→详情）并修复 P1 scope 切换的 flowhint 缺失。同日对 PRD/fe-design 全量扫缺，P1 补会话 tab（⑥）/详情补遗卡（⑦）/会话找 X/缺陷闭环示例——暴露的设计空洞定稿见 **§6**。
 > **模型依据**：两层属性状态机（node.state 4 相位 + per-agent 评审轮 reviewing/agree/unagree + collect 内置聚合）；scope 渲染集合表达式（rd|full / fe|full / full / '' / rd|fe）。
 
 ---
@@ -94,7 +94,7 @@
 |---|---|---|---|
 | **待你拍板** | 门禁 agreed + user_gate | owner（迎宾呈现+收件箱双通道） | 「待评审门禁」 |
 | **澄清任务** | collect 判 unagree | owner（澄清 issue 清单） | 「待界定新范围」+「产出者反驳」语义合并 |
-| **重新表态请求** | 澄清后 plugin 发回 reviewer | reviewer（followup/复用通道） | 新增（原「要求补充答复」近义） |
+| **重新表态请求** | 澄清后 plugin 发回 reviewer；**修复提交（to-fix→fixed）待复核同走本通道（retest，2026-09-09 补：基线「产出修订完成」在 v3 映射中原本遗漏，见 §6 N1）** | reviewer/提评者（followup/复用通道） | 新增（原「要求补充答复」近义；基线「产出修订完成」并入此通道） |
 | **悬置催办** | 已结束 5min 未表态 | reviewer（followup 文案：遇卡点上报） | 新增（扫描器） |
 | **需你介入** | 10min 仍未推进 | plugin → User | 新增（扫描器） |
 | **冲突上升裁决** | escalate 标记 | reviewer 主持 | 新增（冲突响应机制） |
@@ -127,3 +127,19 @@
 - **P2 评审轮视图 / P3 进度面板**（per-agent 完整时间线+问题列表）：复杂度高、需求不强烈——数据结构（review_results）不变，UI 后置。
 - 冲突对峙增强（顺序质询轮/多 agent 同会话）：待 DSH 能力演进。
 - 依赖调度器：长期 effort（MVP 人工卡点）。
+
+---
+
+## 6. 原型补齐定稿注记（2026-09-09 · 对照 PRD/fe-design 全量扫缺时暴露的设计空洞 · 可推翻）
+
+> 背景：P8–P11 补齐后对既有技术文档（三份 PRD + 三份 fe/design.md + 本文）做双向核对——A 类「文档已定但原型缺」直接补原型（P1 会话 tab/详情补遗卡/会话找 X/缺陷闭环示例、P8 RequirementModal）；B 类「文档未定、原型必须给出形态」的空洞在下方定稿。暂缓项（§5）不受影响。
+
+| # | 空洞 | 定稿 |
+|---|---|---|
+| **N1** | 基线六类「产出修订完成」（待复验）在 §3.1 v3 七类映射中**遗漏**，而 §3.2 TODO 五分类含「待复验（retest）」——通知无来源 | 并入「重新表态请求」：触发扩为「澄清回填**或修复提交（to-fix→fixed）**后，请 reviewer/提评者回到评审循环」；§3.1 表已就地标注 |
+| **N2** | 七类通知逐类的「用户动作/跳转目标」未定义（PRD 只说「逐条可回应」） | 待你拍板→迎宾拍板卡；澄清任务→节点详情意见区；重新表态请求（含 retest）→节点详情；悬置催办→reviewer followup（不进 User 列表）；需你介入→节点详情；冲突上升裁决→冲突卡；会话消息→对应会话视图。收件箱按接收人投递，User 列表=报送对象含 User 的子集（原型 P10 为演示全量七类不区分接收人） |
+| **N3** | TODO 五分类 ← 七类通知的投影映射未定 | 待拍板←待你拍板；待澄清←澄清任务；待重表态←重新表态请求（澄清子型）；待复验←重新表态请求（retest 子型）；冲突待裁决←冲突上升裁决；悬置催办/需你介入为提醒类，不产生 TODO |
+| **N4** | 新建/编辑需求弹窗（RequirementModal）的 scope 字段形态未定 | select 三值（full/rd/fe）；类别=规划审批/版本规划时禁用置 —（scope_options 随类别派生）；标题空→保存禁用+红框（基线 AC） |
+| **N5** | 会话 tab（D6）条目字段与打开行为未展开（正文仅一句话） | 条目=绑定角色 + 状态（进行中/已结束）+ 最近消息摘要（已结束=结论回填摘要）+ 时间；点击 → plugin 泛用接口打开会话视图（不经中转）；「会话找 X」按钮常驻详情页 detailtop 与门禁卡（X 随节点绑定角色动态：full=qa / fe-only=fe / rd-only=rd） |
+| **N6** | 变更历史面板（histPanel）与描述展示在 v3 上下分栏详情页的挂载形态未定 | 详情页底部折叠卡，与五区分栏并存：描述 Markdown（>4 行折叠 150px + 展开全部 ▾）+ 元信息行（负责人/进入时间/回滚次数/职责）+ 变更历史（时间倒序自然语句）——见原型 P1 卡 ⑦ |
+| **N7** | QA 缺陷闭环（02 PRD §5.2 验收节点特有交互）原型无示例 | P1 意见区补缺陷 thread 示例：缺陷文档登记产物 + domain=rd\|fe 自动指派；resolve 带理由=异议表达（不存在「RD/FE 打回 QA」）；QA confirm/reopen 最终裁定；评论 reopen（单条缺陷）≠ wb_decide reject(targetBranch)（验收整体打回、部分回滚） |

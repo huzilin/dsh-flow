@@ -12,7 +12,7 @@ wbflow 前端。React 19 + Vite 8 + TypeScript（严格模式）+ react-router 7
 
 五区分栏口径对照（`docs-tmp/ui-interaction-final.md` §1.2）：① 状态卡=双行（执行行：相位徽标+my_task 激活动作；审批行：表态计数）② 评审状态行=per-agent 药丸（轮内完整时间线属暂缓项 P2）③ 产物区=文件行+💬N+外链 ④ 意见区=评论列表+escalate 标记+在途任务投影（冲突卡聚合属 T16）⑤ 拍板卡=进度只读态（评审轮进行中/agreed 待拍板提示/已裁决 verdict）。数据源全部走聚合快照 + my_task（role=user），不自拼接口。
 
-交互基线与增补明细：`docs-tmp/ui-interaction-final.md` · 原型：`docs-tmp/diagrams/ui-prototype-v3.html`
+交互基线与增补明细：`docs-tmp/ui-interaction-final.md` · 原型：`docs-tmp/diagrams/ui-prototype-v3.html`（P1–P11：P8 看板/需求池、P9 版本管理、P10 收件箱、P11 TODO 为模块 I/III/IV 原型，2026-09-09 补齐）
 
 ## 常用命令
 

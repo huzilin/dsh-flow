@@ -71,6 +71,72 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .brd h4{font-size:13px;color:var(--blue);margin-bottom:6px}
 .tabs{display:flex;gap:14px;font-size:13px;color:var(--sub);margin-bottom:10px}
 .tabs .on{color:var(--amber);font-weight:600}
+.desc{font-size:12.5px;color:var(--sub);margin:6px 0 12px}
+/* ── P8 看板/需求池 ── */
+.lanes{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+.lane{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:200px}
+.lanehead{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;margin-bottom:8px}
+.lanehead .cnt{margin-left:auto;color:var(--sub);font-weight:400}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.reqcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:8px}
+.reqcard.lnk{cursor:pointer}
+.reqcard.lnk:hover{border-color:var(--blue)}
+.reqcard .t{font-size:13px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.reqcard .t .ops{margin-left:auto;font-size:11px;color:var(--sub);font-weight:400}
+.reqmeta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--sub)}
+.cat{padding:1px 7px;border-radius:5px;background:rgba(138,144,163,.15);color:var(--sub)}
+.sc{padding:1px 7px;border-radius:5px;font-weight:600}
+.sc-full{background:rgba(179,157,255,.15);color:var(--purple)}
+.sc-rd{background:rgba(122,184,255,.14);color:var(--blue)}
+.sc-fe{background:rgba(88,192,122,.13);color:var(--green)}
+.pr{padding:1px 7px;border-radius:5px;font-weight:700}
+.pr0{background:rgba(217,128,128,.15);color:var(--red)}
+.pr1{background:rgba(232,179,74,.15);color:var(--amber)}
+.pr2{background:rgba(122,184,255,.14);color:var(--blue)}
+.pr3{background:rgba(138,144,163,.15);color:var(--sub)}
+.dep{color:var(--amber)}
+table.lb{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+.lb th{color:var(--sub);font-weight:600;text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);font-size:12px}
+.lb td{padding:8px 10px;border-bottom:1px dashed var(--line)}
+.lb tbody tr:hover td{background:rgba(122,184,255,.04)}
+/* ── P9 版本管理 ── */
+.vrow{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--card);flex-wrap:wrap}
+.vname{font-weight:600;font-size:13.5px;width:86px;flex:none}
+.b-run{background:rgba(232,179,74,.12);color:var(--amber)}
+.b-dead{background:rgba(217,128,128,.12);color:var(--red)}
+.vbar{display:flex;height:8px;border-radius:4px;overflow:hidden;flex:1;min-width:140px;background:var(--panel)}
+.vbar i{display:block;height:100%}
+.vops{display:flex;gap:6px;flex-wrap:wrap}
+.tree{border-left:2px solid var(--line);margin:6px 0 4px 8px;padding-left:16px}
+.tree .tn{font-size:12.5px;padding:3px 0}
+/* ── P10/P11 收件箱/TODO ── */
+.ibx{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--card);cursor:pointer}
+.ibx:hover{border-color:var(--blue)}
+.ibx .rdot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex:none;margin-top:7px}
+.ibx .rdot.read{background:transparent;border:1px solid var(--line)}
+.ibx .bd{font-size:13px;flex:1}
+.ibx .bd .tt{font-weight:600}
+.ibx .mt{font-size:11.5px;color:var(--sub);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+.tag-g{background:rgba(232,179,74,.14);color:var(--amber)}
+.tag-c2{background:rgba(179,157,255,.14);color:var(--purple)}
+.tag-b{background:rgba(122,184,255,.14);color:var(--blue)}
+.tag-n{background:rgba(138,144,163,.15);color:var(--sub)}
+.tag-r{background:rgba(217,128,128,.14);color:var(--red)}
+.tag-e{background:rgba(179,157,255,.22);color:var(--purple)}
+.tag-s{background:rgba(88,192,122,.13);color:var(--green)}
+.dock{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:12.5px;color:var(--sub);display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}
+/* ── 需求新建/编辑模态（基线 RequirementModal）── */
+.modalmask{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:20;align-items:flex-start;justify-content:center;padding-top:8vh}
+.modalmask.on{display:flex}
+.modal{width:660px;max-width:92vw;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h4{font-size:14.5px;margin-bottom:10px}
+.mrow{display:flex;align-items:flex-start;gap:10px;padding:6px 0}
+.mrow .k{width:56px;padding-top:6px}
+.mrow input[type=text],.mrow select{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:7px;color:var(--ink);font:inherit;font-size:12.5px;padding:6px 9px}
+.mrow input[type=text].bad{border-color:var(--red)}
+.mrow textarea{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:7px;color:var(--ink);font:inherit;font-size:12.5px;padding:6px 9px;min-height:52px}
+.foldline{display:flex;gap:10px;align-items:baseline;padding:5px 0;font-size:12.5px;border-bottom:1px dashed var(--line)}
+.foldline:last-child{border-bottom:none}
 .switch{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:#000;padding:9px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:9;border:1px solid #333}
 .switch button{background:none;border:none;color:#fff;font-size:16px;cursor:pointer;padding:0 6px}
 .switch .lb{font-size:12.5px;min-width:250px;text-align:center}
@@ -82,8 +148,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <!-- ═════ P1 · 节点详情（上下分栏：流程图在上 + 四区分栏在下） ═════ -->
 <div class="panel on" id="p1">
 <div class="detailtop">
-  <span class="back">← 返回看板</span><span class="title">交易对账明细导出</span>
-  <span class="chip">需求任务</span><span class="chip pri">P1</span><span class="chip st">进行中</span><button>编辑</button>
+  <span class="back" onclick="mvTo('p8')">← 返回看板</span><span class="title">交易对账明细导出</span>
+  <span class="chip">需求任务</span><span class="chip pri">P1</span><span class="chip st">进行中</span><button>编辑</button><button title="§1.5 按需会话通道：节点绑定角色动态——full=qa / fe-only=fe / rd-only=rd">会话找 qa</button>
   <span style="margin-left:auto;display:flex;gap:8px">
     <button class="sbtn on" onclick="setScope('full')">scope=full</button>
     <button class="sbtn" onclick="setScope('rd')">scope=rd</button>
@@ -123,7 +189,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <g class="nd" data-s="any"><rect x="1550" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="1562" cy="78" r="4" fill="#4a4f60"/><text x="1619" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">11 用户验收</text></g>
     <g class="nd" data-s="any"><rect x="1704" y="59" width="118" height="38" rx="7" fill="#1b1e27" stroke="#2b2f3d"/><circle cx="1716" cy="78" r="4" fill="#4a4f60"/><text x="1773" y="82" text-anchor="middle" font-size="11.5" fill="#e6e8ef">12 完成</text></g>
   </svg>
-  <div class="hint">选中节点 5：双属性状态卡（下）· v3 相位角标 clarifying · 并行泳道 RD/FE · 节点 10 标 full（仅全量渲染）</div>
+  <div class="hint" id="flowhint">选中节点 5：双属性状态卡（下）· v3 相位角标 clarifying · 并行泳道 RD/FE · 节点 10 标 full（仅全量渲染）</div>
 </div>
 <div class="grid4">
   <div class="card statecard">
@@ -140,7 +206,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
       <div class="pill"><span class="r">PM</span><span class="v pass">✅ agree</span><span class="n">已表态</span></div>
       <div class="pill"><span class="r">User</span><span class="v wait">⏳ 终审</span><span class="n">user_gate</span></div>
     </div>
-    <div class="hint">表态看药丸（reviewers[].verdict）、讨论点进去（评论操作矩阵不变）</div>
+    <div class="hint">表态看药丸（reviewers[].verdict）、讨论点进去（评论操作矩阵不变）；轮次 ≥10 未解决 → 药丸黄色高亮「疑似卡死」，拉锯 roundCount&gt;5 → 自动通知 Leader/User 介入</div>
   </div>
   <div class="card">
     <h3>③ 产物（点击 → 既有阅读器，不变）</h3>
@@ -160,13 +226,38 @@ button:disabled{opacity:.4;cursor:not-allowed}
       <div>对账周期字段建议显式声明时区。</div>
       <div class="btns"><button>回复</button><button class="pri">resolve（修复关闭）</button></div>
     </div>
+    <div class="foldline" style="cursor:pointer" title="已解决评论默认折叠为一行摘要，点击展开（by/note/path）"><span class="ok">✓ resolved</span><span style="color:var(--sub)">Arch：容量估算已补（by rd · note「补充 3 倍峰值估算」）· 点击展开</span></div>
+    <div class="thread">
+      <div class="thd-head"><b>QA</b><span class="tag" style="background:rgba(217,128,128,.14);color:var(--red)">缺陷</span><span class="meta">《缺陷文档》#B-07 · domain=fe 自动指派 FE</span></div>
+      <div>导出按钮在空结果集下未置灰（AC-3 不符）。FE resolve 带理由=异议表达（误判/非缺陷直接 resolve(note)；<b>不存在「RD/FE 打回 QA」</b>）→ QA 复核 confirm 关闭 / reopen 继续。</div>
+      <div class="btns"><button>回复</button><button class="pri">resolve（A 修复关闭 · 必填 note）</button><button>reopen（QA 复核不通过）</button></div>
+      <div class="hint">与流程级打回区分：评论 reopen=单条缺陷不认可；wb_decide reject(targetBranch)=QA 验收整体打回开发阶段（部分回滚）</div>
+    </div>
   </div>
   <div class="card">
     <h3>⑤ 门禁 / 拍板卡（agreed 前 = 只读进度）</h3>
     <div class="sumrow"><span class="k">表态</span><span>agree 2 · unagree 1 · 未表态 1（barrier 3/4）</span></div>
     <div class="sumrow"><span class="k">意见</span><span>open 3 · pending-confirm 0 · resolved 2</span></div>
     <div class="sumrow"><span class="k">拍板</span><button disabled>通过（待全 resolved + User 终审）</button></div>
-    <div class="hint">tabs：产物 ｜ <b>会话（2）</b>——节点关联 subagent 对话（D6）</div>
+    <div class="hint">tabs：产物 ｜ <b>会话（2）</b>——切换见下方 ⑥ 会话 tab 卡（D6 新增）</div>
+  </div>
+  <div class="card">
+    <h3>⑥ 会话 tab（v3 新增 · D6 sessions）</h3>
+    <div class="tabs"><span>产物</span><span class="on">会话（2）</span></div>
+    <div class="foldline"><span class="tag" style="background:rgba(88,192,122,.13);color:var(--green)">进行中</span><span style="cursor:pointer;color:var(--blue)">rd · implement-techdesign（编排进度 2/5）</span><span class="meta" style="margin-left:auto">最近：「C4 分页游标化改造中」· 09:38</span></div>
+    <div class="foldline"><span class="tag" style="background:rgba(138,144,163,.15);color:var(--sub)">已结束</span><span style="cursor:pointer;color:var(--blue)">qa · 对象化评审（skill 装载）</span><span class="meta" style="margin-left:auto">结论已回填 review_results · 09:02</span></div>
+    <div class="hint">历史/进行中 subagent 对话列表（sessions 表按 node_id 关联，不经中转）；点击 → plugin 泛用接口打开会话视图；「会话找 qa」按钮常驻 detailtop（§1.5）</div>
+  </div>
+  <div class="card">
+    <h3>⑦ 需求详情补遗（基线元信息 + 描述折叠 + 变更历史）</h3>
+    <div class="sumrow"><span class="k">元信息</span><span>负责人 RD · 进入时间 09-08 14:20 · 回滚 1 次 · 职责：技术方案与开发执行</span></div>
+    <div class="foldline" style="cursor:pointer"><span style="color:var(--sub)">描述（Markdown · &gt;4 行默认折叠 150px）：</span><span class="meta" style="margin-left:auto;color:var(--blue)">展开全部 ▾</span></div>
+    <div class="foldline" style="color:var(--sub)">对账明细导出：按日期范围导出 CSV，区分币种，财务月底批用…</div>
+    <div class="foldline" style="cursor:pointer"><span style="color:var(--sub)">变更历史（histPanel · 时间倒序 · 自然语句审计）</span><span class="meta" style="margin-left:auto;color:var(--blue)">收起 ▴</span></div>
+    <div class="foldline"><span class="meta">09-08 15:02</span><span>User 将「优先级」从「P2」变更为「P1」</span></div>
+    <div class="foldline"><span class="meta">09-08 14:25</span><span>User 将「负责人」从「—」变更为「RD」</span></div>
+    <div class="foldline"><span class="meta">09-08 14:20</span><span>User 填写了需求说明</span></div>
+    <div class="hint">与五区分栏并存（需求字段审计与流程评审正交）；描述不做逐字 diff（显示 填写/清空/修改了需求说明）</div>
   </div>
 </div>
 </div>
@@ -225,7 +316,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 
 <div class="panel" id="p4">
 <h1>P4 · user_gate 拍板卡（agreed 后迎宾呈现态）</h1>
-<div class="lead">📬 收件箱同步：「节点 5 RD 技术评审 · 待你拍板」（点此跳转）</div>
+<div class="lead" style="cursor:pointer" onclick="mvTo('p10')" title="收件箱条目（双通道：系统投递 ↔ owner 迎宾呈现）">📬 收件箱同步：「节点 5 RD 技术评审 · 待你拍板」（点此跳收件箱）</div>
 <div class="card">
   <div class="lead">👤 责任人（rd）已为你准备本轮评审汇总 ↓</div>
   <div class="sumrow"><span class="k">结论</span><span class="ok">全票 agreed · 无残留 open</span></div>
@@ -237,7 +328,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <button class="pri">通过（迁移 FE 技术设计）</button>
     <button class="dgr">打回（必填理由 → exec 重入 revise）</button>
     <button>会话找 rd</button>
-    <button>↗ 节点 5 详情</button>
+    <button onclick="mvTo('p1')">↗ 节点 5 详情</button>
   </div>
 </div>
 </div>
@@ -246,7 +337,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <div class="panel" id="p5">
 <h1>P5 · 冲突卡与上升裁决（取代 override 强权）</h1>
 <div class="conflict">
-  <div class="head"><span class="tag t-esc">escalate</span> 冲突：分页方案分歧（issue cm-3341 · 第 3 轮 reopen）<button style="margin-left:auto" class="pri">上升裁决</button><button>↗ 节点 5 详情</button></div>
+  <div class="head"><span class="tag t-esc">escalate</span> 冲突：分页方案分歧（issue cm-3341 · 第 3 轮 reopen）<button style="margin-left:auto" class="pri">上升裁决</button><button onclick="mvTo('p1')">↗ 节点 5 详情</button></div>
   <div class="versus">
     <div class="side"><h5>正方 · QA</h5>cursor 分页：对账明细量大，offset 深翻页性能劣化；并发写入漏记/重记，违反资金域正确性。</div>
     <div class="side"><h5>反方 · RD</h5>offset 分页：下游批量拉取依赖页码重试语义；cursor 需改导出链路协议，本期改动面大。</div>
@@ -258,7 +349,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
   <div class="chat">
     <div class="msg ai">双方最终立场如上。请 User 裁决：① cursor（导出协议改造 +2d）② offset（加深翻页保护）③ 其他。</div>
     <div class="msg me">采用 cursor，导出链路本期一起改。</div>
-    <div class="msg ai">结论已回填 issue cm-3341：「User 裁决：采用 cursor」→ rd 重新表态（confirm）→ 轮次恢复。<u>↗ 查看节点 5 详情</u></div>
+    <div class="msg ai">结论已回填 issue cm-3341：「User 裁决：采用 cursor」→ rd 重新表态（confirm）→ 轮次恢复。<u style="cursor:pointer" onclick="mvTo('p1')">↗ 查看节点 5 详情</u></div>
   </div>
   <div class="hint">评论区可见回填（数据层留痕）→ reviewer 重新表态 → 正常判据链恢复</div>
 </div>
@@ -274,8 +365,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
   <div class="msg ai">确认几点：① 默认当月？② 是否区分币种？③ 权限范围？</div>
   <div class="msg me">默认当月；区分币种；财务+对账运营可导。</div>
 </div>
-<div class="btns" style="margin:12px 0"><button class="pri">完成对齐（User 确认 → to-brd 生成落盘 → 迁移产品设计）</button><button>↗ 节点 1 详情</button>
-<div class="hint">按当前推演：用户确认=唯一信号 → exec(to-brd) 落盘 brd → approve 迁移（无预览审批步；brd 在节点 2 产物区可见）</div></div>
+<div class="btns" style="margin:12px 0"><button class="pri">完成对齐（User 确认 → to-brd 生成落盘 → 迁移产品设计）</button><button onclick="mvTo('p1')">↗ 节点 1 详情</button>
+<div class="hint">按当前推演：用户确认=唯一信号 → exec(to-brd) 落盘 brd → approve 迁移（无预览审批步；brd 在节点 2 产物区可见）；程序兜底 = 周期提醒（扫描器，对齐未读进收件箱「会话消息」）</div></div>
 </div>
 
 <!-- ═════ P7 · 产物阅读器（既有形态吸收） ═════ -->
@@ -300,18 +391,230 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </div>
 </div>
 
+<!-- ═════ P8 · 看板/需求池（模块 I · 基线 + v3 增补） ═════ -->
+<div class="panel" id="p8">
+<h1>P8 · 看板/需求池（模块 I · 状态四泳道 + scope 徽标）</h1>
+<div class="desc">基线（01-module-board PRD：四泳道看板/列表双视图、版本×优先级筛选取交集、卡片点击→流程树）+ v3 增补：scope 徽标三色、依赖角标、类别标签（【需求任务】【规划审批任务】【版本规划任务】，类别↔流程类型绑定）。</div>
+<div class="detailtop" style="padding:0 0 4px">
+  <span class="title" style="font-size:15px">工作台</span>
+  <button class="sbtn on" onclick="setView('board',this)">看板</button>
+  <button class="sbtn" onclick="setView('list',this)">列表</button>
+  <span class="chip">版本：全部 ▾</span><span class="chip">优先级：全部 ▾</span>
+  <span style="margin-left:auto;display:flex;gap:8px"><button onclick="mvTo('p9')">版本管理</button><button class="pri" onclick="toggleModal()">＋新建需求</button></span>
+</div>
+<div id="boardView" class="lanes">
+  <div class="lane">
+    <div class="lanehead"><span class="dot" style="background:#4a4f60"></span>待启动<span class="cnt">2</span></div>
+    <div class="reqcard">
+      <div class="t">导出报表前端优化</div>
+      <div class="reqmeta"><span class="cat">需求任务</span><span class="sc sc-fe">fe</span><span class="pr pr2">P2</span><span>v1.0</span><span>FE</span><span class="dep">依赖 ×1</span></div>
+    </div>
+    <div class="reqcard">
+      <div class="t">v1.1 版本规划</div>
+      <div class="reqmeta"><span class="cat">版本规划任务</span><span class="meta">plan · 无 scope</span><span class="pr pr3">P3</span><span>v1.1</span><span>Leader</span></div>
+    </div>
+  </div>
+  <div class="lane">
+    <div class="lanehead"><span class="dot" style="background:#e8b34a"></span>进行中<span class="cnt">2</span></div>
+    <div class="reqcard lnk" onclick="mvTo('p1')" title="进入流程树（模块 II）">
+      <div class="t">交易对账明细导出<span class="ops">✎ 🗑</span></div>
+      <div class="reqmeta"><span class="cat">需求任务</span><span class="sc sc-full">full</span><span class="pr pr1">P1</span><span>v1.0</span><span>RD</span><span class="dep">依赖 ×1</span></div>
+    </div>
+    <div class="reqcard">
+      <div class="t">对账差异处理工单流</div>
+      <div class="reqmeta"><span class="cat">需求任务</span><span class="sc sc-rd">rd</span><span class="pr pr0">P0</span><span>v1.0</span><span>RD</span></div>
+    </div>
+  </div>
+  <div class="lane">
+    <div class="lanehead"><span class="dot" style="background:#58c07a"></span>已完成<span class="cnt">1</span></div>
+    <div class="reqcard">
+      <div class="t">平台架构评审机制</div>
+      <div class="reqmeta"><span class="cat">规划审批任务</span><span class="meta">plan · 无 scope</span><span class="pr pr1">P1</span><span>v1.0</span><span>Architect</span></div>
+    </div>
+  </div>
+  <div class="lane">
+    <div class="lanehead"><span class="dot" style="background:#d98080"></span>已取消<span class="cnt">1</span></div>
+    <div class="reqcard">
+      <div class="t">对账通知接入 Bark</div>
+      <div class="reqmeta"><span class="cat">需求任务</span><span class="sc sc-rd">rd</span><span class="pr pr2">P2</span><span>待分配</span><span>RD</span></div>
+    </div>
+  </div>
+</div>
+<div id="listView" style="display:none">
+  <table class="lb">
+    <thead><tr><th>标题</th><th>类别</th><th>scope</th><th>优先级</th><th>版本</th><th>负责人</th><th>依赖</th><th>状态</th></tr></thead>
+    <tbody>
+      <tr><td colspan="8" style="color:var(--amber);font-weight:600;font-size:12px">● 进行中 · 2 项</td></tr>
+      <tr style="cursor:pointer" onclick="mvTo('p1')"><td>交易对账明细导出 <span class="meta">req-014</span></td><td><span class="cat">需求任务</span></td><td><span class="sc sc-full">full</span></td><td><span class="pr pr1">P1</span></td><td>v1.0</td><td>RD</td><td class="dep">×1</td><td>进行中</td></tr>
+      <tr><td>对账差异处理工单流 <span class="meta">req-015</span></td><td><span class="cat">需求任务</span></td><td><span class="sc sc-rd">rd</span></td><td><span class="pr pr0">P0</span></td><td>v1.0</td><td>RD</td><td>—</td><td>进行中</td></tr>
+      <tr><td colspan="8" style="color:var(--sub);font-weight:600;font-size:12px">● 待启动 · 2 项</td></tr>
+      <tr><td>导出报表前端优化 <span class="meta">req-016</span></td><td><span class="cat">需求任务</span></td><td><span class="sc sc-fe">fe</span></td><td><span class="pr pr2">P2</span></td><td>v1.0</td><td>FE</td><td class="dep">×1</td><td>待启动</td></tr>
+      <tr><td>v1.1 版本规划 <span class="meta">req-018</span></td><td><span class="cat">版本规划任务</span></td><td class="meta">—</td><td><span class="pr pr3">P3</span></td><td>v1.1</td><td>Leader</td><td>—</td><td>待启动</td></tr>
+      <tr><td colspan="8" style="color:var(--green);font-weight:600;font-size:12px">● 已完成 · 1 项</td></tr>
+      <tr><td>平台架构评审机制 <span class="meta">req-017</span></td><td><span class="cat">规划审批任务</span></td><td class="meta">—</td><td><span class="pr pr1">P1</span></td><td>v1.0</td><td>Architect</td><td>—</td><td>已完成</td></tr>
+      <tr><td colspan="8" style="color:var(--red);font-weight:600;font-size:12px">● 已取消 · 1 项</td></tr>
+      <tr><td>对账通知接入 Bark <span class="meta">req-019</span></td><td><span class="cat">需求任务</span></td><td><span class="sc sc-rd">rd</span></td><td><span class="pr pr2">P2</span></td><td>待分配</td><td>RD</td><td>—</td><td>已取消</td></tr>
+    </tbody>
+  </table>
+  <div class="hint">列表视图：公共表头一次 + 按状态分组（空状态组隐藏，如某筛选下无已完成则整组不渲染）</div>
+</div>
+<div class="hint">v3 增补：scope 徽标三色——<span class="sc sc-full">full</span> 紫 / <span class="sc sc-rd">rd</span> 蓝 / <span class="sc sc-fe">fe</span> 绿（plan 类无 scope 显示 —）；「依赖 ×N」点开显示前置需求名列表（flows.dependencies）。</div>
+<div class="hint">新建需求 owner 提示规则（scope 辅助）：架构→Architect · 纯后端（rd）→RD · 纯前端（fe）→FE；scope_options 随类别派生（需求任务三值 / 规划审批·版本规划无 scope）。</div>
+</div>
+
+<!-- ═════ P9 · 版本管理（模块 I · 基线吸收 + v3 增补） ═════ -->
+<div class="panel" id="p9">
+<h1>P9 · 版本管理（状态机 + 依赖树 + 并发调度预留）</h1>
+<div class="desc">版本管理弹窗（基线完整吸收零改动）+ v3 增补：依赖树入口（按需拉取）、并发调度区（长期预留）。状态机：待启动→进行中→已发布 单向；任意阶段废弃=终态（联动其下需求全部已取消，不写 history）；删除有引用禁止。</div>
+<div class="card">
+  <h3>版本列表（版本名 · 状态徽标 · 需求数 · 进度四色条+计数 · 行操作）</h3>
+  <div class="vrow">
+    <span class="vname">v1.0</span><span class="badge b-run">进行中</span><span class="meta">需求 4</span>
+    <div class="vbar"><i style="width:25%;background:#8a90a3"></i><i style="width:50%;background:#e8b34a"></i><i style="width:25%;background:#58c07a"></i></div>
+    <span class="meta">待启动 1 · 进行中 2 · 已完成 1 · 已取消 0</span>
+    <span class="vops"><button class="pri" title="发布软约束：有未完成需求仅提示不阻止（bugfix 场景）">推进</button><button>改名</button><button class="dgr" title="二次确认；联动需求全部已取消">废弃</button><button class="dgr" disabled title="有引用 ×4，先移出">删除</button><button onclick="toggleTree()">依赖树</button></span>
+  </div>
+  <div id="deproot" style="display:none;margin:2px 0 10px">
+    <div class="tree">
+      <div class="tn">▸ <b>req-015</b> 对账差异处理工单流 <span class="meta">无前置</span></div>
+      <div class="tn" style="padding-left:22px">└ <b>req-014</b> 交易对账明细导出 <span class="meta">前置 req-015</span> <span style="color:var(--blue);cursor:pointer" onclick="mvTo('p1')">↗ 流程树</span></div>
+      <div class="tn" style="padding-left:44px">└ <b>req-016</b> 导出报表前端优化 <span class="meta">前置 req-014</span></div>
+    </div>
+    <div class="hint">按版本动态加载（plugin 动态加载接口；plugin 内置分层派生，不对用户显示层级；分析师按需拉取，非常驻）——数据源 flows.dependencies + requirement.priority</div>
+  </div>
+  <div class="vrow">
+    <span class="vname">v1.1</span><span class="badge b-wait">待启动</span><span class="meta">需求 1</span>
+    <div class="vbar"><i style="width:100%;background:#8a90a3"></i></div>
+    <span class="meta">待启动 1 · 进行中 0 · 已完成 0 · 已取消 0</span>
+    <span class="vops"><button class="pri">推进</button><button>改名</button><button class="dgr">废弃</button><button class="dgr">删除</button><button>依赖树</button></span>
+  </div>
+  <div class="vrow">
+    <span class="vname">v-backlog</span><span class="badge b-wait">待分配池</span><span class="meta">需求 1</span>
+    <div class="vbar"><i style="width:100%;background:#d98080"></i></div>
+    <span class="meta">已取消 1</span>
+    <span class="meta" style="flex:1">🔒 锁定：仅显示，无任何操作</span>
+  </div>
+  <div class="hint">「推进 v1.0」演示发布软约束（仅提示）；「废弃」二次确认 = 终态不可恢复；删除按钮 disabled 展示「有引用禁止（blocked + refCount）」</div>
+</div>
+<div class="card">
+  <h3>并发调度（长期预留展示 · MVP 人工卡点）</h3>
+  <div class="sumrow"><span class="k">并发度</span><span>正在工作的需求数 · 当前 2（req-014 · req-015）</span></div>
+  <div class="sumrow"><span class="k">就绪池</span><span>依赖已满足且未启动：req-016 前置 req-014 未完成 → 未就绪</span></div>
+  <div class="sumrow"><span class="k">卡点</span><span>MVP 人工卡点（节点 0 user_gate=1）；依赖调度器 = 长期 effort（E9，flows.dependencies 数据层已预留）</span></div>
+</div>
+</div>
+
+<!-- ═════ P10 · 收件箱（模块 III · 通知 v3 七类） ═════ -->
+<div class="panel" id="p10">
+<h1>P10 · 收件箱（通知 v3 七类 · User 全局聚合）</h1>
+<div class="desc">§3.1 七类通知（触发 → 报送责任人）；条目 = tasks/issues 查询投影（不预存通知表），每条冗余 projectId + requirementTitle 免跨文件 join；两层筛选（项目 × 任务名）可叠加；badge/toast 不弹窗抢占。</div>
+<div class="lead">📬 shell.toast：新「待你拍板」· 未读 4 —— badge/toast 提示，不抢占焦点</div>
+<div class="detailtop" style="padding:0 0 10px">
+  <span class="chip">项目：全部 ▾</span>
+  <span class="chip">任务名：＿＿＿＿ ▾</span>
+  <span class="meta" style="margin-left:auto">跨项目聚合 · 点击条目 → 对应节点/视图</span>
+</div>
+<div class="ibx" onclick="mvTo('p4')">
+  <span class="rdot"></span><span class="tag tag-g">待你拍板</span>
+  <div class="bd"><span class="tt">节点 5 RD 技术评审已 agreed · 待你拍板</span>
+    <div class="mt"><span>对账平台</span><span>req-014 交易对账明细导出</span><span>责任人 rd（迎宾呈现 + 收件箱双通道）</span><span>09:41</span><span>触发：门禁 agreed + user_gate</span></div>
+  </div>
+</div>
+<div class="ibx" onclick="mvTo('p1')">
+  <span class="rdot"></span><span class="tag tag-c2">澄清任务</span>
+  <div class="bd"><span class="tt">#3341 分页约定 cursor/offset · 待你澄清</span>
+    <div class="mt"><span>对账平台</span><span>req-014 交易对账明细导出</span><span>责任人 rd（澄清 issue 清单）</span><span>09:32</span><span>触发：collect 判 unagree</span></div>
+  </div>
+</div>
+<div class="ibx" onclick="mvTo('p1')">
+  <span class="rdot read"></span><span class="tag tag-b">重新表态请求</span>
+  <div class="bd"><span class="tt">#3341 澄清结论已回填 · 请 QA 重新表态</span>
+    <div class="mt"><span>对账平台</span><span>req-014 交易对账明细导出</span><span>责任人 QA（followup / 复用通道）</span><span>09:20</span><span>触发：澄清后 plugin 发回 reviewer</span></div>
+  </div>
+</div>
+<div class="ibx" onclick="mvTo('p1')">
+  <span class="rdot read"></span><span class="tag tag-n">悬置催办</span>
+  <div class="bd"><span class="tt">节点 5 评审 · FE 评审位已结束 5min 未表态</span>
+    <div class="mt"><span>对账平台</span><span>req-014 交易对账明细导出</span><span>责任人 FE（followup 文案：遇卡点上报）</span><span>09:12</span><span>触发：扫描器 · 已结束 5min 未表态</span></div>
+  </div>
+</div>
+<div class="ibx" onclick="mvTo('p1')">
+  <span class="rdot read"></span><span class="tag tag-r">需你介入</span>
+  <div class="bd"><span class="tt">节点 5 澄清循环 10min 未推进（reopen ×2）</span>
+    <div class="mt"><span>对账平台</span><span>req-014 交易对账明细导出</span><span>plugin → User</span><span>09:05</span><span>触发：扫描器 · 10min 仍未推进</span></div>
+  </div>
+</div>
+<div class="ibx" onclick="mvTo('p5')">
+  <span class="rdot"></span><span class="tag tag-e">冲突上升裁决</span>
+  <div class="bd"><span class="tt">cm-3341 分页方案分歧 · 已 escalate 待裁决</span>
+    <div class="mt"><span>对账平台</span><span>req-014 交易对账明细导出</span><span>reviewer 主持（上升裁决 session）</span><span>08:57</span><span>触发：escalate 标记（冲突响应机制）</span></div>
+  </div>
+</div>
+<div class="ibx" onclick="mvTo('p6')">
+  <span class="rdot read"></span><span class="tag tag-s">会话消息</span>
+  <div class="bd"><span class="tt">对齐会话 1 条未读回复（PM）</span>
+    <div class="mt"><span>wbflow 平台</span><span>req-009 依赖调度器设计</span><span>绑定角色（按需通道 / 对齐未读）</span><span>08:40</span><span>触发：对话待回复</span></div>
+  </div>
+</div>
+<div class="hint">七类对齐 §6.8 通知规程 + 扫描器参数表；基线六类映射：待评审门禁→待你拍板 · 待界定新范围+产出者反驳→澄清任务 · 要求补充答复→重新表态请求 · 对话待回复→会话消息</div>
+</div>
+
+<!-- ═════ P11 · TODO 列表（模块 IV · 收件箱操作投影） ═════ -->
+<div class="panel" id="p11">
+<h1>P11 · TODO 列表（收件箱操作投影 · v3 五分类）</h1>
+<div class="desc">基线规则不变：TODO = 收件箱的操作投影（同源同筛选，呈现粒度不同，不预存表）；v3 增分类：待拍板 / 待澄清 / 待重表态 / 待复验（retest）/ 冲突待裁决；点击 → 对应节点详情（scope 过滤后节点定位）。</div>
+<div class="dock">📋 <span>未完成 <b style="color:var(--amber)">6</b></span><span>待拍板 1</span><span>待澄清 2</span><span>待重表态 1</span><span>待复验 1</span><span>冲突待裁决 1</span><span class="meta" style="margin-left:auto">conversation.input.dock 常驻</span></div>
+<div class="card" style="margin-top:12px">
+  <h3>待拍板（1）</h3>
+  <div class="ibx" onclick="mvTo('p4')"><span class="tag tag-g">待拍板</span><div class="bd"><span class="tt">节点 5 RD 技术评审 · 迎宾呈现</span><div class="mt"><span>req-014</span><span>→ P4 拍板卡</span></div></div></div>
+  <h3 style="margin-top:10px">待澄清（2）</h3>
+  <div class="ibx" onclick="mvTo('p1')"><span class="tag tag-c2">待澄清</span><div class="bd"><span class="tt">#3341 分页约定 cursor/offset</span><div class="mt"><span>req-014</span><span>节点 5</span><span>→ 节点详情</span></div></div></div>
+  <div class="ibx" onclick="mvTo('p1')"><span class="tag tag-c2">待澄清</span><div class="bd"><span class="tt">#3344 对账周期字段时区声明</span><div class="mt"><span>req-014</span><span>节点 5</span><span>→ 节点详情</span></div></div></div>
+  <h3 style="margin-top:10px">待重表态（1）</h3>
+  <div class="ibx" onclick="mvTo('p1')"><span class="tag tag-b">待重表态</span><div class="bd"><span class="tt">#3341 澄清已回填 · QA 重新表态</span><div class="mt"><span>req-014</span><span>节点 5 · reviewer=QA</span><span>→ 节点详情</span></div></div></div>
+  <h3 style="margin-top:10px">待复验 retest（1）</h3>
+  <div class="ibx" onclick="mvTo('p1')"><span class="tag tag-s">待复验</span><div class="bd"><span class="tt">#3320 导出并发度限制 · fixed 待复核</span><div class="mt"><span>req-014</span><span>节点 5 · 修复阶段</span><span>← 重新表态请求通道（含 retest）</span><span>→ 节点详情</span></div></div></div>
+  <h3 style="margin-top:10px">冲突待裁决（1）</h3>
+  <div class="ibx" onclick="mvTo('p5')"><span class="tag tag-e">冲突待裁决</span><div class="bd"><span class="tt">cm-3341 分页方案分歧 · escalate</span><div class="mt"><span>req-014</span><span>→ P5 冲突卡</span></div></div></div>
+</div>
+<div class="hint">同源同筛选：与 P10 收件箱共用 项目 × 任务名 过滤；TODO 未完成数实时推导（tasks/issues 查询投影）</div>
+</div>
+
+<!-- ═════ 需求新建/编辑模态（基线 RequirementModal · P8 ＋新建需求 唤起） ═════ -->
+<div class="modalmask" id="reqModal" onclick="if(event.target===this)toggleModal()">
+<div class="modal" onclick="event.stopPropagation()">
+  <h4>新建需求 <span class="meta">RequirementModal · 编辑复用同弹窗（卡片 hover ✎ / 详情页「编辑」）</span></h4>
+  <div class="mrow"><span class="k">标题 *</span><input type="text" class="bad" placeholder="（空 → 保存禁用 + 红框）"></div>
+  <div class="mrow"><span class="k">描述</span><textarea placeholder="Markdown（轻量渲染：粗体/行内代码/标题/代码块/列表/链接）"></textarea></div>
+  <div class="mrow"><span class="k">类别</span><select><option>需求任务</option><option>规划审批任务</option><option>版本规划任务</option></select></div>
+  <div class="mrow"><span class="k">scope</span><select><option>full</option><option>rd</option><option>fe</option></select><span class="meta">scope_options 随类别派生：需求任务→三值；规划审批/版本规划→plan 禁用置 —</span></div>
+  <div class="mrow"><span class="k">版本</span><select><option>v1.0</option><option>v1.1</option><option>v-backlog（待分配）</option></select><span class="meta">新建 id = req- + 递增序号补零</span></div>
+  <div class="mrow"><span class="k">优先级</span><select><option>P0</option><option selected>P1</option><option>P2</option><option>P3</option></select></div>
+  <div class="mrow"><span class="k">负责人</span><input type="text" value="RD" placeholder="—"><span class="meta">owner 提示规则：架构→Architect · 纯后端（rd）→RD · 纯前端（fe）→FE</span></div>
+  <div class="btns">
+    <button class="pri" disabled title="标题为空 → 保存禁用 + 红框">保存</button>
+    <button onclick="toggleModal()">取消</button>
+    <span class="meta" style="margin-left:auto">保存后 Host 算 7 字段 diff 写 history（无变化不追加，by='User'）；删除=二次确认、不删 reqId/ 磁盘目录</span>
+  </div>
+</div>
+</div>
+
 <div class="switch">
   <button onclick="mv(-1)">←</button><span class="lb" id="lb"></span><button onclick="mv(1)">→</button>
 </div>
 <script>
 const panels=[
- ['p1','P1/7 · 节点详情（上下分栏：流程图+四区分栏）'],
- ['p2','P2/7 · 状态卡备选：相位时间线'],
- ['p3','P3/7 · 角色药丸 v3（三轮期）'],
- ['p4','P4/7 · user_gate 拍板卡'],
- ['p5','P5/7 · 冲突卡与上升裁决'],
- ['p6','P6/7 · 对齐节点（会话+完成对齐）'],
- ['p7','P7/7 · 产物阅读器（既有吸收·零改动）'],
+ ['p1','P1/11 · 节点详情（上下分栏：流程图+五区分栏）'],
+ ['p2','P2/11 · 评审轮（per-agent 表态轮转 · 暂缓）'],
+ ['p3','P3/11 · 进度面板（per-agent 表+collect · 暂缓）'],
+ ['p4','P4/11 · user_gate 拍板卡'],
+ ['p5','P5/11 · 冲突卡与上升裁决'],
+ ['p6','P6/11 · 对齐节点（会话+完成对齐）'],
+ ['p7','P7/11 · 产物阅读器（既有吸收·零改动）'],
+ ['p8','P8/11 · 看板/需求池（四泳道+scope 徽标）'],
+ ['p9','P9/11 · 版本管理（状态机+依赖树）'],
+ ['p10','P10/11 · 收件箱（通知 v3 七类）'],
+ ['p11','P11/11 · TODO 列表（v3 五分类投影）'],
 ];
 let cur=0;
 function show(){panels.forEach(([id],i)=>document.getElementById(id).classList.toggle('on',i===cur));document.getElementById('lb').textContent=panels[cur][1];scrollTo(0,0)}
@@ -405,6 +708,13 @@ function layoutFlow(scope){
   document.getElementById('flowhint').textContent=hint;
 }
 function setScope(sc){layoutFlow(sc);document.querySelectorAll('.flowhead .sbtn').forEach(b=>b.classList.remove('on'));event.target.classList.add('on')}
+function setView(v,btn){
+  document.getElementById('boardView').style.display=v==='board'?'grid':'none';
+  document.getElementById('listView').style.display=v==='list'?'block':'none';
+  btn.parentElement.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+}
+function toggleTree(){const el=document.getElementById('deproot');el.style.display=el.style.display==='none'?'block':'none'}
+function toggleModal(){document.getElementById('reqModal').classList.toggle('on')}
 
 const h=location.hash.replace('#','');const hi=panels.findIndex(([id])=>id===h);if(hi>=0)cur=hi;
 show();
