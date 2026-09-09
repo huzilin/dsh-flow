@@ -1,5 +1,7 @@
 # Handoff: wbflow 17 工单实现收官 → CR 循环直至清零
 
+> ⚠️ **已被取代**：CR 第 1 轮已完成并清零（2026-09-09），以 `.plan/handoffs/2026-09-09-wbflow-cr-cleared-closeout.md` 为准。
+
 > 2026-09-08 · 前会话：implement-spec 编排 17 张工单全部开发合并完成，进入第 1 轮两轴 code-review。下一会话任务：**收拢 Spec 轴评审 → 派单实现者修复全部发现 → 复审循环直至清零 → 收尾**。
 
 ## 事实基座（指针，不复制）
