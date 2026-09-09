@@ -8,7 +8,7 @@
 //   - 通知可靠投递 outbox 化（spec §1.2 注记-H）：业务事务内 EnqueueNotificationTx
 //     写 notify_outbox（通知意图与业务提交原子——「Dispatch 未被调用即丢」窗口
 //     消除），事务提交后 FlushPending 推送为 issues 通知行；推送失败由 scanner
-//     SweepOutbox 周期补投（retry 上限 5，耗尽置 dead+audit 告警）。「失败不阻断
+//     SweepOutbox 周期补投（无限重试直至送达，semantica `c25c0552`）。「失败不阻断
 //     业务路径」口径不变：flush/sweep 失败只影响通知时效，不回滚业务；
 //   - 投递者 = plugin（系统层触达保障；会话迎宾=agent 层，双通道分工）。
 //
@@ -82,8 +82,7 @@ type notificationStore interface {
 }
 
 // outboxStore 消息事务表通道接口（outbox seam：flush/sweep 单测可替换实现；
-// *repo.Repo 天然满足）。dead 告警（audit）封装在 repo.DeadOutboxWithAlert 内，
-// service 侧不触 gorm。
+// *repo.Repo 天然满足）。
 type outboxStore interface {
 	// ListPendingOutbox 待推进行（immediate flush 消费）
 	ListPendingOutbox(ctx context.Context, limit int) ([]*repo.Outbox, error)
@@ -91,11 +90,8 @@ type outboxStore interface {
 	ListRetryableOutbox(ctx context.Context, staleBeforeMs int64, limit int) ([]*repo.Outbox, error)
 	// ClaimOutbox 原子认领（status→sending；影响行=0 表示已被并发方认领）
 	ClaimOutbox(ctx context.Context, id int64, fromStatuses []string) (bool, error)
-	// SettleOutbox 推送落账（sent / failed+retry_count++）；失败路径返回自增后
-	// retry_count（耗尽判定用）
-	SettleOutbox(ctx context.Context, id int64, success bool, sendErr string) (int64, error)
-	// DeadOutboxWithAlert retry 耗尽终态化 + audit 告警一次
-	DeadOutboxWithAlert(ctx context.Context, id int64) error
+	// SettleOutbox 推送落账（sent / failed+retry_count++）
+	SettleOutbox(ctx context.Context, id int64, success bool, sendErr string) error
 }
 
 // Notifier 通知收敛写入口：七类通知统一经 Notify 落库（issues 载体）；
@@ -293,7 +289,8 @@ func (n *Notifier) SweepOutbox(ctx context.Context, nowMillis int64) int {
 }
 
 // pushOne 单行推送：原子认领（防双推并发）→ Notify 落 issues 通知行 → 落账。
-// 返回是否推送成功。retry 耗尽置 dead+audit（repo.DeadOutboxWithAlert 封装）。
+// 返回是否推送成功。失败置 failed——无限补投（semantica `c25c0552`），行永久
+// 处于 SweepOutbox 候选，直至送达。
 func (n *Notifier) pushOne(ctx context.Context, row *repo.Outbox, fromStatuses []string) bool {
 	claimed, err := n.outbox.ClaimOutbox(ctx, row.ID, fromStatuses)
 	if err != nil {
@@ -304,23 +301,12 @@ func (n *Notifier) pushOne(ctx context.Context, row *repo.Outbox, fromStatuses [
 		return false
 	}
 	if _, err := n.Notify(ctx, outboxSpec(row)); err != nil {
-		retry, settleErr := n.outbox.SettleOutbox(ctx, row.ID, false, repo.OutboxStringErr("%v", errs.Trace(err)))
-		if settleErr != nil {
+		if settleErr := n.outbox.SettleOutbox(ctx, row.ID, false, repo.OutboxStringErr("%v", errs.Trace(err))); settleErr != nil {
 			log.Printf("[notifier] outbox 行 %d 失败落账异常: err=%v", row.ID, errs.Trace(settleErr))
-			return false
-		}
-		// retry 耗尽：终态 dead + audit 告警一次（不再被认领/补投）
-		if retry >= repo.OutboxRetryLimit {
-			if deadErr := n.outbox.DeadOutboxWithAlert(ctx, row.ID); deadErr != nil {
-				log.Printf("[notifier] outbox 行 %d dead 置态异常: err=%v", row.ID, errs.Trace(deadErr))
-			} else {
-				log.Printf("[notifier] outbox 行 %d 补投 %d 次耗尽，置 dead（audit 已告警）: kind=%s req=%s",
-					row.ID, retry, row.Kind, row.RequirementID)
-			}
 		}
 		return false
 	}
-	if _, err := n.outbox.SettleOutbox(ctx, row.ID, true, ""); err != nil {
+	if err := n.outbox.SettleOutbox(ctx, row.ID, true, ""); err != nil {
 		log.Printf("[notifier] outbox 行 %d 成功落账异常（通知已投递）: err=%v", row.ID, errs.Trace(err))
 		return false
 	}

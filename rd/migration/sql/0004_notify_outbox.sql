@@ -2,15 +2,17 @@
 --
 -- 1) notify_outbox：通知意图先行落表（与业务写路径同事务 enqueue），事务提交后
 --    flush 推送为 issues 通知行（issue_type=notification），失败由 scanner 周期
---    补投（retry 上限后置 dead 终态 + audit 留痕）。依据：
+--    补投（无限补投直至送达）。依据：
 --      - spec §1.3「消息/通知派发移出事务」口径的可靠性升级：原 Dispatch 事务外
 --        吞错（失败仅记日志）存在静默丢失窗口（联调实证 req-002 gate_pending
 --        一次未落）——本表使通知意图与业务提交原子，flush/补投失败不丢意图；
+--      - 2026-09-10 User 追加拍板（semantica c25c0552）：单人内部系统，通知必须
+--        全部送达——failed 无限补投（retry_count 仅观测），无放弃态；
 --      - 「失败不阻断业务路径」口径不变：flush 失败不影响业务结果。
 --    收件箱读侧不变（仍读 issues 通知行投影），FE 零改动。
 --
--- 状态机：pending → sending（认领推送中）→ sent | failed（retry_count++）；
---   failed 且 retry_count < 5 可再认领；retry 耗尽置 dead（终态，audit 告警一次）；
+-- 状态机：pending → sending（认领推送中）→ sent | failed（retry_count++，观测）；
+--   failed 永久处于补投候选（scanner 周期重推直至送达——无限补投）；
 --   sending 停滞超阈值（进程崩溃）由 scanner 按 updated_at 恢复认领。
 --
 -- 幂等（与 0001/0003 对称）：CREATE TABLE IF NOT EXISTS，重复应用零效应。
@@ -24,8 +26,8 @@ CREATE TABLE IF NOT EXISTS notify_outbox (
   sender         VARCHAR(64)  NOT NULL DEFAULT 'plugin' COMMENT '派发者；空=plugin',
   sender_role    VARCHAR(32)  NOT NULL DEFAULT 'plugin' COMMENT '派发者角色；空=plugin',
   text           TEXT         NOT NULL COMMENT '通知文案',
-  status         VARCHAR(16)  NOT NULL DEFAULT 'pending' COMMENT 'pending/sending/sent/failed/dead',
-  retry_count    INT          NOT NULL DEFAULT 0 COMMENT '补投次数；上限 5',
+  status         VARCHAR(16)  NOT NULL DEFAULT 'pending' COMMENT 'pending/sending/sent/failed',
+  retry_count    INT          NOT NULL DEFAULT 0 COMMENT '补投次数（观测）；无上限',
   last_error     TEXT         NULL COMMENT '最近一次推送失败原因',
   created_at     BIGINT       NOT NULL COMMENT '创建时间，unix 毫秒',
   updated_at     BIGINT       NOT NULL COMMENT '更新时间，unix 毫秒（认领/停滞判定基准）',

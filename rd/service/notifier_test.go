@@ -1,6 +1,6 @@
 // T11 通知收敛写入口单测（无 IO）：Notify 行装配（七类枚举/收件角色/跳转定位
 // 映射/派发者口径）+ 入参校验拦截 + outbox 可靠投递（enqueue 校验/即时推送/
-// retry 耗尽 dead——spec §1.2 注记-H 的单元侧验证）。
+// 无限补投送达——spec §1.2 注记-H 的单元侧验证）。
 package service
 
 import (
@@ -155,7 +155,7 @@ func (f *fakeOutbox) ListRetryableOutbox(ctx context.Context, staleBeforeMs int6
 	out := []*repo.Outbox{}
 	for _, r := range f.rows {
 		switch {
-		case r.Status == repo.OutboxStatusFailed && r.RetryCount < repo.OutboxRetryLimit:
+		case r.Status == repo.OutboxStatusFailed:
 			out = append(out, r)
 		case r.Status == repo.OutboxStatusPending && r.UpdatedAt <= staleBeforeMs:
 			out = append(out, r)
@@ -180,24 +180,18 @@ func (f *fakeOutbox) ClaimOutbox(ctx context.Context, id int64, fromStatuses []s
 	return false, nil
 }
 
-func (f *fakeOutbox) SettleOutbox(ctx context.Context, id int64, success bool, sendErr string) (int64, error) {
+func (f *fakeOutbox) SettleOutbox(ctx context.Context, id int64, success bool, sendErr string) error {
 	r, ok := f.rows[id]
 	if !ok {
-		return 0, errors.New("no such row")
+		return errors.New("no such row")
 	}
 	if success {
 		r.Status = repo.OutboxStatusSent
-		return 0, nil
+		return nil
 	}
 	r.RetryCount++
 	r.Status = repo.OutboxStatusFailed
 	r.LastError = &sendErr
-	return r.RetryCount, nil
-}
-
-func (f *fakeOutbox) DeadOutboxWithAlert(ctx context.Context, id int64) error {
-	f.rows[id].Status = repo.OutboxStatusDead
-	f.alerts = append(f.alerts, id)
 	return nil
 }
 
@@ -252,22 +246,25 @@ func TestUnit_NotifierFlushPendingHappyPath(t *testing.T) {
 	assert.Assert(t, store.captured != nil, "issues 通知行已落库")
 }
 
-// TestUnit_NotifierPushOneRetryThenDead retry 耗尽：连续失败 5 次内保持 failed 可
-// 补投，第 5 次失败后置 dead + audit 告警一次，不再被候选选取。
-func TestUnit_NotifierPushOneRetryThenDead(t *testing.T) {
+// TestUnit_NotifierPushOneInfiniteRetry 无限补投：持续失败保持 failed 可补投
+// （retry_count 仅观测递增），故障恢复后首次补投即送达（semantica `c25c0552`）。
+func TestUnit_NotifierPushOneInfiniteRetry(t *testing.T) {
 	store := &fakeStore{issueID: "cm-1", insertErr: errors.New("db down（注入）")}
 	row := outboxRow()
 	ob := newFakeOutbox(row)
 	n := &Notifier{store: store, outbox: ob}
-	for i := 0; i < repo.OutboxRetryLimit; i++ {
+	for i := 0; i < 7; i++ {
 		assert.Assert(t, !n.pushOne(context.Background(), row,
 			[]string{repo.OutboxStatusPending, repo.OutboxStatusFailed}), "注入故障下推送失败")
 	}
-	assert.Equal(t, row.RetryCount, int64(repo.OutboxRetryLimit), "retry 计数自增至上限")
-	assert.Assert(t, len(ob.alerts) == 1, "耗尽置 dead + audit 告警一次")
-	assert.Equal(t, row.Status, repo.OutboxStatusDead)
-	// dead 不再被补投候选选取
+	assert.Equal(t, row.RetryCount, int64(7), "retry 计数只观测递增，无上限")
+	assert.Equal(t, row.Status, repo.OutboxStatusFailed, "持续 failed 可补投")
 	got, err := ob.ListRetryableOutbox(context.Background(), 0, 10)
 	assert.NilError(t, err)
-	assert.Equal(t, len(got), 0, "dead 行退出候选")
+	assert.Equal(t, len(got), 1, "failed 行永久处于补投候选")
+	// 故障恢复：下一次补投送达
+	store.insertErr = nil
+	assert.Assert(t, n.pushOne(context.Background(), row,
+		[]string{repo.OutboxStatusPending, repo.OutboxStatusFailed}), "恢复后推送成功")
+	assert.Equal(t, row.Status, repo.OutboxStatusSent)
 }
