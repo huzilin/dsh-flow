@@ -394,7 +394,7 @@ domain/    状态机与纯逻辑：review_results 聚合判定、issue 状态机
 repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写路径显式事务）
 ```
 
-- 事务边界：写路径（上报/表态/裁决）单事务 + 行锁（SELECT … FOR UPDATE 于 flow_nodes 聚合判定，防并发双 collect）；消息/通知派发移出事务由 dispatcher 缓冲。
+- 事务边界：写路径（上报/表态/裁决）单事务 + 行锁（SELECT … FOR UPDATE 于 flow_nodes 聚合判定，防并发双 collect）；通知意图经 EnqueueNotificationTx 与业务同事务落 notify_outbox，推送（flush/sweep）在事务外 best-effort（2026-09-10 注记-H 升级口径）。
 - 错误：内部 errors.Trace 层层包裹 + 哨兵错误（ErrGateBlocked/ErrIdempotentConflict/ErrStaleReport/ErrOptimisticLock…）；HTTP 出参错误码集中映射，接口永不 panic；哨兵错误与各 Service 方法 GoDoc「错误集」交叉引用。
 - **Service 签名规范**：全显式类型 + GoDoc 注释覆盖「做什么 / 入参·出参语义 / 错误集（引用哨兵错误）」；DTO 由 protoc 生成的 Go 类型承载（proto 为真相源，禁止手写漂移）。
 - **代码格式**：gofmt 风格——struct 逐字段多行、tag 对齐；禁止紧凑单行写法。
@@ -410,7 +410,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 | agent 无响应 | 扫描器：绑定 subagent `agent/status`=running → 等待；已结束 5min 未表态 → followup 催办（遇卡点上报 user）；10min → 通知 user 介入（参数化配置） |
 | 启动失败 | agent/request-error 监听 + 重试策略（沿用直启实测结论）——**归属 DSH/plugin 侧（wbflow 插件），非 rd 服务端待办** |
 | 门禁拦截 | 判据不满足的操作返回 `{blocked:true, reason}`，审计留痕 |
-| 并发 collect 竞争 | flow_nodes 行锁 + 单事务（聚合判定读改写原子）；消息/通知派发移出事务 |
+| 并发 collect 竞争 | flow_nodes 行锁 + 单事务（聚合判定读改写原子）；通知意图同事务入 outbox，推送事务外 best-effort |
 | 澄清不收敛 | loop_count 达阈值（如 reopen≥5）→ 自动标 escalate → User 仲裁（沿用 wb_reopen roundCount>5 通知语义） |
 | MySQL 不可用 | 服务降级：API 路由不注册（仅 /healthz 上报 db missing）；恢复后重启进程续跑（当前实现为降级启动+healthz 上报，「GET 走缓存快照」为 v1.1 预留口径，本期未实现） |
 | 审计失败 | 审计写失败回滚业务事务（审计与业务同库同事务，保证留痕一致） |
