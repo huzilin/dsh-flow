@@ -34,6 +34,9 @@ var seedSQL string
 //go:embed sql/0003_flow_scope_last_decision.sql
 var flowScopeDecisionSQL string
 
+//go:embed sql/0004_notify_outbox.sql
+var notifyOutboxSQL string
+
 // 版本号常量（迁移账本 meta.schema_version 取值）。
 const (
 	// SchemaVersion 14 表全量 DDL（spec §0 + §0.3）
@@ -43,6 +46,8 @@ const (
 	// FlowScopeDecisionVersion T4 流程实例化补列：flow_nodes.last_decision（spec §0 漏项，
 	// arch_design v0.29 同源）+ flows.scope（需求所选渲染 scope 落库）
 	FlowScopeDecisionVersion int64 = 3
+	// NotifyOutboxVersion 通知可靠投递 outbox 化（spec §1.2 注记-H）：消息事务表
+	NotifyOutboxVersion int64 = 4
 	// MetaKeySchemaVersion meta 表中迁移账本键名
 	MetaKeySchemaVersion = "schema_version"
 )
@@ -59,6 +64,7 @@ var steps = []step{
 	{version: SchemaVersion, name: "create_schema", sql: schemaSQL},
 	{version: SeedVersion, name: "seed_baseline", sql: seedSQL},
 	{version: FlowScopeDecisionVersion, name: "flow_scope_last_decision", sql: flowScopeDecisionSQL},
+	{version: NotifyOutboxVersion, name: "notify_outbox", sql: notifyOutboxSQL},
 }
 
 // LatestVersion 迁移账本最新版本（部署校验与测试断言口径，随 steps 尾元素推进）。

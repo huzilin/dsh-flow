@@ -233,3 +233,19 @@ func maxIDNumberSuffixTx(ctx context.Context, tx *gorm.DB, table string, col str
 func isRecordNotFound(err error) bool {
 	return err == gorm.ErrRecordNotFound
 }
+
+// GetRequirementByIDTx 事务内读需求行（通知 owner 推导等只读消费；未命中返回
+// (nil, nil)）。
+func GetRequirementByIDTx(ctx context.Context, db *gorm.DB, requirementID string) (*Requirement, error) {
+	row := &Requirement{}
+	err := db.WithContext(ctx).
+		Where("requirement_id = ?", requirementID).
+		First(row).Error
+	if err != nil {
+		if isRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, errs.Trace(err)
+	}
+	return row, nil
+}

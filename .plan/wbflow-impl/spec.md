@@ -378,6 +378,8 @@ CREATE TABLE versions (
 > **-F（submit 动作不激活；CR 复审裁决 G，semantica `abf45f97`）**：seed 词表含 `submit`（登记请评，inline：「产物 wb_add_artifact 登记 → wb_comment 请评；登记齐、请评已发即完成」）但 `actionTaskTypes` 无映射、不激活——登记场景由 inline 动作经工具调用（`wb_add_artifact`+`wb_comment`）机械完成，不经任务总线；produce/complete 判据已覆盖其完成语义，补映射反而引入与判据重复的空派发，本注记为裁决正本。
 >
 > **-G（tasks.reply_count 死列；CR 复审裁决 I，semantica `ec4639b8`）**：迁移 v1 遗留列，现无写入路径（仅 model 定义与快照 DTO 读零值），回复计数语义由评论查询聚合承载——保留列 + TODO 注记插件期接线，不做迁移 DROP（v4 迁移成本大于收益），本注记为裁决正本。
+>
+> **-H（通知可靠投递 outbox 化；2026-09-10 User 方案，semantica `22864e64`）**：原「通知派发一律事务外、Dispatch 吞错记日志」口径（联调实证 req-002 gate_pending 静默丢失一次——无重试、无留痕）升级为消息事务表模式。新增 `notify_outbox`（迁移 v4，状态机 pending→sending→sent/failed，retry 5 次耗尽置 dead+audit 告警）：①**业务事务内 enqueue**——各通知触发点（escalation/retest/re_review 重入轮/collect gate_pending·clarify/scanner 催办介入）在业务事务闭包内 `EnqueueNotificationTx` 写通知意图，与业务提交原子（「Dispatch 未被调用即丢」窗口消除）；enqueue 失败随业务回滚——同一 MySQL 实例下表故障即库故障，业务主写同样不可达，语义可接受；②**事务提交后 FlushPending** 即时推送（原子认领防双推→Notify 写 issues 通知行→sent）；③**scanner SweepOutbox** 周期补投（failed 预算内 + pending/sending 停滞的崩溃残留），耗尽 dead 终态 + audit 留痕。「通知写入失败不阻断业务路径」口径保留于推送侧——flush/sweep 失败只影响通知时效，不回滚业务。收件箱读侧不变（仍读 issues 通知行投影），FE 零改动。
 | GET | /api/projects · POST /api/projects | （registry） | ProjectReq/Resp | dsh 嵌入期启用 |
 
 - **移出 agent/HTTP 清单**：wb_decide（门禁判定 = 内部 collect 判定 + User 拍板专用路由 `POST /api/requirements/:reqId/nodes/:nodeId/decision`，DecisionReq/Resp，**已注册实现**）、wb_override（escalate/adjudicate 取代，`POST /api/comments/:commentId/adjudicate` 承载）——语义保留在 service 层。

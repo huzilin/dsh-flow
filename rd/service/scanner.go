@@ -168,6 +168,10 @@ func (s *Scanner) RunOnce(ctx context.Context) (*ScanReport, error) {
 		return nil, errs.Trace(err)
 	}
 	report.ParallelPushes = pushed
+	// 通知 outbox 补投（spec §1.2 注记-H）：failed（retry 预算内）+ pending/sending
+	// 停滞（业务提交后 immediate flush 未触达/进程崩溃残留）周期兜底
+	s.notifier.SweepOutbox(ctx, now)
+	s.notifier.FlushPending(ctx)
 	return report, nil
 }
 
@@ -178,14 +182,16 @@ func (s *Scanner) notifyVerdict(ctx context.Context, task *repo.Task, verdict do
 	if verdict.Action == domain.NotifKindIntervene {
 		assignee = scanAssigneeUser
 	}
-	// 归一写入口（T11 七类 Notify）：扫描器 kind 落 stall_followup/need_intervene
-	// 枚举（anchor_kind=类别）；派发者/角色保持扫描器 system 口径（T10 行为不变，
-	// 文本前缀幂等查重不变）；task 类目标 id 落 anchor_artifact_id（收件箱跳转）。
+	// 归一写入口（T11 七类 Notify 经 outbox 通道——spec §1.2 注记-H）：扫描器 kind
+	// 落 stall_followup/need_intervene 枚举（anchor_kind=类别）；派发者/角色保持
+	// 扫描器 system 口径（T10 行为不变，文本前缀幂等查重不变）；task 类目标 id 落
+	// anchor_artifact_id（收件箱跳转）。enqueue 用 autocommit 单语句（scanner 无
+	// 业务事务），随 RunOnce 尾部 SweepOutbox/FlushPending 推送。
 	kind := NotificationKindStallFollowup
 	if verdict.Action == domain.NotifKindIntervene {
 		kind = NotificationKindNeedIntervene
 	}
-	_, err := s.notifier.Notify(ctx, NotificationSpec{
+	err := EnqueueNotificationTx(ctx, s.repo.Gorm(), NotificationSpec{
 		Kind:          kind,
 		RequirementID: task.RequirementID,
 		NodeID:        task.NodeID,

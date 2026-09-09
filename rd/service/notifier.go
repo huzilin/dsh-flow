@@ -5,8 +5,11 @@
 //   - 通知载体 = issues 表 issue_type=notification 行（anchor_kind=类别、
 //     anchor_artifact_id=跳转目标 id、assignee=收件角色、state=open 未读/resolved 已读，
 //     列复用口径见 repo/notification.go 头注）；
-//   - 通知派发一律事务外（业务事务提交后调用 Dispatch）：写入失败仅记错误日志、
-//     不回滚业务——「消息/通知派发移出事务」+「失败不阻断业务路径」；
+//   - 通知可靠投递 outbox 化（spec §1.2 注记-H）：业务事务内 EnqueueNotificationTx
+//     写 notify_outbox（通知意图与业务提交原子——「Dispatch 未被调用即丢」窗口
+//     消除），事务提交后 FlushPending 推送为 issues 通知行；推送失败由 scanner
+//     SweepOutbox 周期补投（retry 上限 5，耗尽置 dead+audit 告警）。「失败不阻断
+//     业务路径」口径不变：flush/sweep 失败只影响通知时效，不回滚业务；
 //   - 投递者 = plugin（系统层触达保障；会话迎宾=agent 层，双通道分工）。
 //
 // 七类与触发点（接线现状）：
@@ -29,6 +32,7 @@ import (
 	"github.com/huzilin/wbflow/rd/domain"
 	"github.com/huzilin/wbflow/rd/pkg/errs"
 	"github.com/huzilin/wbflow/rd/repo"
+	"gorm.io/gorm"
 )
 
 // 通知类别七类枚举（ui-interaction-final §3.1 v3 定稿；值落 issues.anchor_kind
@@ -77,16 +81,45 @@ type notificationStore interface {
 	InsertNotification(ctx context.Context, row *repo.Issue) error
 }
 
-// Notifier 通知收敛写入口：七类通知统一经 Notify 落库（issues 载体），
-// 业务写路径经 Dispatch 事务外派发（失败不阻断）。
-type Notifier struct {
-	store notificationStore
+// outboxStore 消息事务表通道接口（outbox seam：flush/sweep 单测可替换实现；
+// *repo.Repo 天然满足）。dead 告警（audit）封装在 repo.DeadOutboxWithAlert 内，
+// service 侧不触 gorm。
+type outboxStore interface {
+	// ListPendingOutbox 待推进行（immediate flush 消费）
+	ListPendingOutbox(ctx context.Context, limit int) ([]*repo.Outbox, error)
+	// ListRetryableOutbox 补投候选（failed 预算内 / pending·sending 停滞）
+	ListRetryableOutbox(ctx context.Context, staleBeforeMs int64, limit int) ([]*repo.Outbox, error)
+	// ClaimOutbox 原子认领（status→sending；影响行=0 表示已被并发方认领）
+	ClaimOutbox(ctx context.Context, id int64, fromStatuses []string) (bool, error)
+	// SettleOutbox 推送落账（sent / failed+retry_count++）；失败路径返回自增后
+	// retry_count（耗尽判定用）
+	SettleOutbox(ctx context.Context, id int64, success bool, sendErr string) (int64, error)
+	// DeadOutboxWithAlert retry 耗尽终态化 + audit 告警一次
+	DeadOutboxWithAlert(ctx context.Context, id int64) error
 }
 
-// NewNotifier 构造通知写入口（store=*repo.Repo）。
-func NewNotifier(r *repo.Repo) *Notifier {
-	return &Notifier{store: r}
+// Notifier 通知收敛写入口：七类通知统一经 Notify 落库（issues 载体）；
+// 业务写路径事务内 EnqueueNotificationTx 写 outbox、事务提交后 FlushPending 推送
+// （失败不阻断，scanner SweepOutbox 补投——spec §1.2 注记-H）。
+type Notifier struct {
+	store  notificationStore
+	outbox outboxStore
 }
+
+// NewNotifier 构造通知写入口（store/outbox=*repo.Repo）。
+func NewNotifier(r *repo.Repo) *Notifier {
+	return &Notifier{store: r, outbox: r}
+}
+
+// outboxSweepLimit 单轮 flush/sweep 认领上限（防单轮长事务拖垮扫描周期）。
+const outboxSweepLimit = 64
+
+// outboxSendingStaleMs sending 停滞判定窗口（认领后进程崩溃残留的恢复阈值）。
+const outboxSendingStaleMs = 5 * 60 * 1000
+
+// outboxPendingStaleMs pending 停滞判定窗口（业务提交后 immediate flush 未触达
+// ——进程即崩的残留；scanner 补投兜底）。小于 scanner 默认轮询间隔即可。
+const outboxPendingStaleMs = 30 * 1000
 
 // NotificationSpec 通知派发规格（service 层触发点装配的入参载体）。
 type NotificationSpec struct {
@@ -161,33 +194,153 @@ func (n *Notifier) Notify(ctx context.Context, spec NotificationSpec) (*repo.Iss
 	return row, nil
 }
 
-// Dispatch 事务外通知派发（业务写路径统一出口）：Notify 失败仅记错误日志、
-// 不上抛——spec §1.3「消息/通知派发移出事务」+ 工单 AC「通知写入失败不阻断
-// 业务路径」。ctx 用背景上下文（业务请求 ctx 在 handler 返回后可能取消）。
-func Dispatch(n *Notifier, spec NotificationSpec) {
-	if n == nil {
-		return
+// EnqueueNotificationTx 业务事务内 enqueue 一条通知意图（notify_outbox 行 pending，
+// 与业务提交原子——spec §1.2 注记-H）。入参校验与 Notify 同口径（kind 越集 /
+// requirement_id·recipient_role 必填拦截——装配缺陷不入用户错误路径，但事务内
+// 拦截直接回滚业务：装配缺陷属代码 bug，宁可事务失败暴露也不静默吞掉）。
+func EnqueueNotificationTx(ctx context.Context, tx *gorm.DB, spec NotificationSpec) error {
+	row, err := outboxRowOf(spec)
+	if err != nil {
+		return err
 	}
-	if _, err := n.Notify(context.Background(), spec); err != nil {
-		// 记错误日志不阻断业务（标准库 log——service 层无 zap 依赖，测试期同样安全）
-		log.Printf("[notifier] 通知派发失败（不阻断业务）: kind=%s req=%s node=%s recipient=%s err=%v",
-			spec.Kind, spec.RequirementID, spec.NodeID, spec.RecipientRole, err)
+	return repo.InsertOutboxTx(ctx, tx, row)
+}
+
+// outboxRowOf NotificationSpec → notify_outbox 行装配（校验 + 默认值填充，
+// 与 Notify 同口径）。
+func outboxRowOf(spec NotificationSpec) (*repo.Outbox, error) {
+	if !validNotificationKind(spec.Kind) {
+		return nil, fmt.Errorf("通知类别 %q 越集（七类枚举）", spec.Kind)
+	}
+	if spec.RequirementID == "" {
+		return nil, fmt.Errorf("通知 requirement_id 必填")
+	}
+	if spec.RecipientRole == "" {
+		return nil, fmt.Errorf("通知收件角色必填（kind=%s）", spec.Kind)
+	}
+	sender := spec.Sender
+	if sender == "" {
+		sender = "plugin"
+	}
+	senderRole := spec.SenderRole
+	if senderRole == "" {
+		senderRole = "plugin"
+	}
+	return &repo.Outbox{
+		Kind:          spec.Kind,
+		RequirementID: spec.RequirementID,
+		NodeID:        spec.NodeID,
+		TargetID:      strPtrIfSet(spec.TargetID),
+		RecipientRole: spec.RecipientRole,
+		Sender:        sender,
+		SenderRole:    senderRole,
+		Text:          spec.Text,
+		Status:        repo.OutboxStatusPending,
+	}, nil
+}
+
+// outboxSpec notify_outbox 行 → NotificationSpec（推送时还原装配口径）。
+func outboxSpec(row *repo.Outbox) NotificationSpec {
+	return NotificationSpec{
+		Kind:          row.Kind,
+		RequirementID: row.RequirementID,
+		NodeID:        row.NodeID,
+		TargetID:      derefString(row.TargetID),
+		RecipientRole: row.RecipientRole,
+		Sender:        row.Sender,
+		SenderRole:    row.SenderRole,
+		Text:          row.Text,
 	}
 }
 
-// deriveOwnerRole 被评审方（owner）角色推导：节点 exec 能力归属角色优先
+// FlushPending 业务事务提交后的即时推送：消费 status=pending 行逐条认领推送
+// （best-effort——失败置 failed 留给 SweepOutbox 补投，不上抛，业务调用方无感）。
+func (n *Notifier) FlushPending(ctx context.Context) {
+	rows, err := n.outbox.ListPendingOutbox(ctx, outboxSweepLimit)
+	if err != nil {
+		log.Printf("[notifier] outbox 即时推送候选查询失败（不阻断业务）: err=%v", errs.Trace(err))
+		return
+	}
+	for _, row := range rows {
+		n.pushOne(ctx, row, []string{repo.OutboxStatusPending})
+	}
+}
+
+// SweepOutbox 周期补投（scanner 消费）：failed（retry 预算内）+ pending/sending
+// 停滞（进程崩溃残留）逐条认领推送。返回本轮推送成功条数（扫描报告用）。
+func (n *Notifier) SweepOutbox(ctx context.Context, nowMillis int64) int {
+	rows, err := n.outbox.ListRetryableOutbox(ctx, nowMillis-outboxPendingStaleMs, outboxSweepLimit)
+	if err != nil {
+		log.Printf("[notifier] outbox 补投候选查询失败: err=%v", errs.Trace(err))
+		return 0
+	}
+	sent := 0
+	for _, row := range rows {
+		from := []string{repo.OutboxStatusPending, repo.OutboxStatusFailed}
+		if row.Status == repo.OutboxStatusSending {
+			// sending 停滞行仅在其确已超窗后恢复认领（与查询条件一致，防御
+			// 查询与认领间的时间差）
+			if nowMillis-row.UpdatedAt < outboxSendingStaleMs {
+				continue
+			}
+			from = []string{repo.OutboxStatusSending}
+		}
+		if n.pushOne(ctx, row, from) {
+			sent++
+		}
+	}
+	return sent
+}
+
+// pushOne 单行推送：原子认领（防双推并发）→ Notify 落 issues 通知行 → 落账。
+// 返回是否推送成功。retry 耗尽置 dead+audit（repo.DeadOutboxWithAlert 封装）。
+func (n *Notifier) pushOne(ctx context.Context, row *repo.Outbox, fromStatuses []string) bool {
+	claimed, err := n.outbox.ClaimOutbox(ctx, row.ID, fromStatuses)
+	if err != nil {
+		log.Printf("[notifier] outbox 行 %d 认领失败: err=%v", row.ID, errs.Trace(err))
+		return false
+	}
+	if !claimed {
+		return false
+	}
+	if _, err := n.Notify(ctx, outboxSpec(row)); err != nil {
+		retry, settleErr := n.outbox.SettleOutbox(ctx, row.ID, false, repo.OutboxStringErr("%v", errs.Trace(err)))
+		if settleErr != nil {
+			log.Printf("[notifier] outbox 行 %d 失败落账异常: err=%v", row.ID, errs.Trace(settleErr))
+			return false
+		}
+		// retry 耗尽：终态 dead + audit 告警一次（不再被认领/补投）
+		if retry >= repo.OutboxRetryLimit {
+			if deadErr := n.outbox.DeadOutboxWithAlert(ctx, row.ID); deadErr != nil {
+				log.Printf("[notifier] outbox 行 %d dead 置态异常: err=%v", row.ID, errs.Trace(deadErr))
+			} else {
+				log.Printf("[notifier] outbox 行 %d 补投 %d 次耗尽，置 dead（audit 已告警）: kind=%s req=%s",
+					row.ID, retry, row.Kind, row.RequirementID)
+			}
+		}
+		return false
+	}
+	if _, err := n.outbox.SettleOutbox(ctx, row.ID, true, ""); err != nil {
+		log.Printf("[notifier] outbox 行 %d 成功落账异常（通知已投递）: err=%v", row.ID, errs.Trace(err))
+		return false
+	}
+	return true
+}
+
+// deriveOwnerRoleTx 被评审方（owner）角色推导：节点 exec 能力归属角色优先
 // （与 issue assignee L2 推导同函数口径 domain.NodeExecRole），回落
 // requirements.owner；两者皆空返回空串（调用方跳过派发）。
-// 包内私有（唯一调用方 review.go 派发前装配收件人）。
-func deriveOwnerRole(ctx context.Context, r *repo.Repo, requirementID string, nodeID string) (string, error) {
-	node, err := r.GetFlowNodeByRequirementAndNodeID(ctx, requirementID, nodeID)
+// 事务闭包内可调用（读走 db——tx 或 Gorm() 均可，全程非锁只读）。
+// 包内私有（唯一调用方 review.go collect 事务内装配收件人）。
+func deriveOwnerRoleTx(ctx context.Context, db *gorm.DB, requirementID string, nodeID string) (string, error) {
+	node, err := repo.GetFlowNodeByRequirementAndNodeIDTx(ctx, db, requirementID, nodeID)
 	if err != nil {
 		return "", errs.Trace(err)
 	}
 	if node == nil {
 		return "", notFound("节点 %q 不存在于需求 %q", nodeID, requirementID)
 	}
-	flow, err := r.GetFlowByRequirementID(ctx, requirementID)
+	flow, err := repo.GetFlowByRequirementIDTx(ctx, db, requirementID)
 	if err != nil {
 		return "", errs.Trace(err)
 	}
@@ -195,7 +348,7 @@ func deriveOwnerRole(ctx context.Context, r *repo.Repo, requirementID string, no
 	if flow != nil {
 		scope = flow.Scope
 	}
-	defNodes, err := r.ListFlowDefNodesByTemplateIDs(ctx, []string{node.DefNodeID})
+	defNodes, err := repo.ListFlowDefNodesByTemplateIDsTx(ctx, db, []string{node.DefNodeID})
 	if err != nil {
 		return "", errs.Trace(err)
 	}
@@ -204,7 +357,7 @@ func deriveOwnerRole(ctx context.Context, r *repo.Repo, requirementID string, no
 		if filterErr != nil {
 			return "", errs.Trace(filterErr)
 		}
-		caps, err := r.ListCapabilities(ctx)
+		caps, err := repo.ListCapabilitiesTx(ctx, db)
 		if err != nil {
 			return "", errs.Trace(err)
 		}
@@ -222,7 +375,7 @@ func deriveOwnerRole(ctx context.Context, r *repo.Repo, requirementID string, no
 			}
 		}
 	}
-	requirement, err := r.GetRequirementByID(ctx, requirementID)
+	requirement, err := repo.GetRequirementByIDTx(ctx, db, requirementID)
 	if err != nil {
 		return "", errs.Trace(err)
 	}

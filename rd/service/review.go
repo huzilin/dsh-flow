@@ -206,53 +206,43 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 				resp.NextNodeId = advanceRes.NextNodeID
 			}
 		}
+		// 通知意图随业务同事务 enqueue（spec §1.2 注记-H）：门禁 agreed（user_gate=1）
+		// 唤醒 owner 拍板（gate_pending）/ collect=clarify 转 owner 澄清循环
+		// （clarify_task）。owner 推导失败仅记日志跳过（数据缺失类，非 DB 故障）；
+		// enqueue 失败随业务回滚——outbox 原子性口径（写表失败=库故障，业务主写
+		// 同样不可达），推送失败不阻断（flush/scanner 兜底）。
+		if resp.GateState == domain.GateStateAgreed || outcome == domain.CollectClarify {
+			owner, ownerErr := deriveOwnerRoleTx(ctx, tx, req.RequirementId, req.NodeId)
+			if ownerErr != nil {
+				log.Printf("[notifier] owner 角色推导失败，跳过通知 enqueue: req=%s node=%s err=%v",
+					req.RequirementId, req.NodeId, ownerErr)
+			} else if owner != "" {
+				spec := NotificationSpec{
+					RequirementID: req.RequirementId,
+					NodeID:        req.NodeId,
+					RecipientRole: owner,
+				}
+				if resp.GateState == domain.GateStateAgreed {
+					spec.Kind = NotificationKindGatePending
+					spec.Text = fmt.Sprintf("节点 %s 评审全数 agree，待你拍板", req.NodeId)
+				} else {
+					spec.Kind = NotificationKindClarifyTask
+					spec.Text = fmt.Sprintf("节点 %s 评审存在 unagree，请澄清回应", req.NodeId)
+				}
+				if err := EnqueueNotificationTx(ctx, tx, spec); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
 	})
 	if txErr != nil {
 		return nil, txErr
 	}
-	// 通知派发（事务外，spec §1.3——失败不阻断业务）：门禁 agreed（user_gate=1）
-	// 唤醒 owner 拍板 / collect=clarify 转 owner 澄清循环（§6.8 双通道收件箱侧）
-	s.dispatchReviewNotifications(ctx, req.RequirementId, req.NodeId, outcome, resp.GateState)
+	// 事务提交后即时推送 outbox（best-effort——失败留 pending 由 scanner 补投，
+	// spec §1.2 注记-H）
+	s.notifier.FlushPending(ctx)
 	return resp, nil
-}
-
-// dispatchReviewNotifications 评审写路径通知派发（事务提交后调用，事务外落库）：
-//   - gate_state=agreed：待你拍板（gate_pending）——收件 owner（被评审方：节点 exec
-//     能力归属角色优先，回落 requirements.owner），跳转=节点详情；
-//   - collect=clarify：澄清任务（clarify_task）——收件 owner，跳转=节点详情
-//     （respond 相位，澄清 issue 清单经 my_task 呈现）。
-//
-// owner 推导失败仅记日志跳过（通知为非关键路径）。
-func (s *ReviewService) dispatchReviewNotifications(ctx context.Context, requirementID string, nodeID string, outcome domain.CollectOutcome, gateState string) {
-	switch {
-	case gateState == domain.GateStateAgreed:
-	case outcome == domain.CollectClarify:
-	default:
-		return
-	}
-	owner, err := deriveOwnerRole(ctx, s.repo, requirementID, nodeID)
-	if err != nil {
-		log.Printf("[notifier] owner 角色推导失败，跳过派发: req=%s node=%s err=%v", requirementID, nodeID, err)
-		return
-	}
-	if owner == "" {
-		return
-	}
-	spec := NotificationSpec{
-		RequirementID: requirementID,
-		NodeID:        nodeID,
-		RecipientRole: owner,
-	}
-	switch {
-	case gateState == domain.GateStateAgreed:
-		spec.Kind = NotificationKindGatePending
-		spec.Text = fmt.Sprintf("节点 %s 评审全数 agree，待你拍板", nodeID)
-	default:
-		spec.Kind = NotificationKindClarifyTask
-		spec.Text = fmt.Sprintf("节点 %s 评审存在 unagree，请澄清回应", nodeID)
-	}
-	Dispatch(s.notifier, spec)
 }
 
 // Decide wb_decision：User 终审拍板专用路由（spec §1.2 移出清单——wb_decide 收编）。

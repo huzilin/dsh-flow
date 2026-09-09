@@ -32,21 +32,6 @@ func NewTaskService(r *repo.Repo) *TaskService {
 	return &TaskService{repo: r, notifier: NewNotifier(r), adv: NewAdvanceService(r)}
 }
 
-// dispatchReReviewNotifications 重新表态请求派发（事务提交后调用，事务外落库）：
-// 澄清闭环重入新轮后，被复位为 reviewing 的评审位逐角色收 re_review 通知
-// （§6.8「重新表态请求」——reviewer followup/复用通道；跳转=节点详情）。
-func (s *TaskService) dispatchReReviewNotifications(ctx context.Context, requirementID string, nodeID string, roles []string) {
-	for _, role := range roles {
-		Dispatch(s.notifier, NotificationSpec{
-			Kind:          NotificationKindReReview,
-			RequirementID: requirementID,
-			NodeID:        nodeID,
-			RecipientRole: role,
-			Text:          fmt.Sprintf("节点 %s 澄清已回应，请重新表态（新评审轮）", nodeID),
-		})
-	}
-}
-
 // Assign wb_assign_task：幂等派发——幂等键 requirement_id+node_id+action_id+
 // assignee（Further Notes 口径），同键存在未终态任务（status 非 completed/
 // rejected/closed）时返回既有任务（no-op，不重复建、不写审计）；终态后同键可再派。
@@ -279,12 +264,8 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 	}
 
 	var (
-		nooped        *repo.Task
-		blockedErr    error
-		reReviewRoles []string
-		reviewReqID   string
-		reviewNodeID  string
-		respondDone   bool
+		nooped     *repo.Task
+		blockedErr error
 		// execAdvance complete 判据通过后是否触发编排推进（exec 族任务 + 节点
 		// exec 相位；2026-09-09 拍板-B 内聚触发）
 		execAdvance bool
@@ -375,11 +356,19 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 				if reErr != nil {
 					return reErr
 				}
-				// T11 re_review 通知收件人（事务提交后派发，事务外落库）
-				reReviewRoles = roles
-				reviewReqID = row.RequirementID
-				reviewNodeID = row.NodeID
-				respondDone = true
+				// T11 re_review 通知意图随业务同事务 enqueue（spec §1.2 注记-H）：
+				// 重入轮后被复位为 reviewing 的评审位逐角色收重新表态请求
+				for _, role := range roles {
+					if err := EnqueueNotificationTx(ctx, tx, NotificationSpec{
+						Kind:          NotificationKindReReview,
+						RequirementID: row.RequirementID,
+						NodeID:        row.NodeID,
+						RecipientRole: role,
+						Text:          fmt.Sprintf("节点 %s 澄清已回应，请重新表态（新评审轮）", row.NodeID),
+					}); err != nil {
+						return err
+					}
+				}
 			}
 			switch row.TaskType {
 			case repo.TaskTypeProduce, repo.TaskTypeDev, repo.TaskTypeAccept:
@@ -423,11 +412,9 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 	if txErr != nil {
 		return nil, txErr
 	}
-	// 通知派发（事务外，spec §1.3——失败不阻断业务）：澄清闭环 → review 重入新轮，
-	// 重新表态请求（re_review）逐收件角色派发（§6.8 reviewer followup/复用通道）
-	if respondDone {
-		s.dispatchReReviewNotifications(ctx, reviewReqID, reviewNodeID, reReviewRoles)
-	}
+	// 事务提交后即时推送 outbox（best-effort——失败留 pending 由 scanner 补投，
+	// spec §1.2 注记-H）
+	s.notifier.FlushPending(ctx)
 	if nooped != nil {
 		return &api.TaskUpdateResp{
 			Ok:     true,

@@ -449,3 +449,42 @@ type Version struct {
 
 // TableName 表名。
 func (Version) TableName() string { return "versions" }
+
+// Outbox 通知可靠投递 outbox（表 notify_outbox，迁移 v4）——业务事务内 enqueue
+// 通知意图（与业务提交原子），flush/scanner 推送为 issues 通知行；推送失败不丢
+// 意图，retry 耗尽置 dead 终态 + audit 告警。
+type Outbox struct {
+	// ID 纯自增主键
+	ID int64 `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	// Kind 通知类别（七类枚举，anchor_kind 列位同源）
+	Kind string `gorm:"column:kind;size:32;notNull" json:"kind"`
+	// RequirementID 跳转一级定位
+	RequirementID string `gorm:"column:requirement_id;size:32;notNull" json:"requirementId"`
+	// NodeID 跳转二级定位；会话类可空
+	NodeID string `gorm:"column:node_id;size:32" json:"nodeId"`
+	// TargetID 锚点增强（retest=issueId / task 类=taskId）；NULL=未传
+	TargetID *string `gorm:"column:target_id;size:64" json:"targetId"`
+	// RecipientRole 收件角色
+	RecipientRole string `gorm:"column:recipient_role;size:32;notNull" json:"recipientRole"`
+	// Sender 派发者；空=plugin
+	Sender string `gorm:"column:sender;size:64;notNull;default:'plugin'" json:"sender"`
+	// SenderRole 派发者角色；空=plugin
+	SenderRole string `gorm:"column:sender_role;size:32;notNull;default:'plugin'" json:"senderRole"`
+	// Text 通知文案
+	Text string `gorm:"column:text;type:TEXT;notNull" json:"text"`
+	// Status pending/sending/sent/failed/dead
+	Status string `gorm:"column:status;index:idx_outbox_status;size:16;notNull;default:'pending'" json:"status"`
+	// RetryCount 补投次数；上限 5
+	RetryCount int64 `gorm:"column:retry_count;notNull;default:0" json:"retryCount"`
+	// LastError 最近一次推送失败原因；NULL=无失败
+	LastError *string `gorm:"column:last_error;type:TEXT" json:"lastError"`
+	// CreatedAt 创建时间，unix 毫秒
+	CreatedAt int64 `gorm:"column:created_at;notNull;autoCreateTime:milli" json:"createdAt"`
+	// UpdatedAt 更新时间，unix 毫秒（认领/停滞判定基准）
+	UpdatedAt int64 `gorm:"column:updated_at;notNull;autoUpdateTime:milli" json:"updatedAt"`
+	// SentAt 推送成功时间；NULL=未送达
+	SentAt *int64 `gorm:"column:sent_at" json:"sentAt"`
+}
+
+// TableName 表名。
+func (Outbox) TableName() string { return "notify_outbox" }

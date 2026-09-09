@@ -163,8 +163,10 @@ func (s *IssueService) Comment(ctx context.Context, req *api.CommentReq) (*api.C
 		ReviewerRole:     strPtrIfSet(reviewerRole),
 		Assignee:         strPtrIfSet(assignee),
 	}
+	// 通知意图随业务同事务 enqueue（spec §1.2 注记-H）：评论携 escalate 置位
+	// → 冲突上升裁决通知（§6.8 reviewer 主持；收件=评审归属角色，回落 User）
 	if _, err := withIDAllocRetry(func() (*repo.Issue, bool, error) {
-		retryable, err := s.commentOnce(ctx, row)
+		retryable, err := s.commentOnce(ctx, row, escalate == 1)
 		if err != nil {
 			return nil, retryable, err
 		}
@@ -172,23 +174,19 @@ func (s *IssueService) Comment(ctx context.Context, req *api.CommentReq) (*api.C
 	}); err != nil {
 		return nil, err
 	}
-	// 通知派发（事务外，spec §1.3——失败不阻断业务）：评论携 escalate 置位
-	// → 冲突上升裁决通知（§6.8 reviewer 主持；收件=评审归属角色，回落 User）
-	if escalate == 1 {
-		s.dispatchEscalationNotification(ctx, row)
-	}
+	s.notifier.FlushPending(ctx)
 	return &api.CommentResp{Ok: true, Issue: issueItem(row)}, nil
 }
 
-// dispatchEscalationNotification 冲突上升裁决通知派发（escalate 置位后调用，
-// 事务外落库）：收件角色=issue 评审归属角色（reviewer 主持，§6.8），非评审上下文
-// （reviewer_role 空）回落 User 仲裁（spec §2 澄清不收敛口径）；跳转=冲突 issue。
-func (s *IssueService) dispatchEscalationNotification(ctx context.Context, row *repo.Issue) {
+// escalationSpec 冲突上升裁决通知装配（escalate 置位时）：收件角色=issue 评审归属
+// 角色（reviewer 主持，§6.8），非评审上下文（reviewer_role 空）回落 User 仲裁
+// （spec §2 澄清不收敛口径）；跳转=冲突 issue。
+func escalationSpec(row *repo.Issue) (NotificationSpec, bool) {
 	recipient := derefString(row.ReviewerRole)
 	if recipient == "" {
 		recipient = auditByWhoUser
 	}
-	Dispatch(s.notifier, NotificationSpec{
+	return NotificationSpec{
 		Kind:          NotificationKindEscalation,
 		RequirementID: row.RequirementID,
 		NodeID:        row.NodeID,
@@ -197,12 +195,12 @@ func (s *IssueService) dispatchEscalationNotification(ctx context.Context, row *
 		Sender:        row.Author,
 		SenderRole:    row.RoleID,
 		Text:          fmt.Sprintf("冲突上升裁决：评论 %s（节点 %s）待裁决", row.IssueID, row.NodeID),
-	})
+	}, true
 }
 
 // commentOnce 单次建行尝试（事务：cm-<ts> 取号 → 插入 → INSERT 审计）；
 // 返回 retryable=true 表示唯一键冲突/锁竞争可整体重试。
-func (s *IssueService) commentOnce(ctx context.Context, row *repo.Issue) (bool, error) {
+func (s *IssueService) commentOnce(ctx context.Context, row *repo.Issue, escalateNotif bool) (bool, error) {
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		issueID, err := s.repo.AllocIssueIDTx(ctx, tx)
 		if err != nil {
@@ -212,12 +210,23 @@ func (s *IssueService) commentOnce(ctx context.Context, row *repo.Issue) (bool, 
 		if err := tx.Create(row).Error; err != nil {
 			return err
 		}
-		return s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
+		if err := s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
 			Table:  "issues",
 			RowID:  issueID,
 			Action: "INSERT",
 			ByWho:  row.RoleID,
-		})
+		}); err != nil {
+			return err
+		}
+		// 冲突上升裁决通知意图随业务同事务 enqueue（spec §1.2 注记-H，ID 分配后装配）
+		if escalateNotif {
+			if spec, ok := escalationSpec(row); ok {
+				if err := EnqueueNotificationTx(ctx, tx, spec); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	})
 	if txErr != nil {
 		if repo.IsDuplicateEntry(txErr) || repo.IsLockRace(txErr) {
@@ -519,44 +528,53 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 		}
 		// 同步派生列（出参口径）
 		row.State = effect.NextState
+		// 通知意图随业务同事务 enqueue（spec §1.2 注记-H）：本次迁移新置 escalate
+		// → 冲突上升裁决通知（§6.8；重复置位/已上升幂等不重发）
+		if escalateSet {
+			if spec, ok := escalationSpec(row); ok {
+				if err := EnqueueNotificationTx(ctx, tx, spec); err != nil {
+					return err
+				}
+			}
+		}
+		// 修复提交 → retest 通知（spec §1.2 注记-D1/N1：re_review retest 子型）。
+		// 触发=本次事务实际迁入 fixed（prevState≠fixed）——覆盖 resolve(fix) 与
+		// 「修复完成回复」（reply from to-fix）两条提交路径；Fixed→Fixed 幂等重入
+		// （重复 resolve/reply）不重发。
+		if prevState != repo.IssueStateFixed && row.State == repo.IssueStateFixed {
+			if spec, ok := retestSpec(row); ok {
+				if err := EnqueueNotificationTx(ctx, tx, spec); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
 	})
 	if txErr != nil {
 		return nil, txErr
 	}
-	// 通知派发（事务外，spec §1.3——失败不阻断业务）：本次迁移新置 escalate
-	// → 冲突上升裁决通知（§6.8；重复置位/已上升幂等不重发）
-	if escalateSet {
-		s.dispatchEscalationNotification(ctx, row)
-	}
-	// 修复提交 → retest 通知（spec §1.2 注记-D1/N1：re_review retest 子型，请提评者
-	// 回到评审循环复核）。触发=本次事务实际迁入 fixed（prevState≠fixed）——覆盖
-	// resolve(fix) 与「修复完成回复」（reply from to-fix）两条提交路径；
-	// Fixed→Fixed 幂等重入（重复 resolve/reply）不重发。
-	if prevState != repo.IssueStateFixed && row.State == repo.IssueStateFixed {
-		s.dispatchRetestNotification(ctx, row)
-	}
+	s.notifier.FlushPending(ctx)
 	return row, nil
 }
 
-// dispatchRetestNotification 修复提交通知派发（注记-D1/N1：resolve path=fix 写入
-// fixed 后调用，事务外落库，失败不阻断业务）——re_review retest 子型：请提评者
-// 回到评审循环复核（target_id=缺陷 issueId 复核锚点，FE「待复验」投影按
-// target_id 非空区分子型）。收件=提评者角色（issues.reviewer_role）；
-// 非评审评论（reviewer_role 空）不派发——修复闭环仅评审链路语义。
-func (s *IssueService) dispatchRetestNotification(ctx context.Context, row *repo.Issue) {
+// retestSpec 修复提交通知装配（注记-D1/N1：resolve path=fix 写入 fixed 后）——
+// re_review retest 子型：请提评者回到评审循环复核（target_id=缺陷 issueId 复核
+// 锚点，FE「待复验」投影按 target_id 非空区分子型）。收件=提评者角色
+// （issues.reviewer_role）；非评审评论（reviewer_role 空）返回 false 不派发——
+// 修复闭环仅评审链路语义。
+func retestSpec(row *repo.Issue) (NotificationSpec, bool) {
 	recipient := derefString(row.ReviewerRole)
 	if recipient == "" {
-		return
+		return NotificationSpec{}, false
 	}
-	Dispatch(s.notifier, NotificationSpec{
+	return NotificationSpec{
 		Kind:          NotificationKindReReview,
 		RequirementID: row.RequirementID,
 		NodeID:        row.NodeID,
 		TargetID:      row.IssueID,
 		RecipientRole: recipient,
 		Text:          fmt.Sprintf("缺陷 %s 已修复提交（fixed），待你复核", row.IssueID),
-	})
+	}, true
 }
 
 // issueAudit issue UPDATE 审计行装配（field 级留痕，old/new 文本化）。

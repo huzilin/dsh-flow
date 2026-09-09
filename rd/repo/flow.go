@@ -267,3 +267,31 @@ func (r *Repo) AllocNodeIDBaseTx(ctx context.Context, tx *gorm.DB) (int64, error
 func FormatNodeID(seq int64) string {
 	return fmt.Sprintf("%s%02d", flowNodeIDPrefix, seq)
 }
+
+// GetFlowNodeByRequirementAndNodeIDTx 事务内非锁读节点行（通知 owner 推导等
+// 只读消费；锁读走同名 LockTx——锁序纪律见拍板注记-C）。
+func GetFlowNodeByRequirementAndNodeIDTx(ctx context.Context, db *gorm.DB, requirementID string, nodeID string) (*FlowNode, error) {
+	row := &FlowNode{}
+	err := db.WithContext(ctx).
+		Where("requirement_id = ? AND node_id = ?", requirementID, nodeID).
+		First(row).Error
+	if err != nil {
+		if isRecordNotFound(err) {
+			return nil, nil
+		}
+		return nil, errs.Trace(err)
+	}
+	return row, nil
+}
+
+// ListCapabilitiesTx 事务内全量读能力注册表（owner 推导等只读消费）。
+func ListCapabilitiesTx(ctx context.Context, db *gorm.DB) ([]*Capability, error) {
+	items := make([]*Capability, 0)
+	err := db.WithContext(ctx).
+		Order("capability_id").
+		Find(&items).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return items, nil
+}
