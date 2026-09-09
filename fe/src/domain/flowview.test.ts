@@ -240,3 +240,79 @@ describe("T16 拍板卡/冲突卡纯函数", () => {
     expect(replies[0]?.sessionId).toBe("ses-7");
   });
 });
+
+import { buildFlowRows } from "./flowview";
+
+/** exec-CR 节点工厂（produce+gate+1 评审位——并行组判定命中型）。 */
+function laneNode(order: number, key: string, opts?: { noGate?: boolean; noSeats?: boolean; type?: string }): FlowNodeItem {
+  return {
+    nodeId: `n-${order}`,
+    defNodeId: `d-${order}`,
+    nodeOrder: String(order),
+    nodeKey: key,
+    state: "",
+    reviewResults: "[]",
+    reopenSource: "",
+    rolledBackCount: "0",
+    featureBranch: "",
+    enteredAt: "0",
+    nodeType: opts?.type ?? "produce",
+    gate: opts?.noGate ? "0" : "1",
+    userGate: "0",
+    reviewers: opts?.noSeats ? "[]" : '[{"role":"rd","capabilityId":"implement-techdesign"}]',
+    lastDecision: "",
+  } as FlowNodeItem;
+}
+
+describe("buildFlowRows 并行泳道行构建（wb_advance join 同口径镜像）", () => {
+  it("business full：相邻 RD∥FE 开发（produce+gate+评审位）成 parallel 行，rd 居左", () => {
+    const nodes = [
+      laneNode(9, "RD 开发"),
+      laneNode(10, "FE 开发"),
+    ];
+    const rows = buildFlowRows(nodes);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe("parallel");
+    if (rows[0].kind === "parallel") {
+      expect(rows[0].rd.nodeKey).toBe("RD 开发");
+      expect(rows[0].fe.nodeKey).toBe("FE 开发");
+    }
+  });
+
+  it("rd-only：FE 侧已被 scope 裁剪，单个 exec-CR 不成组（全 single 行）", () => {
+    const rows = buildFlowRows([laneNode(9, "RD 开发")]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe("single");
+  });
+
+  it("非 exec-CR 相邻（缺门禁/缺评审位/非 produce）不成组", () => {
+    const rows = buildFlowRows([
+      laneNode(1, "串行产出", { noGate: true }),
+      laneNode(2, "串行产出2"),
+    ]);
+    expect(rows.every((r) => r.kind === "single")).toBe(true);
+
+    const rows2 = buildFlowRows([
+      laneNode(1, "无评审位产出", { noSeats: true }),
+      laneNode(2, "开发"),
+    ]);
+    expect(rows2.every((r) => r.kind === "single")).toBe(true);
+
+    const rows3 = buildFlowRows([
+      laneNode(1, "评审节点", { type: "review" }),
+      laneNode(2, "开发"),
+    ]);
+    expect(rows3.every((r) => r.kind === "single")).toBe(true);
+  });
+
+  it("纵向单链混排：组前/组中/组后节点均保持 single 行且顺序不乱", () => {
+    const nodes = [
+      laneNode(8, "FE 设计评审", { type: "review", noGate: true }),
+      laneNode(9, "RD 开发"),
+      laneNode(10, "FE 开发"),
+      laneNode(11, "QA 验收", { noSeats: true }),
+    ];
+    const rows = buildFlowRows(nodes);
+    expect(rows.map((r) => r.kind)).toEqual(["single", "parallel", "single"]);
+  });
+});

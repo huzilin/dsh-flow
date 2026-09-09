@@ -33,7 +33,7 @@ export default function App() {
         </header>
         <main className="content">
           <Routes>
-            <Route path="/" element={<Navigate to="/pool" replace />} />
+            <Route path="/" element={<Navigate to="/board" replace />} />
             <Route path="/pool" element={<RequirementPoolPage />} />
             <Route path="/board" element={<BoardPage />} />
             <Route path="/versions" element={<VersionsPage />} />

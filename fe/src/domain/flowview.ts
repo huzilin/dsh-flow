@@ -272,3 +272,42 @@ export function rejectedReentryHint(node: FlowNodeItem): string {
     ? "已打回重入：exec 返工执行中"
     : "已打回，等待 exec 重入";
 }
+
+/** 并行组行结构：泳道并排渲染的视图行（FlowTree 布局源）。
+ *  single=常规单节点行；parallel=RD∥FE 开发组一行两列。 */
+export type FlowRow =
+  | { kind: "single"; node: FlowNodeItem }
+  | { kind: "parallel"; rd: FlowNodeItem; fe: FlowNodeItem };
+
+/** 泳道侧 exec-CR 成员判定（与后端 rd/service advance.isLaneSideExecCR 同口径镜像：
+ * produce + gate=1 + 有评审位）。scope 单侧校验以相邻成对约束替代——seed 定稿矩阵
+ * （business 40 定义节点）中相邻 exec-CR 对仅 RD∥FE 开发组，单测锁定；未来 seed
+ * 若引入相邻 exec-CR 串行对，需后端快照出 parallel_group 标识替代本判定。 */
+function isLaneSideExecCR(node: FlowNodeItem): boolean {
+  if (node.nodeType !== "produce" || Number(node.gate) !== 1) return false;
+  return parseReviewers(node.reviewers).length > 0;
+}
+
+/** 流程树行构建：node_order 序列扫描，相邻两个泳道侧 exec-CR 节点判定为并行组
+ * （与后端 wb_advance join 判定同口径——相邻 rd 侧 × fe 侧；nodeOrder 小者为 rd 泳道
+ * 居左）。非相邻不成组、三连不成组（宁缺勿滥，组语义由 seed 保证）。 */
+export function buildFlowRows(nodes: FlowNodeItem[]): FlowRow[] {
+  const sorted = [...nodes].sort((a, b) => Number(a.nodeOrder) - Number(b.nodeOrder));
+  const rows: FlowRow[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    const next = sorted[i + 1];
+    if (
+      next !== undefined &&
+      isLaneSideExecCR(sorted[i]) &&
+      isLaneSideExecCR(next)
+    ) {
+      rows.push({ kind: "parallel", rd: sorted[i], fe: next });
+      i += 2;
+    } else {
+      rows.push({ kind: "single", node: sorted[i] });
+      i += 1;
+    }
+  }
+  return rows;
+}
