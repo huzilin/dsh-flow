@@ -22,8 +22,8 @@ const (
 )
 
 // InitZap 初始化zap全局日志
-// logPath 日志文件路径, mode 运行模式
-func InitZap(logPath string, mode Mode) {
+// logPath 日志文件路径, mode 运行模式, level 日志级别（debug/info/warn/error，非法值回退 info）
+func InitZap(logPath string, mode Mode, level string) {
 	// 1. 分割日志配置
 	lj := &lumberjack.Logger{
 		Filename:   filepath.Clean(logPath),
@@ -51,17 +51,23 @@ func InitZap(logPath string, mode Mode) {
 	var core zapcore.Core
 	switch mode {
 	case ModeDev:
-		// 开发环境：控制台彩色文本输出，打印debug级别
+		// 开发环境：控制台彩色文本输出
 		consoleEncoder := zapcore.NewConsoleEncoder(encoderCfg)
 		core = zapcore.NewTee(
-			zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zapcore.DebugLevel),
+			zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), parseLevel(level)),
 		)
 	case ModeProd:
-		// 生产环境：JSON格式输出到文件，info级别起步
+		// 生产环境：JSON格式输出到文件
 		jsonEncoder := zapcore.NewJSONEncoder(encoderCfg)
 		writeSyncer := zapcore.NewMultiWriteSyncer(zapcore.AddSync(lj), zapcore.AddSync(os.Stdout))
 		core = zapcore.NewTee(
-			zapcore.NewCore(jsonEncoder, writeSyncer, zapcore.InfoLevel),
+			zapcore.NewCore(jsonEncoder, writeSyncer, parseLevel(level)),
+		)
+	default:
+		// 未知模式回退 dev 行为
+		consoleEncoder := zapcore.NewConsoleEncoder(encoderCfg)
+		core = zapcore.NewTee(
+			zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), parseLevel(level)),
 		)
 	}
 
@@ -83,4 +89,13 @@ func S() *zap.SugaredLogger {
 // Sync 刷新缓冲区，程序退出前必须调用
 func Sync() {
 	_ = log.Sync()
+}
+
+// parseLevel 解析日志级别字符串，非法值回退 info。
+func parseLevel(level string) zapcore.Level {
+	lv, err := zapcore.ParseLevel(level)
+	if err != nil {
+		return zapcore.InfoLevel
+	}
+	return lv
 }

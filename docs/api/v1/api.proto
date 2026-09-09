@@ -1,0 +1,1355 @@
+// wbflow v1.0 内部接口契约真相源（spec §1.1）。
+//
+// 口径：
+//   - wb_* 语义一份、HTTP 一张皮：Web 前端 / DSH 嵌入 / agent 侧统一消费同一 API 层；
+//   - HTTP JSON 序列化走 protojson（EmitUnpopulated：零值字段可见，出参字段恒显式）；
+//   - 命名：请求消息 XxxReq、响应消息 XxxResp；
+//   - 枚举态字段用 string 而非 enum（如 status="待启动"）；
+//   - 短字段直接 typed；结构化载荷一律 string 承载 JSON 文本（与 TEXT 列同构）；
+//   - 统一响应：成功 {ok:true, …数据}；失败 {ok:false, error, code, blocked?, missing?}
+//     （失败出参见 ErrorResp，由 handler errs.MapToHTTP 集中产出）。
+//
+// int64 与 JSON 的映射取舍（protojson 规范行为，FE 契约按此对齐）：
+//   int64 字段（时间戳 unix 毫秒 / 分页计数等）JSON 出参为**字符串**（如 "1730000000000"），
+//   入参接受字符串或数字两种形式；避免 JS Number 精度丢失（2^53），不改用 int32。
+//
+// 版本状态机（versions.state，单向）：待启动 → 进行中 → 已发布；任意阶段废弃=终态（已废弃）；
+// 废弃时其下未开始需求解绑回待分配池（spec §1.2 拍板注记-A）。
+// 需求状态机（requirements.status）：待启动 / 进行中 / 已完成 / 已取消。
+// 类别（requirements.category，决定流程类型绑定，domain 层表驱动）：
+//   需求任务 → {business, tech, task}（默认 business）；
+//   规划审批任务 / 版本规划任务 → {plan}。
+//   出处：docs-tmp/ui-interaction-final.md §2「类别↔流程类型绑定」定稿 +
+//   docs/v1.0/arch_design.md §8.2（category/reqType 选模板）。
+syntax = "proto3";
+
+package wbflow.api.v1;
+
+option go_package = "github.com/huzilin/wbflow/rd/api;api";
+
+// ErrorResponse 统一失败出参（所有失败路径同形；HTTP 状态码由 errs.MapToHTTP 集中映射）。
+message ErrorResp {
+  // ok 恒 false
+  bool ok = 1;
+  // error 人类可读错误摘要
+  string error = 2;
+  // code 机器可读错误码（如 OPTIMISTIC_LOCK / GATE_BLOCKED / NOT_FOUND）
+  string code = 3;
+  // blocked 门禁拦截标记（判据不满足的操作）
+  bool blocked = 4;
+  // missing 判据缺项清单（仅判据校验类拦截有值）
+  repeated string missing = 5;
+}
+
+// ---------------------------------------------------------------------------
+// requirements（wb_list / wb_create / wb_get / wb_update / wb_delete_requirement）
+// ---------------------------------------------------------------------------
+
+// ListRequirementsReq GET /api/requirements 查询参数。
+message ListRequirementsReq {
+  // version_id 按版本筛选；空=不过滤
+  string version_id = 1;
+  // backlog true=仅看待分配池（version_id IS NULL）；与 version_id 互斥，同给时 backlog 优先
+  bool backlog = 2;
+  // priority 按 P0-P3 筛选；空=不过滤
+  string priority = 3;
+  // status 按需求状态筛选；空=不过滤
+  string status = 4;
+  // page 页码，1 起；0 视为 1
+  int64 page = 5;
+  // page_size 页大小；0 视为默认 20，上限 100（强制分页，禁全量）
+  int64 page_size = 6;
+  // scope 按需求流程实例所选渲染 scope 筛选（full/rd/fe）；空=不过滤。
+  // 过滤语义：需求存在 flows.scope=本值的实例才命中（join flows 或等价子查询）。
+  string scope = 7;
+}
+
+// RequirementItem 需求行（列表与详情快照共用）。
+message RequirementItem {
+  // requirement_id 需求业务 id，如 req-001
+  string requirement_id = 1;
+  // title 标题
+  string title = 2;
+  // description Markdown 描述
+  string description = 3;
+  // category 类别标签：需求任务/规划审批任务/版本规划任务
+  string category = 4;
+  // flow_defs_id 流程类型（由 category 绑定派生，可创建时在允许集内显式指定）
+  string flow_defs_id = 5;
+  // version_id 归属版本；空串=待分配池（DB 侧 NULL）
+  string version_id = 6;
+  // priority P0-P3
+  string priority = 7;
+  // status 待启动/进行中/已完成/已取消
+  string status = 8;
+  // owner 负责人角色；空=未指派
+  string owner = 9;
+  // created_by 创建人
+  string created_by = 10;
+  // created_at 创建时间，unix 毫秒（JSON 字符串）
+  int64 created_at = 11;
+  // updated_at 更新时间，unix 毫秒（乐观锁基线，更新时回传）
+  int64 updated_at = 12;
+  // dependencies 前置依赖需求 id 清单（flows.dependencies 透传，spec §1.2 注记-D4；
+  // 无实例（未创建流程）时为空集）
+  repeated string dependencies = 13;
+}
+
+// ListRequirementsResp GET /api/requirements 出参。
+message ListRequirementsResp {
+  // ok 恒 true
+  bool ok = 1;
+  // total 筛选后总数（分页基数）
+  int64 total = 2;
+  // page 当前页码
+  int64 page = 3;
+  // page_size 当前页大小
+  int64 page_size = 4;
+  // items 当前页需求行
+  repeated RequirementItem items = 5;
+}
+
+// GetRequirementReq GET /api/requirements/:reqId 入参（reqId 取路径）。
+message GetRequirementReq {
+  // requirement_id 需求业务 id
+  string requirement_id = 1;
+}
+
+// FlowItem 流程实例行（聚合快照；T4 起需求创建即实例化，恒 1 行）。
+message FlowItem {
+  // flow_defs_id 流程类型
+  string flow_defs_id = 1;
+  // dependencies 前置依赖 JSON 文本（TEXT 列同构）：["req-…"]
+  string dependencies = 2;
+  // current_node_id 当前节点 id；空=未进入编排（DB 侧 NULL）
+  string current_node_id = 3;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 4;
+  // updated_at 更新时间，unix 毫秒
+  int64 updated_at = 5;
+  // scope 需求所选渲染 scope：full/rd/fe；空=无 scope（plan 流程）
+  string scope = 6;
+}
+
+// FlowNodeItem 流程实例节点行（T4 起实例化填充；流程树渲染所需字段齐备）。
+message FlowNodeItem {
+  // node_id 实例节点 id，如 n-05
+  string node_id = 1;
+  // def_node_id 定义节点引用
+  string def_node_id = 2;
+  // node_order 渲染序号（scope 过滤后重排）
+  int64 node_order = 3;
+  // node_key 节点名
+  string node_key = 4;
+  // state 可配相位：""=未进入编排 / entry / exec / review / respond
+  string state = 5;
+  // review_results 评审轮结果 JSON 文本（TEXT 列同构）
+  string review_results = 6;
+  // reopen_source 重开来源：""/upstream-reject/downstream-reject/rework-return
+  string reopen_source = 7;
+  // rolled_back_count 回退计数
+  int64 rolled_back_count = 8;
+  // feature_branch 评审敲定后的分支名；空=未敲定
+  string feature_branch = 9;
+  // entered_at 进入执行时间，unix 毫秒；0=未进入
+  int64 entered_at = 10;
+  // node_type 节点类型（来自定义节点）：produce/review/align/gate
+  string node_type = 11;
+  // gate 是否门禁：1=有准出判定
+  int64 gate = 12;
+  // user_gate User 终审拍板位：1=agreed 后唤醒 User
+  int64 user_gate = 13;
+  // reviewers 实例评审位声明 JSON 文本（实例化按 scope 过滤后的静态声明）
+  string reviewers = 14;
+  // last_decision 门禁裁决结果 JSON 文本（{verdict,reason,at,branch?}）；空=未判定（DB 侧 NULL）
+  string last_decision = 15;
+}
+
+// ArtifactItem 产物行（T6 前为空集）。
+message ArtifactItem {
+  // artifact_id 产物业务 id
+  string artifact_id = 1;
+  // node_id 节点 id
+  string node_id = 2;
+  // product_type 产物受控类型
+  string product_type = 3;
+  // label 产物显示名
+  string label = 4;
+  // href 相对项目路径（document）或外链（link）
+  string href = 5;
+  // kind document | link
+  string kind = 6;
+  // note 备注；空=无
+  string note = 7;
+  // added_by 登记人角色
+  string added_by = 8;
+  // created_at 登记时间，unix 毫秒
+  int64 created_at = 9;
+}
+
+// IssueItem 评论/问题行（issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved/
+// overridden；快照与五端点出参共用——T7 起详情字段齐备，追加字段向后兼容）。
+message IssueItem {
+  // issue_id 评论业务 id，如 cm-1730000000000
+  string issue_id = 1;
+  // node_id 节点 id
+  string node_id = 2;
+  // anchor_kind 锚点：document/line/range/block
+  string anchor_kind = 3;
+  // author 发表者
+  string author = 4;
+  // role_id 发表者角色
+  string role_id = 5;
+  // text 根评论内容
+  string text = 6;
+  // state issue 状态机 v2 状态
+  string state = 7;
+  // escalate 冲突上升标记：1=已上升
+  int64 escalate = 8;
+  // loop_count 回退计数：澄清期读=reopen 次数，修复期读=revise 次数
+  int64 loop_count = 9;
+  // round_count 对话轮数
+  int64 round_count = 10;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 11;
+  // issue_type issue/notification/discussion
+  string issue_type = 12;
+  // reviewer_role 评审归属角色；空=未推导/非评审
+  string reviewer_role = 13;
+  // assignee 解决责任人；空=未指派
+  string assignee = 14;
+  // anchor_artifact_id 锚定产物 id；空=document 级（DB 侧 NULL）
+  string anchor_artifact_id = 15;
+  // anchor_line 单行号（kind=line）；0=未设
+  int64 anchor_line = 16;
+  // anchor_start_line 范围起行（kind=range）；0=未设
+  int64 anchor_start_line = 17;
+  // anchor_end_line 范围终行（kind=range）；0=未设
+  int64 anchor_end_line = 18;
+  // anchor_block_start 代码块起行（kind=block）；0=未设
+  int64 anchor_block_start = 19;
+  // anchor_block_end 代码块终行（kind=block）；0=未设
+  int64 anchor_block_end = 20;
+  // anchor_lang 代码块语言（kind=block）；空=未设
+  string anchor_lang = 21;
+  // replies 回复与裁决回填 JSON 文本（TEXT 列同构，不可变追加）
+  string replies = 22;
+  // last_reply_at 最近回复时间，unix 毫秒；0=无回复
+  int64 last_reply_at = 23;
+  // resolve_path resolve 路径：fix=修复关闭 / agree=协商一致关闭；空=未解决
+  string resolve_path = 24;
+  // resolve_by resolve 责任人；空=未解决
+  string resolve_by = 25;
+  // resolve_at resolve 时间，unix 毫秒；0=未解决
+  int64 resolve_at = 26;
+  // resolve_note resolve 说明；空=未解决
+  string resolve_note = 27;
+  // resolve_reviewer_confirmed 评审者复核确认：0/1
+  int64 resolve_reviewer_confirmed = 28;
+  // resolved_by 最终确认人；空=未闭环
+  string resolved_by = 29;
+  // resolved_at 最终确认时间，unix 毫秒；0=未闭环
+  int64 resolved_at = 30;
+  // updated_at 更新时间，unix 毫秒（乐观锁基线）
+  int64 updated_at = 31;
+}
+
+// CommentAnchor 评论锚点（四级：document/line/range/block——spec §0 issues 锚点族）。
+// 行号 1 起；0=未设（proto3 无可选标量）。一致性校验在 domain.ValidateIssueAnchor：
+// kind=line 必填 line；kind=range 必填 start≤end；kind=block 必填 block_start≤block_end
+// 且 lang 非空；line/range/block 必锚产物（artifact_id），document 不带行号族字段。
+message CommentAnchor {
+  // kind 锚点级别：document/line/range/block
+  string kind = 1;
+  // artifact_id 锚定产物 id（line/range/block 必填；document 空）
+  string artifact_id = 2;
+  // line 单行号（kind=line）
+  int64 line = 3;
+  // start_line 范围起行（kind=range）
+  int64 start_line = 4;
+  // end_line 范围终行（kind=range）
+  int64 end_line = 5;
+  // block_start 代码块起行（kind=block）
+  int64 block_start = 6;
+  // block_end 代码块终行（kind=block）
+  int64 block_end = 7;
+  // lang 代码块语言（kind=block 必填）
+  string lang = 8;
+}
+
+// ---------------------------------------------------------------------------
+// comments（T7：wb_comment / wb_reply / wb_resolve / wb_confirm_review / wb_reopen）
+// ---------------------------------------------------------------------------
+
+// CommentReq POST /api/requirements/:reqId/comments 入参（wb_comment）。
+// reviewer_role 程序推导（发表者 ∈ 节点评审位）；assignee 缺省按 L1（锚点产物登记人）
+// → L2（节点 exec 能力归属）推导，显式传值优先。
+message CommentReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 节点 id（必填，须为该需求实例节点）
+  string node_id = 2;
+  // anchor 四级锚点；未填充=kind=document 级评论
+  CommentAnchor anchor = 3;
+  // author 发表者（必填）
+  string author = 4;
+  // role_id 发表者角色（必填）
+  string role_id = 5;
+  // issue_type issue/notification/discussion；空=issue
+  string issue_type = 6;
+  // assignee 显式指派解决责任人；空=程序推导（L1→L2）
+  string assignee = 7;
+  // text 根评论内容（必填）
+  string text = 8;
+  // escalate 冲突上升标记（可选置位，T12 裁决链消费）
+  bool escalate = 9;
+}
+
+// CommentResp POST /api/requirements/:reqId/comments 出参。
+message CommentResp {
+  // ok 恒 true
+  bool ok = 1;
+  // issue 建行后的评论行
+  IssueItem issue = 2;
+}
+
+// ReplyReq POST /api/comments/:commentId/replies 入参（wb_reply）。
+// replies 不可变追加（只增不改）；open→pending-confirm / to-fix→fixed 由状态机判定，
+// 非法迁移 409。
+message ReplyReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // by 回复者（必填）
+  string by = 2;
+  // role_id 回复者角色（必填）
+  string role_id = 3;
+  // text 回复内容（必填）
+  string text = 4;
+  // voided 作废标注（误发 reply 标注作废——ui-interaction-final §3）
+  bool voided = 5;
+}
+
+// ReplyResp POST /api/comments/:commentId/replies 出参。
+message ReplyResp {
+  // ok 恒 true
+  bool ok = 1;
+  // round_count 追加后对话轮数
+  int64 round_count = 2;
+  // issue 追加后的评论行（replies JSON 全量）
+  IssueItem issue = 3;
+}
+
+// ResolveReq POST /api/comments/:commentId/resolve 入参（wb_resolve）。
+// 操作者须=assignee（arch_design 缺陷闭环口径）；path=fix 修复路径（open/pending-confirm
+// 定性 to-fix，to-fix/fixed 修复关闭申报）；path=agree 协商一致关闭（直落 resolved）。
+message ResolveReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // path 解决路径：fix | agree（必填）
+  string path = 2;
+  // operator 操作者角色（必填，须=assignee）
+  string operator = 3;
+  // note resolve 说明
+  string note = 4;
+  // escalate 冲突上升标记（可选置位）
+  bool escalate = 5;
+}
+
+// ResolveResp POST /api/comments/:commentId/resolve 出参。
+message ResolveResp {
+  // ok 恒 true
+  bool ok = 1;
+  // issue resolve 后的评论行
+  IssueItem issue = 2;
+}
+
+// ConfirmReviewReq POST /api/comments/:commentId/confirm 入参（wb_confirm_review）。
+// 提评者复核确认：pending-confirm/fixed→resolved，落 resolve_reviewer_confirmed=1 +
+// resolved_by/at。操作者须=提评者（reviewer_role 优先，缺省 author）。
+message ConfirmReviewReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // operator 操作者角色（必填，须=提评者）
+  string operator = 2;
+}
+
+// ConfirmReviewResp POST /api/comments/:commentId/confirm 出参。
+message ConfirmReviewResp {
+  // ok 恒 true
+  bool ok = 1;
+  // issue 确认后的评论行
+  IssueItem issue = 2;
+}
+
+// ReopenReq POST /api/comments/:commentId/reopen 入参（wb_reopen）。
+// 澄清 reopen：pending-confirm→open；修复 revise：fixed→to-fix；均 loop_count++。
+// text 非空时以 reopen 理由追加 replies（不可变追加，裁决回填同通道）。
+message ReopenReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // operator 操作者角色（必填，须=提评者）
+  string operator = 2;
+  // text reopen 理由（可选，追加进 replies）
+  string text = 3;
+}
+
+// ReopenResp POST /api/comments/:commentId/reopen 出参。
+message ReopenResp {
+  // ok 恒 true
+  bool ok = 1;
+  // loop_count 追加后回退计数
+  int64 loop_count = 2;
+  // issue reopen 后的评论行
+  IssueItem issue = 3;
+}
+
+// GetRequirementResp 聚合快照出参（基础版：需求 + 版本信息 + 实例集合字段先立住）。
+message GetRequirementResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement 需求行
+  RequirementItem requirement = 2;
+  // version 归属版本；待分配池为未填充（protojson 出 null）
+  VersionItem version = 3;
+  // flows 流程实例集（T4 前空集）
+  repeated FlowItem flows = 4;
+  // flow_nodes 实例节点集（T4 前空集）
+  repeated FlowNodeItem flow_nodes = 5;
+  // artifacts 产物集（T6 前空集）
+  repeated ArtifactItem artifacts = 6;
+  // issues 评论集（T7 前空集）
+  repeated IssueItem issues = 7;
+  // review_results 评审轮结果汇总 JSON 文本（TEXT 列同构，默认 "[]"）
+  string review_results = 8;
+  // sessions 会话绑定集（该需求 sessions 行投影，spec §1.2 注记-D2/N5：
+  // FE 会话 tab 按选中节点 nodeId 过滤；本期仅裁决链落行，空集合法）
+  repeated SessionItem sessions = 9;
+}
+
+// SessionItem 会话绑定行投影（sessions 表只读透出，本期无会话端点——
+// spec §1.2 路由表无 session 行，仅随快照呈现实例）。
+message SessionItem {
+  // session_id 会话业务 id
+  string session_id = 1;
+  // requirement_id 关联需求；空串=无
+  string requirement_id = 2;
+  // node_id 关联节点；空串=无
+  string node_id = 3;
+  // role_id 绑定角色
+  string role_id = 4;
+  // status 生命周期：active / ended / disposed
+  string status = 5;
+  // updated_at 最近状态时间，unix 毫秒
+  int64 updated_at = 6;
+}
+
+// HistoryItem 需求字段变更历史条目（audit_log 只读投影，spec §1.2 注记-D3/N6：
+// table_name=requirements 且 row_id=reqId 的审计行；自然语句渲染归 FE）。
+message HistoryItem {
+  // field 变更字段；INSERT 为空串
+  string field = 1;
+  // old_value 旧值；INSERT 为空串
+  string old_value = 2;
+  // new_value 新值；DELETE 为空串
+  string new_value = 3;
+  // by_who 操作者
+  string by_who = 4;
+  // created_at 变更时间，unix 毫秒
+  int64 created_at = 5;
+  // action INSERT/UPDATE/DELETE（需求行生命周期动作）
+  string action = 6;
+}
+
+// ListRequirementHistoryReq GET /api/requirements/:reqId/history 入参（reqId 取路径）。
+message ListRequirementHistoryReq {
+  // requirement_id 需求业务 id（handler 自路径参数覆写）
+  string requirement_id = 1;
+}
+
+// ListRequirementHistoryResp GET /api/requirements/:reqId/history 出参。
+message ListRequirementHistoryResp {
+  // ok 恒 true
+  bool ok = 1;
+  // items 变更历史行（created_at 倒序）
+  repeated HistoryItem items = 2;
+}
+
+// CreateRequirementReq POST /api/requirements 入参。
+message CreateRequirementReq {
+  // title 标题（必填）
+  string title = 1;
+  // description Markdown 描述
+  string description = 2;
+  // category 类别标签（必填，决定流程类型绑定）
+  string category = 3;
+  // flow_defs_id 可选：在类别允许集内显式指定流程类型；空=按类别默认派生
+  // （需求任务默认 business；规划审批任务/版本规划任务恒 plan）
+  string flow_defs_id = 4;
+  // version_id 归属版本；空=待分配池（默认）
+  string version_id = 5;
+  // priority P0-P3；空=默认 P2
+  string priority = 6;
+  // owner 负责人角色；空=未指派
+  string owner = 7;
+  // created_by 创建人（必填）
+  string created_by = 8;
+  // scope 需求所选渲染 scope：business/tech ∈ {full, rd, fe}；task ∈ {rd, fe}；
+  // plan 恒空串。空=取 flow_defs.scope_options 首值（business/tech 默认 full、task 默认 rd）。
+  // 越出 scope_options → 400。实例化按 flow_def_nodes.scope_expr ∩ scope 过滤投影（T4）。
+  string scope = 9;
+}
+
+// CreateRequirementResp POST /api/requirements 出参。
+message CreateRequirementResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement 创建后的需求行（含生成的 requirement_id）
+  RequirementItem requirement = 2;
+}
+
+// UpdateRequirementReq PUT /api/requirements/:reqId 入参（全字段替换语义；
+// updated_at 为读取基线，冲突返回 409 OPTIMISTIC_LOCK）。
+message UpdateRequirementReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // title 标题
+  string title = 2;
+  // description Markdown 描述
+  string description = 3;
+  // category 类别标签（变更后 flow_defs_id 按绑定规则重派生）
+  string category = 4;
+  // priority P0-P3
+  string priority = 5;
+  // status 需求状态（待启动/进行中/已完成/已取消）
+  string status = 6;
+  // owner 负责人角色；空=未指派
+  string owner = 7;
+  // version_id 归属版本；空串=移回待分配池
+  string version_id = 8;
+  // updated_at 读取基线，unix 毫秒（乐观锁）
+  int64 updated_at = 9;
+}
+
+// UpdateRequirementResp PUT /api/requirements/:reqId 出参。
+message UpdateRequirementResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement 更新后的需求行（新 updated_at 基线）
+  RequirementItem requirement = 2;
+}
+
+// DeleteRequirementReq DELETE /api/requirements/:reqId 入参。
+message DeleteRequirementReq {
+  // requirement_id 需求业务 id
+  string requirement_id = 1;
+  // confirm 必须显式 true——删除需 User 明确指令口径；缺省 blocked
+  bool confirm = 2;
+}
+
+// DeleteRequirementResp DELETE /api/requirements/:reqId 出参。
+message DeleteRequirementResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement_id 被删需求业务 id
+  string requirement_id = 2;
+}
+
+// ---------------------------------------------------------------------------
+// versions（wb_list / wb_create / wb_update_version、wb_advance_version、wb_deprecate_version）
+// ---------------------------------------------------------------------------
+
+// ListVersionsReq GET /api/versions 入参（无筛选，含待分配池标记行）。
+message ListVersionsReq {
+}
+
+// VersionItem 版本行。
+message VersionItem {
+  // version_id 版本业务 id，如 v-1
+  string version_id = 1;
+  // name 版本名（自由文本）
+  string name = 2;
+  // state 待启动/进行中/已发布/已废弃
+  string state = 3;
+  // is_backlog 待分配池标记
+  bool is_backlog = 4;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 5;
+  // updated_at 更新时间，unix 毫秒（乐观锁基线）
+  int64 updated_at = 6;
+}
+
+// ListVersionsResp GET /api/versions 出参。
+message ListVersionsResp {
+  // ok 恒 true
+  bool ok = 1;
+  // items 版本行全集（含待分配池标记行）
+  repeated VersionItem items = 2;
+}
+
+// CreateVersionReq POST /api/versions 入参。
+message CreateVersionReq {
+  // name 版本名（必填，自由文本）
+  string name = 1;
+  // is_backlog 待分配池标记
+  bool is_backlog = 2;
+}
+
+// CreateVersionResp POST /api/versions 出参。
+message CreateVersionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // version 创建后的版本行（含生成的 version_id）
+  VersionItem version = 2;
+}
+
+// UpdateVersionReq PUT /api/versions/:versionId 入参（改名；状态迁移走 advance/deprecate）。
+message UpdateVersionReq {
+  // version_id 版本业务 id（versionId 取路径）
+  string version_id = 1;
+  // name 新版本名
+  string name = 2;
+  // updated_at 读取基线，unix 毫秒（乐观锁）
+  int64 updated_at = 3;
+}
+
+// UpdateVersionResp PUT /api/versions/:versionId 出参。
+message UpdateVersionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // version 更新后的版本行（新 updated_at 基线）
+  VersionItem version = 2;
+}
+
+// AdvanceVersionReq POST /api/versions/:versionId/advance 入参（发布）。
+message AdvanceVersionReq {
+  // version_id 版本业务 id
+  string version_id = 1;
+  // updated_at 读取基线，unix 毫秒（乐观锁）
+  int64 updated_at = 2;
+}
+
+// RequirementRef 版本内需求引用（发布软约束提示用）。
+message RequirementRef {
+  // requirement_id 需求业务 id
+  string requirement_id = 1;
+  // title 标题
+  string title = 2;
+  // status 需求状态
+  string status = 3;
+}
+
+// AdvanceVersionResp POST /api/versions/:versionId/advance 出参。
+// 发布软约束：版本内 unfinished（status 非 已完成/已取消）需求仅提示不拦截。
+message AdvanceVersionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // version 更新后的版本行（state=已发布）
+  VersionItem version = 2;
+  // unfinished 未完成需求清单（仅提示）
+  repeated RequirementRef unfinished = 3;
+}
+
+// DeprecateVersionReq POST /api/versions/:versionId/deprecate 入参（废弃=终态）。
+message DeprecateVersionReq {
+  // version_id 版本业务 id
+  string version_id = 1;
+  // updated_at 读取基线，unix 毫秒（乐观锁）
+  int64 updated_at = 2;
+}
+
+// DeprecateVersionResp POST /api/versions/:versionId/deprecate 出参。
+// 条件解绑（spec §1.2 拍板注记-A）：其下任一需求已开始（编排已进入）→ 409 blocked；
+// 全部未开始 → 废弃成功并解绑全部需求回待分配池。
+message DeprecateVersionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // version 更新后的版本行（state=已废弃）
+  VersionItem version = 2;
+}
+
+// ---------------------------------------------------------------------------
+// my_task / dependencies tree（T4：wb_my_task 三向校验 + 依赖树分析师视图）
+// ---------------------------------------------------------------------------
+
+// MyTaskReq POST /api/requirements/:reqId/my-task 入参。
+// 身份 three-way（role × node × 相位）：不属于该节点/该相位的角色返回空动作集，
+// 不报错（data-tools-final §2.2 wb_my_task 升级契约）。
+message MyTaskReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // role 请求角色（必填）；未知角色=空动作集
+  string role = 2;
+  // node_id 目标节点；空=当前节点（flows.current_node_id；NULL=未进入编排）
+  string node_id = 3;
+}
+
+// MyTaskActionItem 激活动作（wb_my_task activeActions 条目；
+// kind=capability 来自能力动作词表，kind=node 为节点公共动作）。
+message MyTaskActionItem {
+  // action_id 动作标识（kind=capability 为能力内动作 id；kind=node 为 node action id）
+  string action_id = 1;
+  // name 动作显示名（kind=node 无独立名，取 action_id）
+  string name = 2;
+  // kind capability | node
+  string kind = 3;
+  // capability_id 所属能力（kind=capability 有效；kind=node 为空）
+  string capability_id = 4;
+  // on 挂载相位（=current_phase，过滤后恒一致，冗余便于消费）
+  string on = 5;
+  // executor 执行者：program | subagent（kind=node 有效）
+  string executor = 6;
+  // executor_role 响应者角色（kind=node 有效）
+  string executor_role = 7;
+  // skill 挂载 skill；空=无
+  string skill = 8;
+  // inline 一句话内联定义；空=无
+  string inline = 9;
+}
+
+// ReviewResultItem 评审表态明细（flow_nodes.review_results 条目同构）。
+message ReviewResultItem {
+  // role 表态角色
+  string role = 1;
+  // capability_id 评审能力
+  string capability_id = 2;
+  // state reviewing | agree | unagree
+  string state = 3;
+  // round 评审轮（与 rolled_back_count 对齐）
+  int64 round = 4;
+  // at 表态时间，unix 毫秒
+  int64 at = 5;
+}
+
+// ReviewSummary 评审表态摘要（per-agent 聚合计数 + 明细）。
+message ReviewSummary {
+  // agree 已同意计数
+  int64 agree = 1;
+  // unagree 已反对计数
+  int64 unagree = 2;
+  // reviewing 待表态计数
+  int64 reviewing = 3;
+  // details 表态明细（role+capabilityId 维度）
+  repeated ReviewResultItem details = 4;
+}
+
+// RelatedNodeItem 角色相关节点（wb_my_task relatedNodes 最小返回集：
+// 该角色在实例评审位或激活清单能力归属中出现的节点）。
+message RelatedNodeItem {
+  // node_id 实例节点 id
+  string node_id = 1;
+  // node_key 节点名
+  string node_key = 2;
+  // node_order 渲染序号
+  int64 node_order = 3;
+  // state 可配相位
+  string state = 4;
+}
+
+// MyTaskNode wb_my_task 目标节点摘要（未进入编排且未指定 nodeId 时未填充）。
+message MyTaskNode {
+  // node_id 实例节点 id
+  string node_id = 1;
+  // def_node_id 定义节点引用
+  string def_node_id = 2;
+  // node_type 节点类型：produce/review/align/gate
+  string node_type = 3;
+  // state 可配相位（=current_phase）
+  string state = 4;
+  // reviewers 实例评审位声明 JSON 文本（scope 过滤后静态声明）
+  string reviewers = 5;
+  // rolled_back_count 回退计数：0=首次（exec 首产配置），≥1=重入（exec 返工配置
+  // revise/diagnosing-bugs/retest——activeActions 已按本计数选择，T9）
+  int64 rolled_back_count = 6;
+  // reopen_source 重开来源：""/upstream-reject/downstream-reject/rework-return；
+  // 空=非重入
+  string reopen_source = 7;
+  // feature_branch 评审敲定后的分支名；空=未敲定
+  string feature_branch = 8;
+}
+
+// MyTaskResp POST /api/requirements/:reqId/my-task 出参。
+message MyTaskResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement_id 需求业务 id
+  string requirement_id = 2;
+  // role 请求角色（回显）
+  string role = 3;
+  // node 目标节点摘要；未进入编排（未指定 nodeId 且无当前节点）时未填充（protojson 出 null）
+  MyTaskNode node = 4;
+  // current_phase 当前相位（=node.state；""=未进入编排）
+  string current_phase = 5;
+  // active_actions 激活动作清单：node_actions 激活清单 × 相位（on）× 角色（能力归属/node executor_role）过滤
+  repeated MyTaskActionItem active_actions = 6;
+  // review_summary 目标节点评审表态摘要（per-agent 聚合计数与明细）
+  ReviewSummary review_summary = 7;
+  // related_nodes 该角色相关节点集（最小返回集）
+  repeated RelatedNodeItem related_nodes = 8;
+  // related_artifacts 目标节点已登记产物摘要（产物侧上下文注入；
+  // 未进入编排/未解析目标节点时为空集）
+  repeated RelatedArtifactItem related_artifacts = 9;
+  // related_tasks 该需求该节点在途任务摘要（status 非 completed/rejected/closed）
+  repeated RelatedTaskItem related_tasks = 10;
+  // related_issues 目标节点未闭合 issue 摘要（意见侧上下文注入，T7；resolved/overridden 不返回）
+  repeated RelatedIssueItem related_issues = 11;
+}
+
+// RelatedIssueItem 目标节点未闭合 issue 摘要（my_task relatedIssues；
+// 未闭合=state 非 resolved/overridden）。
+message RelatedIssueItem {
+  // issue_id 评论业务 id
+  string issue_id = 1;
+  // state issue 状态机 v2 状态
+  string state = 2;
+  // issue_type issue/notification/discussion
+  string issue_type = 3;
+  // assignee 解决责任人；空=未指派
+  string assignee = 4;
+  // anchor 锚点摘要（如 "art-1 line 42" / "art-2 block 42-58(sql)" / "document"）
+  string anchor = 5;
+}
+
+// DependencyNodeItem 依赖树节点（GET /api/requirements/:reqId/dependencies/tree；
+// 动态加载分析师视图：按需拉取，不对用户显示内部分层——ui-interaction-final §2）。
+message DependencyNodeItem {
+  // requirement_id 需求业务 id
+  string requirement_id = 1;
+  // title 需求标题；found=false 时为空
+  string title = 2;
+  // status 需求状态；found=false 时为空
+  string status = 3;
+  // version_id 归属版本；待分配池为空串
+  string version_id = 4;
+  // found 依赖 id 是否命中需求行（false=悬挂边：无对应需求，不再展开）
+  bool found = 5;
+  // children 直接前置依赖子树（flows.dependencies 递归展开）
+  repeated DependencyNodeItem children = 6;
+}
+
+// DependencyTreeReq GET /api/requirements/:reqId/dependencies/tree 入参。
+message DependencyTreeReq {
+  // requirement_id 根需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+}
+
+// DependencyTreeResp GET /api/requirements/:reqId/dependencies/tree 出参。
+// 依赖图成环时拒绝（DEPENDENCY_CYCLE，409）——树不可构建。
+message DependencyTreeResp {
+  // ok 恒 true
+  bool ok = 1;
+  // root 根节点（当前需求）子树
+  DependencyNodeItem root = 2;
+}
+
+// ---------------------------------------------------------------------------
+// artifacts（T6：wb_add_artifact + wb_get_artifact_content）
+// ---------------------------------------------------------------------------
+
+// AddArtifactReq POST /api/requirements/:reqId/nodes/:nodeId/artifacts 入参。
+// product_type 为受控枚举（越集拦截：400 + blocked）；产物是评审与评论的锚定对象。
+message AddArtifactReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 实例节点 id（nodeId 取路径；须存在于该需求的流程实例）
+  string node_id = 2;
+  // product_type 产物受控类型（必填）：brd/product_doc/rd_design/fe_design/
+  // architecture/research/plan/alignment/dev_notes/code_mr/test_result/defect/
+  // discussion（无 case_design——data-tools-final §1.2 定稿）
+  string product_type = 3;
+  // label 产物显示名（必填），如《RD 技术设计》
+  string label = 4;
+  // href document=相对 docs root 的项目路径；link=http(s) 外链（必填）
+  string href = 5;
+  // kind document | link；空=按 document 处理（与 DDL 默认值一致）
+  string kind = 6;
+  // note 备注；空=无
+  string note = 7;
+  // added_by 登记人角色（必填；审计 by_who 同源）
+  string added_by = 8;
+}
+
+// AddArtifactResp POST /api/requirements/:reqId/nodes/:nodeId/artifacts 出参。
+// 幂等口径：同 requirement×node×product_type×href 重复登记 no-op 返回既有行
+// （不新取号、不重复审计）。
+message AddArtifactResp {
+  // ok 恒 true
+  bool ok = 1;
+  // artifact 登记后的产物行（含生成的 artifact_id；幂等命中=既有行）
+  ArtifactItem artifact = 2;
+}
+
+// GetArtifactContentReq GET /api/requirements/:reqId/artifacts/:artifactId/content 入参。
+message GetArtifactContentReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // artifact_id 产物业务 id（artifactId 取路径）
+  string artifact_id = 2;
+}
+
+// GetArtifactContentResp GET /api/requirements/:reqId/artifacts/:artifactId/content 出参。
+// 阅读器渲染与锚点定位所需元数据齐备。kind=document：content=文件文本内容
+// （docs root 下相对路径读取；文件缺失 404）；kind=link：content 恒空、href 即外链。
+message GetArtifactContentResp {
+  // ok 恒 true
+  bool ok = 1;
+  // artifact_id 产物业务 id（回显）
+  string artifact_id = 2;
+  // node_id 所属节点 id（锚点定位语境）
+  string node_id = 3;
+  // product_type 产物受控类型
+  string product_type = 4;
+  // label 产物显示名
+  string label = 5;
+  // kind document | link
+  string kind = 6;
+  // href document=相对 docs root 路径回显；link=外链
+  string href = 7;
+  // content document 正文文本（link 恒空）
+  string content = 8;
+  // mime_type 按扩展名推断（阅读器渲染模式选择）；推断不出为空
+  string mime_type = 9;
+}
+
+// RelatedArtifactItem 节点已登记产物摘要（wb_my_task relatedArtifacts 条目：
+// 产物侧上下文注入的最小集）。
+message RelatedArtifactItem {
+  // artifact_id 产物业务 id
+  string artifact_id = 1;
+  // product_type 产物受控类型
+  string product_type = 2;
+  // label 产物显示名
+  string label = 3;
+  // kind document | link
+  string kind = 4;
+}
+
+// ---------------------------------------------------------------------------
+// tasks（T5：wb_assign_task 幂等派发 + wb_task_update 上报）
+// ---------------------------------------------------------------------------
+
+// AssignTaskReq POST /api/tasks 入参。
+// 幂等键 = requirement_id + node_id + action_id + assignee（Further Notes 口径）：
+// 同键存在未终态任务（status 非 completed/rejected/closed）时返回既有任务，
+// 不重复建（幂等 no-op，resp.reused=true）；终态后同键可再派（重开语义）。
+message AssignTaskReq {
+  // requirement_id 需求业务 id（必填，幂等键成员）
+  string requirement_id = 1;
+  // node_id 实例节点 id（必填，幂等键成员）
+  string node_id = 2;
+  // action_id 动作定位（必填，幂等键成员）：kind=capability 为
+  // "<capabilityId>.<actionId>"（如 backend-dev.dev）；kind=node 为 node action id
+  string action_id = 3;
+  // assignee 执行角色（必填，幂等键成员）；capability 动作须与 capabilities.role_id 一致
+  string assignee = 4;
+  // goal 任务目标；空=按节点×动作确定性装配缺省目标
+  string goal = 5;
+  // context 补充上下文 JSON 文本（TEXT 列同构）；须为合法 JSON 对象，
+  // 原样透传至 tasks.context 的 supplement 字段（产物引用/意见清单等
+  // 由 T6/T7 注入点同级），非合法 JSON → 400
+  string context = 6;
+}
+
+// TaskItem 任务行（任务总线出参同构，断点恢复字段齐备）。
+message TaskItem {
+  // task_id 任务业务 id，如 t-<ts>-<seq>
+  string task_id = 1;
+  // requirement_id 需求 id
+  string requirement_id = 2;
+  // node_id 节点 id
+  string node_id = 3;
+  // action_id 能力×动作定位
+  string action_id = 4;
+  // branch 泳道：rd/fe/空（按需求 scope 派生）
+  string branch = 5;
+  // role_id 执行角色
+  string role_id = 6;
+  // task_type 任务族：produce/dev/review/respond/accept/create_reqs
+  string task_type = 7;
+  // goal 任务目标
+  string goal = 8;
+  // context 确定性上下文 JSON 文本（TEXT 列同构）
+  string context = 9;
+  // status todo/in-progress/awaiting-reply/completed/rejected/closed
+  string status = 10;
+  // dispatch_at 派发时间，unix 毫秒；0=未派发（DB 侧 NULL，ack 时落值）
+  int64 dispatch_at = 11;
+  // last_ack 最近确认时刻，unix 毫秒；0=未送达（断点恢复关键）
+  int64 last_ack = 12;
+  // last_progress 执行进度；空=未开始
+  string last_progress = 13;
+  // resume_hint 断点续接提示；空=无
+  string resume_hint = 14;
+  // reply_count 回复数
+  int64 reply_count = 15;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 16;
+  // updated_at 更新时间，unix 毫秒（乐观锁基线）
+  int64 updated_at = 17;
+  // done_at 完成时间，unix 毫秒；0=未完成
+  int64 done_at = 18;
+}
+
+// AssignTaskResp POST /api/tasks 出参。
+message AssignTaskResp {
+  // ok 恒 true
+  bool ok = 1;
+  // task 任务行（幂等命中时=既有任务行）
+  TaskItem task = 2;
+  // reused true=幂等命中既有任务（no-op，未新建）；false=新建
+  bool reused = 3;
+}
+
+// TaskUpdateReq PATCH /api/tasks/:taskId 入参（taskId 取路径）。
+// event 三值状态机：ack（dispatch_at/last_ack 落值，todo→in-progress；重复 ack 幂等
+// no-op）｜progress（last_progress 覆写）｜complete（判据校验框架：不满足 409
+// GATE_BLOCKED + blocked:true + missing，任务回 in-progress；满足 completed + done_at；
+// 未 ack 先 complete → 409 STALE_REPORT）。已终态任务再上报幂等 no-op。
+message TaskUpdateReq {
+  // task_id 任务业务 id（taskId 取路径）
+  string task_id = 1;
+  // event 上报事件：ack | progress | complete
+  string event = 2;
+  // progress 执行进度文本（event=progress 必填，覆写 last_progress）
+  string progress = 3;
+  // updated_at 读取基线，unix 毫秒（乐观锁）；0=以当前库值为基线（宽松模式）
+  int64 updated_at = 4;
+}
+
+// TaskUpdateResp PATCH /api/tasks/:taskId 出参。
+message TaskUpdateResp {
+  // ok 恒 true（complete 判据不满足走 ErrorResp 失败出参，不入本消息）
+  bool ok = 1;
+  // task_id 任务业务 id（回显）
+  string task_id = 2;
+  // status 更新后状态
+  string status = 3;
+  // noop true=幂等 no-op（重复 ack / 已终态再上报），库未变更
+  bool noop = 4;
+  // task 更新后的任务行（新 updated_at 基线）
+  TaskItem task = 5;
+}
+
+// RelatedTaskItem 在途任务摘要（wb_my_task relatedTasks 条目：该需求该节点
+// 未终态任务最小集）。
+message RelatedTaskItem {
+  // task_id 任务业务 id
+  string task_id = 1;
+  // action_id 动作定位
+  string action_id = 2;
+  // status 任务状态
+  string status = 3;
+}
+
+// ---------------------------------------------------------------------------
+// review / collect / decision（T8：wb_review 表态 + collect 聚合门禁 + User 拍板）
+// ---------------------------------------------------------------------------
+
+// ReviewReq POST /api/requirements/:reqId/nodes/:nodeId/review 入参。
+// agent 自判上报表态（capability-model-final §1.2：知道自己有 open 工单报 unagree、
+// 没有报 agree，plugin 不判）；同轮同角色覆写取最后（spec §2 幂等行）。
+// round 由服务端按节点当前评审轮推导（澄清后重入新轮），入参不携带。
+message ReviewReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 实例节点 id（nodeId 取路径；须处于 review 相位）
+  string node_id = 2;
+  // role 表态角色（须在该节点实例评审位声明中）
+  string role = 3;
+  // capability_id 评审能力（须与该角色评审位声明一致）
+  string capability_id = 4;
+  // state 表态结果：agree | unagree（reviewing 为系统初始化态，不接受上报）
+  string state = 5;
+}
+
+// ReviewResp POST /api/requirements/:reqId/nodes/:nodeId/review 出参。
+// 写入 + 同事务 collect 聚合判定（flow_nodes 行锁，并发双 collect 仅一次生效）。
+message ReviewResp {
+  // ok 恒 true
+  bool ok = 1;
+  // node_id 实例节点 id（回显）
+  string node_id = 2;
+  // role 表态角色（回显）
+  string role = 3;
+  // state 落库后的表态（agree | unagree）
+  string state = 4;
+  // round 本次表态所在评审轮
+  int64 round = 5;
+  // review_results 落库后该节点评审轮结果 JSON 文本（单字段全量）
+  string review_results = 6;
+  // collect_outcome collect 聚合判定结果：pending=未齐继续收票 /
+  // approved=全表态且全 agree / clarify=存在 unagree 转 owner 澄清
+  // （capability-model-final §1.2a 三段口径）
+  string collect_outcome = 7;
+  // gate_state 门禁侧状态：agreed=评审全 agree 待 User 拍板（user_gate=1）/
+  // approved=机械通过已落 last_decision（user_gate=0）；其余空串
+  string gate_state = 8;
+  // next_node_id 门禁通过后前移到的节点 id（未推进为空串）
+  string next_node_id = 9;
+}
+
+// DecisionReq POST /api/requirements/:reqId/nodes/:nodeId/decision 入参。
+// User 终审拍板专用路由（spec §1.2 移出清单：wb_decide 收编为 decision）；
+// 仅 user_gate=1 节点、当前评审轮全 agree 后可拍（否则 blocked）。
+message DecisionReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 实例节点 id（nodeId 取路径）
+  string node_id = 2;
+  // verdict 拍板结论：approved | rejected
+  string verdict = 3;
+  // reason 拍板理由（rejected 必填——打回走 reject 结论协议，T9 消费）
+  string reason = 4;
+  // branch 评审敲定分支名；空=不落（feature_branch NULL 保持）
+  string branch = 5;
+}
+
+// DecisionResp POST /api/requirements/:reqId/nodes/:nodeId/decision 出参。
+// 重复拍板同 verdict 幂等 no-op（noop=true）；改判（verdict 不一致）冲突拒绝。
+message DecisionResp {
+  // ok 恒 true
+  bool ok = 1;
+  // node_id 实例节点 id（回显）
+  string node_id = 2;
+  // verdict 落库结论（noop 时=既有结论回显）
+  string verdict = 3;
+  // noop true=重复拍板幂等 no-op（库未变更）
+  bool noop = 4;
+  // last_decision 门禁裁决 JSON 文本：{"verdict","reason","at","branch"?}
+  string last_decision = 5;
+  // next_node_id approved 后前移到的节点 id（未推进/重复拍板为空串）
+  string next_node_id = 6;
+  // rollback_node_id rejected 后回退重入的节点 id（exec 重入 revise 语义，T9；
+  // 未回退/重复拍板为空串）
+  string rollback_node_id = 7;
+}
+
+// ---------------------------------------------------------------------------
+// advance（2026-09-09 拍板新增：wb_advance 编排推进端点，spec §1.2 注记-B/C）
+// ---------------------------------------------------------------------------
+
+// AdvanceReq POST /api/requirements/:reqId/nodes/:nodeId/advance 入参
+// （wb_advance 编排推进：reqId/nodeId 取路径）。
+// 承载三类推进（spec §1.2 拍板注记-B）：①跨节点推进（exec 相位 complete 判据
+// 已通过 → 下一节点相位初始化）；②节点内 CR 轮转（dev→review，轮 0 重开）；
+// ③QA/门禁机械收口（collect rule4 空转语义）。wb_advance 自身幂等：重复调用
+// 时若推进已完成则返回当前状态不重复推进（noop=true）。
+message AdvanceReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // node_id 实例节点 id（nodeId 取路径）
+  string node_id = 2;
+}
+
+// AdvanceResp POST /api/requirements/:reqId/nodes/:nodeId/advance 出参。
+// 推进后聚合状态：节点相位 / flows.current_node_id / 迁移结果摘要。
+message AdvanceResp {
+  // ok 恒 true
+  bool ok = 1;
+  // requirement_id 需求业务 id（回显）
+  string requirement_id = 2;
+  // node_id 实例节点 id（回显）
+  string node_id = 3;
+  // node_state 推进后该节点相位（""/entry/exec/review/respond）
+  string node_state = 4;
+  // current_node_id 推进后 flows.current_node_id（空=未进入编排）
+  string current_node_id = 5;
+  // next_node_id 本次跨节点推进落位的目标节点 id（未跨节点为空串）
+  string next_node_id = 6;
+  // outcome 迁移结果摘要：rotate=节点内 CR 轮转（exec→review）/
+  // cross=跨节点推进（含并行组整组推进）/ wait=并行组本侧完成待对侧 /
+  // noop=幂等命中（推进已完成，返回当前态）
+  string outcome = 7;
+  // noop true=幂等命中（推进已完成，库未变更）
+  bool noop = 8;
+}
+
+// ---------------------------------------------------------------------------
+// 打回链路（T9：rejected 回退重入 + pending_scope 重定范围重投影）
+// ---------------------------------------------------------------------------
+
+// ReprojectScopeReq POST /api/requirements/:reqId/reproject 入参。
+// 打回后范围重定（pending_scope 待重定标记的消费端点）：按新 scope 重投影
+// 持有 pending_scope 节点（回退目标）的下游节点集（复用 T4 投影函数：被裁
+// 节点删行不占位、新增定义节点插入新实例行、node_order 全量重排），随后清
+// pending_scope 继续编排。
+message ReprojectScopeReq {
+  // requirement_id 需求业务 id（reqId 取路径）
+  string requirement_id = 1;
+  // scope 重定后的渲染 scope；须 ∈ flow_defs.scope_options；
+  // 空=按当前 scope 重投影（仅清 pending_scope，节点集不变——同范围重排）
+  string scope = 2;
+}
+
+// ReprojectScopeResp POST /api/requirements/:reqId/reproject 出参。
+message ReprojectScopeResp {
+  // ok 恒 true
+  bool ok = 1;
+  // scope 生效 scope（重定值或既有值）
+  string scope = 2;
+  // noop true=无 pending_scope 待重定标记（幂等重放/无打回），库未变更
+  bool noop = 3;
+  // node_id 持有 pending_scope 的节点 id（=回退目标；noop 时为空串）
+  string node_id = 4;
+  // reprojected_count 重投影覆盖的下游节点行数（保留重排 + 新增 + 删除裁剪；
+  // noop 时为 0）
+  int64 reprojected_count = 5;
+}
+
+// ---------------------------------------------------------------------------
+// escalation（T12 冲突上升裁决链：wb_escalate 拉起裁决 session + wb_adjudicate
+// User 仲裁结论回填；spec §1.2 wb_override 移出 agent/HTTP 清单——仲裁推翻语义
+// 收编在 service 层 EscalationService.OverrideIssueTx，不暴露端点）
+// ---------------------------------------------------------------------------
+
+// EscalateReq POST /api/comments/:commentId/escalate 入参。
+// 手动上升裁决：escalate 置位（幂等）+ 拉起裁决 session（sessions 表建绑，
+// role=user 仲裁语义，dsh_ref 占位待 DSH 接入）+ 通知位（issues notification 行）。
+// 自动上升（reopen 达 loop_threshold）只置标 + 通知；裁决 session 由本端点拉起
+// （幂等：已有进行中裁决 session 时 noop=true 返回既有 session）。
+message EscalateReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // operator 上升操作者（冲突任一方；审计 by_who）
+  string operator = 2;
+  // reason 上升理由（可选；非空时追加 replies 上升条目）
+  string reason = 3;
+}
+
+// EscalateResp POST /api/comments/:commentId/escalate 出参。
+message EscalateResp {
+  // ok 恒 true
+  bool ok = 1;
+  // comment_id 评论业务 id（回显）
+  string comment_id = 2;
+  // escalated true=本次调用新置位 escalate；false=建评/先行动作已置位
+  bool escalated = 3;
+  // noop true=已有进行中裁决 session（幂等 no-op，未重复建绑）
+  bool noop = 4;
+  // session_id 裁决 session 业务 id（noop 时=既有进行中 session 回显）
+  string session_id = 5;
+  // issue 上升后评论行
+  IssueItem issue = 6;
+}
+
+// AdjudicateReq POST /api/comments/:commentId/adjudicate 入参。
+// User 仲裁结论回填（裁决链第 3 拍）：replies 追加裁决条目（数据层留痕、节点可见）
+// → verdict=override 时 wb_override 语义收编落 overridden 终态（resolve_path=ruling
+// + resolve_note 引用结论）→ escalate 复位 → reviewer 重表态（评审轮重入新轮）。
+message AdjudicateReq {
+  // comment_id 评论业务 id（commentId 取路径）
+  string comment_id = 1;
+  // verdict 仲裁结论：uphold=维持议题（回正常澄清/修复链）| override=仲裁推翻
+  // （issue 落 overridden 终态，wb_override 语义收编）
+  string verdict = 2;
+  // conclusion 裁决结论文本（必填；裁决条目 text 与 override 路径 resolve_note 同源）
+  string conclusion = 3;
+  // decided_by 仲裁人（恒 user；审计 by_who）
+  string decided_by = 4;
+}
+
+// AdjudicateResp POST /api/comments/:commentId/adjudicate 出参。
+message AdjudicateResp {
+  // ok 恒 true
+  bool ok = 1;
+  // comment_id 评论业务 id（回显）
+  string comment_id = 2;
+  // verdict 落库仲裁结论（uphold | override）
+  string verdict = 3;
+  // session_id 已终局裁决 session 业务 id（回显）
+  string session_id = 4;
+  // reentered true=reviewer 重表态轮已拉起（评审轮重入新轮）；
+  // false=issue 挂载节点不在 review/respond 相位，轮重入 no-op
+  bool reentered = 5;
+  // round 重入后的评审轮（reentered=false 时为节点当前轮回显）
+  int64 round = 6;
+  // issue 回填后评论行
+  IssueItem issue = 7;
+}
+
+// inbox / todo（T11：wb_list_inbox 收件箱 + TODO 投影，通知规程 v3 七类）
+// ---------------------------------------------------------------------------
+
+// ListInboxReq GET /api/inbox 入参（query 绑定）。
+message ListInboxReq {
+  // role 收件角色过滤：通知按 issues.assignee、TODO 按 tasks.role_id；空=不过滤
+  string role = 1;
+  // read_filter 已读过滤：空=全部 / unread=未读（state=open）/ read=已读，越集 400
+  string read_filter = 2;
+  // kind 通知类别筛选（七类枚举单值，见 InboxItem.kind）；空=全部
+  string kind = 3;
+  // requirement_id 按需求过滤；空=跨需求全量
+  string requirement_id = 4;
+  // page 页码，1 起；0=按 1 处理
+  int64 page = 5;
+  // page_size 页大小；0=默认 20，负值按默认处理
+  int64 page_size = 6;
+}
+
+// InboxItem 通知条目（载体=issues 行 issue_type=notification，列复用口径：
+// anchor_kind=通知类别、anchor_artifact_id=跳转目标 id、assignee=收件角色、
+// state=open 未读 / resolved 已读——设计权威 docs-tmp/ui-interaction-final.md
+// §3.1 + capability-model-final §6.8 通知规程）。
+message InboxItem {
+  // issue_id 通知行业务 id（cm-<ts>，issues 载体主键）
+  string issue_id = 1;
+  // kind 通知类别（七类枚举）：gate_pending=待你拍板 / clarify_task=澄清任务 /
+  // re_review=重新表态请求 / stall_followup=悬置催办（扫描器，触发点 T10 预留）/
+  // need_intervene=需你介入（扫描器，触发点 T10 预留）/
+  // escalation=冲突上升裁决 / session_message=会话消息（会话通道，预留枚举位）
+  string kind = 2;
+  // requirement_id 需求 id（跳转一级定位）
+  string requirement_id = 3;
+  // node_id 节点 id（跳转二级定位；空=无节点上下文）
+  string node_id = 4;
+  // target_type 跳转目标类型（由 kind 确定性映射）：node / task / issue / session
+  string target_type = 5;
+  // target_id 跳转目标业务 id（target_type 对应行 id；target_type=node 时空串，
+  // 定位取 node_id 列）
+  string target_id = 6;
+  // text 通知文案（人类可读）
+  string text = 7;
+  // sender 派发者（触发动作执行者/系统标识）
+  string sender = 8;
+  // sender_role 派发者角色；plugin 系统投递固定 plugin
+  string sender_role = 9;
+  // recipient_role 收件角色（issues.assignee 复用列）
+  string recipient_role = 10;
+  // state open=未读 / resolved=已读（已读/未读读标记口径）
+  string state = 11;
+  // created_at 派发时间，unix 毫秒
+  int64 created_at = 12;
+}
+
+// TodoItem TODO 投影条目（数据源=tasks 表该角色在途任务同源投影——
+// status NOT IN (completed/rejected/closed)，终态不残留；不双写、无独立投影表）。
+message TodoItem {
+  // task_id 任务业务 id（跳转定位）
+  string task_id = 1;
+  // requirement_id 需求 id（跳转定位）
+  string requirement_id = 2;
+  // node_id 节点 id（跳转定位）
+  string node_id = 3;
+  // action_id 动作定位
+  string action_id = 4;
+  // task_type 任务族：produce/dev/review/respond/accept/create_reqs
+  string task_type = 5;
+  // status 在途状态：todo / in-progress / awaiting-reply
+  string status = 6;
+  // goal 任务目标
+  string goal = 7;
+  // created_at 创建时间，unix 毫秒
+  int64 created_at = 8;
+}
+
+// ListInboxResp GET /api/inbox 出参：通知列表 + TODO 投影同响应双通道
+// （ui-interaction-final §3「收件箱/TODO = 通知枚举 + tasks 投影」）。
+message ListInboxResp {
+  // ok 恒 true
+  bool ok = 1;
+  // notifications 通知条目（未读优先，同组内新→旧）
+  repeated InboxItem notifications = 2;
+  // total 通知筛选后总数（分页口径）
+  int64 total = 3;
+  // todos TODO 投影（该角色全部在途任务，不参与通知分页）
+  repeated TodoItem todos = 4;
+}

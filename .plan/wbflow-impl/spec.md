@@ -349,14 +349,35 @@ CREATE TABLE versions (
 | POST | /api/requirements/:reqId/nodes/:nodeId/advance | wb_advance | AdvanceReq/Resp | 编排推进（2026-09-09 拍板新增，细则见 §1.2 注记-B/C） |
 | GET | /api/inbox | wb_list_inbox | ListInboxReq/Resp | 通知枚举 v3 七类 |
 | GET | /api/requirements/:reqId/dependencies/tree | （依赖树） | DependencyTreeReq/Resp | 动态加载，分析师视图 |
+| GET | /api/requirements/:reqId/history | wb_list_requirement_history | ListRequirementHistoryReq/Resp | 需求字段变更历史（注记-D3，仅读） |
 
-> **2026-09-09 拍板注记（A/B/C 细则，实现与测试以本注记为准）**：
+> **2026-09-09 拍板注记（A–G 细则，实现与测试以本注记为准）**：
 >
 > **-A 版本废弃 = 条件解绑**：`wb_deprecate_version` 语义由「有引用一律 blocked」改为条件解绑——判定单位为需求级，需求「已开始」=流程实例已进入编排（`flows.current_node_id` 非 NULL；T4 起需求创建即实例化 flows 行，故以编排进入为准而非「存在实例」——字面判定会使未开始解绑特性死置，实现口径见 semantica `23aeeaea`）；其下**任一**需求已开始 → 整个废弃请求 409 blocked（语义：已开始的推演不允许被版本废弃波及，未来再议）；其下**全部**需求未开始 → 废弃成功（versions.state=已废弃，终态），同时事务内将其下全部需求 version_id 置空（解绑，回到待分配池），逐行审计。与 ui-interaction-final §2「联动取消」口径的偏差：不取消需求、不写需求取消 history，改为解绑回池（本注记为裁决正本，UI 文档偏差由实现交付注记）。
 >
 > **-B 编排推进端点 wb_advance**：目标调整为一期自包含 Web 后，原「编排接缝三类无 HTTP 承载（plugin 职责）」不再成立。新增 `wb_advance`（AdvanceReq{reqId,nodeId}/Resp），承载三类推进：①exec 相位完成（complete 判据已通过）→ 下一节点相位初始化（review 相位则 InitReviewRound）；②节点内 CR 轮转（dev→review，轮 0 重开）；③QA/门禁机械收口（collect rule4 空转语义）。wb_advance 自身幂等：重复调用时若推进已完成则返回当前状态不重复推进。触发方：wb_task_update complete 判据通过后**服务端同步调用**推进逻辑（Web 一期由服务端内聚触发），端点同时暴露供兜底与手动场景；e2e 原接缝 SQL 模拟全部替换为 wb_advance 真调用（SQL 模拟代码删除）。DSH 嵌入期该端点收编为 plugin 内部调用，HTTP 契约不变。
 >
 > **-C 并行 join 判定**：并行组（flows.branch rd/fe 泳道）推进采用「提交瞬间检查 + 锁 + 兜底巡检」三层——①wb_advance 推进 exec 节点时检查同组对侧节点：对侧已完成（complete 且未推进）→ 本侧推进即整组推进到下一阶段；对侧未完成 → 本侧标记完成待对侧。②并发防护：推进路径对 flows 行取 `SELECT … FOR UPDATE` 锁（单事务内），防双侧同时 complete 的并发双推进（库为 RC + 单 master 无复制延迟，行锁已足）。③scanner（T10 基础设施）新增兜底巡检：每轮扫描「双侧均 complete 但未推进」的并行组并补推进（漏推自愈），巡检推进同样走锁路径并落审计。
+>
+> **-D 原型补齐实现增补（2026-09-09，依据 ui-interaction-final §6 N1–N7 定稿 + ui-prototype-v3 P8–P11；实现层翻译，设计权威仍在 §6 定稿）**：
+>
+> **-D1（N1 retest 通知）**：`re_review`（重新表态请求）触发由单一「澄清闭环 respond complete 重入轮」扩为双触发——②`wb_resolve path=fix` 写入 `fixed` 后，事务外派发 re_review 通知收件=提评者（`issues.reviewer_role`，空则不发）。子型区分口径：澄清子型 `target_id` 恒空串（跳节点详情）；retest 子型 `target_id`=缺陷 issueId（收件人复核锚点，FE 呈现「待复验」并跳意见区）。`notificationTargetTypes` 映射不变（kind→node 定位语义不变，target_id 为锚点增强）。触发以「本次事务实际迁入 fixed」为准（prevState≠fixed）——覆盖 `wb_resolve path=fix` 与「修复完成回复」（reply from to-fix → fixed）两条提交路径；Fixed→Fixed 幂等重入（重复 resolve/reply）不重发（CR 复审 B1 守卫）。
+>
+> **-D2（N5 会话 tab 数据源）**：`GetRequirementResp` 增 `repeated SessionItem sessions`（该需求 sessions 行投影：sessionId/requirementId/nodeId/roleId/status/updatedAt；按 requirement_id 全量，FE 按选中节点过滤）。sessions 写路径本期仅裁决链（wb_escalate 拉起）落行，空集合法（FE 呈现「暂无会话」占位）。与 N5 字面偏差：SessionItem 不含「最近消息摘要」字段（本期 dsh_ref 为占位句柄、无消息内容数据源），条目=绑定角色+状态+时间；摘要随 DSH 嵌入期会话端点补齐（偏差由实现交付注记）。
+>
+> **-D3（N6 变更历史端点）**：新增 `GET /api/requirements/:reqId/history`（wb_list_requirement_history，`ListRequirementHistoryReq/Resp`），读 `audit_log` 中 `table_name=requirements AND row_id=reqId` 行时间倒序（field/oldValue/newValue/byWho/createdAt 原样透出，自然语句渲染归 FE）。端点数 27→28。仅读，无新写路径。
+>
+> **-D4（P8 依赖角标数据源）**：`RequirementItem` 增 `repeated string dependencies`（flows.dependencies 透传）；列表与快照同源填充，FE 呈现「依赖 ×N」角标。创建/更新响应中本字段反映库值——创建期恒空集（flows.dependencies 写入路径属依赖调度器 E9 预留，CreateReq.dependencies 入参本期不落库），与快照口径一致。
+>
+> **-D5（N3 TODO 五分类投影口径）**：TODO = 收件箱通知的操作投影（基线规则+N3 定稿），非 tasks 投影——FE 从 notifications 投影五分类：待拍板←gate_pending；待澄清←clarify_task；待重表态←re_review（target_id 空）；待复验←re_review（target_id 非空，retest 子型）；冲突待裁决←escalation；stall_followup/need_intervene/session_message 为提醒类不产生 TODO。tasks 在途任务投影保留于节点详情④意见区（任务维度呈现），收件箱页 TODO 区按本口径改造。
+>
+> **-D6（P9 原型超集裁决）**：原型 P9 版本行「删除」按钮无对应路由（路由表无 wb_delete_version），不实现——原型为丢弃式视觉参照，功能边界以本路由表为准；「废弃」按钮已按注记-A 条件解绑实现。P9 依赖树入口（按需拉取）消费既有 GET /api/requirements/:reqId/dependencies/tree 逐需求装配，无新端点。
+>
+> **-E（node action 派发边界；CR 复审裁决 F，semantica `8e488988`）**：seed 词表中 `executor:"program"` 类 node action（如 `align.opening`，`on:"entry"`）不经 `wb_assign_task` 任务总线派发——node action 由服务端在节点相位内程序化执行（与 wbflow 程序化直启架构一致），任务总线仅承载 `actionTaskTypes` 有映射的 agent/人工动作；未知动作经 `TaskTypeForAction`「不可派发」拦截（domain/task.go），`align.opening` 无映射即天然不可派，实现行为与设计口径一致，本注记为文档化正本，不改路由。
+>
+> **-F（submit 动作不激活；CR 复审裁决 G，semantica `abf45f97`）**：seed 词表含 `submit`（登记请评，inline：「产物 wb_add_artifact 登记 → wb_comment 请评；登记齐、请评已发即完成」）但 `actionTaskTypes` 无映射、不激活——登记场景由 inline 动作经工具调用（`wb_add_artifact`+`wb_comment`）机械完成，不经任务总线；produce/complete 判据已覆盖其完成语义，补映射反而引入与判据重复的空派发，本注记为裁决正本。
+>
+> **-G（tasks.reply_count 死列；CR 复审裁决 I，semantica `ec4639b8`）**：迁移 v1 遗留列，现无写入路径（仅 model 定义与快照 DTO 读零值），回复计数语义由评论查询聚合承载——保留列 + TODO 注记插件期接线，不做迁移 DROP（v4 迁移成本大于收益），本注记为裁决正本。
 | GET | /api/projects · POST /api/projects | （registry） | ProjectReq/Resp | dsh 嵌入期启用 |
 
 - **移出 agent/HTTP 清单**：wb_decide（门禁判定 = 内部 collect 判定 + User 拍板专用路由 `POST /api/requirements/:reqId/nodes/:nodeId/decision`，DecisionReq/Resp，**已注册实现**）、wb_override（escalate/adjudicate 取代，`POST /api/comments/:commentId/adjudicate` 承载）——语义保留在 service 层。
@@ -412,7 +433,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 
 ### 4.1 版本级（roadmap P1–P6 全链路）
 
-- [ ] 新会话以 team preset + 团队制度启动，wb_* 27 工具（HTTP 版，含 wb_advance）对 agent 可用（P1）
+- [ ] 新会话以 team preset + 团队制度启动，wb_* 28 工具（HTTP 版，含 wb_advance/wb_list_requirement_history）对 agent 可用（P1）
 - [ ] MySQL v0.29 全量表 + seed（四流程 40 定义节点 + 21 能力）初始化通过（P2）
 - [ ] 一条 full 需求端到端：对齐（to-brd）→ 产品设计 → 三轮评审（per-agent 表态/澄清/复核/agreed→approved）→ RD∥FE 并行开发（CR 内嵌）→ QA 验收（仅 full 渲染）→ 用户验收 → 完成，全流程无阻塞（P5）
 - [ ] 一条 rd-only 需求：流程树动态重排为 9 节点（FE 侧与 QA 不渲染、不占位），走通至用户验收（P5）
@@ -437,7 +458,7 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 
 ## Testing Decisions
 
-- **接缝测试**：httptest 直打 Gin 路由（最高接缝），覆盖全部 27 端点正常/拦截/幂等分支。
+- **接缝测试**：httptest 直打 Gin 路由（最高接缝），覆盖全部 28 端点正常/拦截/幂等分支。
 - **领域层单测**：domain/ 纯逻辑（collect 聚合判定、issue 状态机 v2、门禁公式、结论协议装配）表驱动全分支——无 IO 全覆盖。
 - **repo 层**：sqlmock / testcontainers-mysql（DDL 真实执行 + 关键查询计划）。
 - **既有约定沿用**：`TestUnit_*` 前缀、gomonkey 打桩下游、gotest.tools+testify 混用。

@@ -9,6 +9,7 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 > **实证记录（2026-09-09 收尾）**：17 工单全部并入 `wbflow-impl` @ `6886434`（含 CR R1-R5 复审循环清零）。全闸门实证：`gofmt/build/vet/test` 全绿；集中 IT 复跑（env 门控真库 MySQL 8.0.46）**0 失败**；e2e 三剧本 PASS（full 19.3s / rd-only 107s / task 44.6s）；FE 浏览器冒烟通过（新建需求含类别→流程类型联动、需求池 scope 徽标、详情流程树 13 节点+评审聚合、收件箱七类筛选、看板四泳道）。
 >
 > **拍板落地增补（2026-09-09，`6bc9454`+`d1c3731`）**：User 拍板 A-E 后（spec §1.2 注记为正本）——A deprecate 条件解绑、B wb_advance 编排推进（27 端点，e2e SQL 模拟全部换真调用）、C 并行 join 三层（对侧检查/flows 行锁/scanner 兜底巡检）、D scope 暂不支持（零改动）、E semantica 补录 11 条+拍板 1 条。增补后复验：本地闸门全绿、真库 IT 0 失败（service 包 583.7s，**复跑需 `-timeout 900s`**）、e2e 三剧本 PASS（18.5s/15.4s/12.8s）、抽轴复核 16 项全 pass（3 条观察级备忘见复核报告）。下方 checkbox 为工单完成时的静态勾选基线，实证结论以本注记为准；逐项勾选待 AC 终核。
+> **原型补齐 + 联调实证（2026-09-09 第 2 轮，`914a7dd`..`9a85f57`）**：ui-interaction-final §6 N1-N7 定稿 + 原型 P8-P11 落地——后端配套（spec §1.2 注记-D1..D6：retest 通知双触发+target_id 锚点 / 快照 sessions 投影 / history 端点 27→28 / dependencies 透传，`914a7dd`；CR-R6 发现 9 条 → R7 复审清零，`f7f89c2`+`1caa340`）+ FE 六模块（RequirementModal 编辑复用 / 详情⑥⑦卡+会话找X / 收件箱 TODO 五分类投影 / 看板双视图+✎编辑接线 / 版本四色聚合+依赖树+调度卡 / 评审疑似卡死高亮）。FE CR-R8（硬违规 1+应修 2：CSS merge 残缺括号、依赖树悬挂根渲染缺陷等）→ R9 复审清零（`9a85f57`）。全量闸门：rd gofmt/build/vet/test 绿 + ProtoD 真库 IT PASS + fe 17 文件 117 测试 / lint / build 绿。**浏览器联调（真实库 wbflow + rd:18080 + fe:5173，主线程实测）**：新建需求（N4 scope 三值派生）→ 看板四泳道 → 详情流程树 13 节点 → HTTP 驱动编排（对齐拍板 / 产品设计 / wb_advance 内聚 noop 幂等 / 评审三位 agree→agreed 停等）→ UI 拍板卡迎宾态+通过迁移 → 收件箱 badge+提醒条+gate_pending → retest 链路（resolve fix→fixed → re_review targetId=issueId → 「待复验」分组+focus=issue 锚点跳转）→ 版本页（四色聚合 / 依赖树空态 / 调度卡就绪池推导 / 编辑挂版本）→ 废弃 blocked（「1 条已开始推演的需求（编排已进入），废弃被拦截」——注记-A 真库生效）。观察项 1 条：Dispatch 吞错口径下通知落库偶发静默失败（req-002 gate_pending 一次未落；探针直连+req-003 复现均正常——spec §1.3「失败不阻断」既有拍板口径，建议未来补重试/审计留痕）。
 
 ## 1. 服务壳：配置 / MySQL 接入 / 健康检查
 
@@ -16,21 +17,21 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** None — can start immediately.
 
-- [ ] MySQL 8.0 假设实测确认（连接 + 版本断言），低于 8.0 提前暴露
-- [ ] /healthz 返回服务与数据库连通状态
-- [ ] 哨兵错误骨架（ErrOptimisticLock/ErrGateBlocked/ErrIdempotentConflict/ErrStaleReport）定义并集中映射
-- [ ] httptest 冒烟：路由注册 + 日志入口/出口埋点生效
+- [x] MySQL 8.0 假设实测确认（连接 + 版本断言），低于 8.0 提前暴露
+- [x] /healthz 返回服务与数据库连通状态
+- [x] 哨兵错误骨架（ErrOptimisticLock/ErrGateBlocked/ErrIdempotentConflict/ErrStaleReport）定义并集中映射
+- [x] httptest 冒烟：路由注册 + 日志入口/出口埋点生效
 
 ## 2. Schema 14 表落库 + seed + repo 基线
 
-**What to build:** spec §0 全量 14 表 DDL 迁移在真实 MySQL 上执行通过；GORM model + updated_at 乐观锁 helper（0 行命中→ErrOptimisticLock）+ TEXT 列 JSON 序列化 util；seed 数据以 docs-tmp 定稿为口径重制：4 条 flow_defs + 41 定义节点 + 21 能力 + roles 全集。旧 `workbench-sql/`（sqlite v0.15，11 表旧表名）不迁移，仅参考。
+**What to build:** spec §0 全量 14 表 DDL 迁移在真实 MySQL 上执行通过；GORM model + updated_at 乐观锁 helper（0 行命中→ErrOptimisticLock）+ TEXT 列 JSON 序列化 util；seed 数据以 docs-tmp 定稿为口径重制：4 条 flow_defs + 40 定义节点 + 21 能力 + roles 全集。旧 `workbench-sql/`（sqlite v0.15，11 表旧表名）不迁移，仅参考。
 
 **Blocked by:** 1
 
-- [ ] 14 表 DDL testcontainers 真实执行通过，逐表列注释与 spec §0 一致
-- [ ] seed 装载后：41 定义节点 scope_expr/reviewers/node_actions 与 docs-tmp 定稿逐项对得上
-- [ ] 乐观锁 helper：并发更新一胜一败（败者收 ErrOptimisticLock）
-- [ ] append-only 表（audit_log）created_at=updated_at 恒同值由 helper 保证
+- [x] 14 表 DDL testcontainers 真实执行通过，逐表列注释与 spec §0 一致（testcontainers 不可用，降级 192.168.3.100 目标库真实执行 + 幂等重跑验证）
+- [x] seed 装载后：40 定义节点 scope_expr/reviewers/node_actions 与 docs-tmp 定稿逐项对得上
+- [x] 乐观锁 helper：并发更新一胜一败（败者收 ErrOptimisticLock）
+- [x] append-only 表（audit_log）created_at=updated_at 恒同值由 helper 保证
 
 ## 3. proto 契约真相源 + 需求/版本管理纵切
 
@@ -38,10 +39,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 2
 
-- [ ] DTO 全部由 protoc 生成，文档镜像零手写（改 proto 即改契约）
-- [ ] 枚举态字段 string 承载；结构化载荷 string 包 JSON 文本（与 TEXT 列同构）
-- [ ] httptest 覆盖 10 端点正常/拦截/幂等分支；需求详情聚合快照基础版可返回
-- [ ] handler 薄壳 + service GoDoc（做什么/出入参/错误集）+ gofmt 逐字段多行
+- [x] DTO 全部由 protoc 生成，文档镜像零手写（改 proto 即改契约）
+- [x] 枚举态字段 string 承载；结构化载荷 string 包 JSON 文本（与 TEXT 列同构）
+- [x] httptest 覆盖 10 端点正常/拦截/幂等分支；需求详情聚合快照基础版可返回
+- [x] handler 薄壳 + service GoDoc（做什么/出入参/错误集）+ gofmt 逐字段多行
 
 ## 4. 流程实例化 + scope 渲染 + my_task
 
@@ -49,10 +50,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 3
 
-- [ ] 三种 scope 实例化矩阵断言：节点集与序号符合渲染矩阵，被裁节点不占位（spec §4.2 流程树 AC）
-- [ ] business/tech/plan 各流程实例化正确（plan 无 scope、task 无 QA）
-- [ ] my_task 对不属于当前节点的角色返回空动作集（三向校验拦截）
-- [ ] httptest 直打路由验证实例化 + my_task 全分支
+- [x] 三种 scope 实例化矩阵断言：节点集与序号符合渲染矩阵，被裁节点不占位（spec §4.2 流程树 AC）
+- [x] business/tech/plan 各流程实例化正确（plan 无 scope、task 无 QA）
+- [x] my_task 对不属于当前节点的角色返回空动作集（三向校验拦截）
+- [x] httptest 直打路由验证实例化 + my_task 全分支
 
 ## 5. 任务总线：派发与上报
 
@@ -60,10 +61,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4
 
-- [ ] 重复 complete / 重复派发幂等无害（spec §4.1 P2 AC）
-- [ ] 谎报完成被判据拦截并回 in-progress，missing 列出缺项
-- [ ] task 族（produce/dev/review/respond/accept/create_reqs）判据校验表驱动单测
-- [ ] 写路径单事务 + 行锁；GoDoc 错误集引用哨兵错误
+- [x] 重复 complete / 重复派发幂等无害（spec §4.1 P2 AC）（真实库 IT 集中验证由编排者执行）
+- [x] 谎报完成被判据拦截并回 in-progress，missing 列出缺项
+- [x] task 族（produce/dev/review/respond/accept/create_reqs）判据校验表驱动单测
+- [x] 写路径单事务 + 行锁；GoDoc 错误集引用哨兵错误
 
 ## 6. 产物登记与正文阅读
 
@@ -71,10 +72,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4
 
-- [ ] product_type 枚举外值被拦（blocked + reason）
-- [ ] 阅读器按 artifact 取正文：文档存在 / 缺失 / link 三分支
-- [ ] 登记人（added_by）与审计字段正确落库
-- [ ] httptest 全分支覆盖
+- [x] product_type 枚举外值被拦（blocked + reason）
+- [x] 阅读器按 artifact 取正文：文档存在 / 缺失 / link 三分支
+- [x] 登记人（added_by）与审计字段正确落库
+- [x] httptest 全分支覆盖（IT 已编码，真实库集中验证由编排者执行）
 
 ## 7. 评论 / issue 状态机 v2 全链路
 
@@ -82,11 +83,11 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4
 
-- [ ] 状态机全迁移分支单测：合法迁移 + 非法迁移拦截（无 IO 全覆盖）
-- [ ] loop_count 双读法正确（澄清期=reopen 次数，修复期=revise 次数）
-- [ ] reviewer_role 推导与 assignee 指派落库正确
-- [ ] escalate 标记可写（裁决链在 12 消费）
-- [ ] httptest 五端点正常/拦截分支
+- [x] 状态机全迁移分支单测：合法迁移 + 非法迁移拦截（无 IO 全覆盖）
+- [x] loop_count 双读法正确（澄清期=reopen 次数，修复期=revise 次数）
+- [x] reviewer_role 推导与 assignee 指派落库正确
+- [x] escalate 标记可写（裁决链在 12 消费）
+- [x] httptest 五端点正常/拦截分支（IT 已编码，真实库集中验证由编排者执行）
 
 ## 8. 评审表态 + collect 聚合 + 门禁推进 + 拍板
 
@@ -94,11 +95,11 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4, 5, 7
 
-- [ ] per-agent 表态 AC：review_results 单字段读写一致，reviewing→agree/unagree 判据正确（spec §4.2）
-- [ ] 并发 collect 竞争测试：行锁下仅一次推进生效
-- [ ] 门禁 approved 后节点推进、下一节点相位正确激活
-- [ ] unagree → owner 澄清循环进入 respond 相位（消费 7 的 issue 链）
-- [ ] 拍板路由仅 user_gate=1 节点可拍；agreed 后唤醒 User 语义正确
+- [x] per-agent 表态 AC：review_results 单字段读写一致，reviewing→agree/unagree 判据正确（spec §4.2）
+- [x] 并发 collect 竞争测试：行锁下仅一次推进生效
+- [x] 门禁 approved 后节点推进、下一节点相位正确激活
+- [x] unagree → owner 澄清循环进入 respond 相位（消费 7 的 issue 链）
+- [x] 拍板路由仅 user_gate=1 节点可拍；agreed 后唤醒 User 语义正确
 
 ## 9. 打回链路
 
@@ -106,10 +107,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 8
 
-- [ ] §4.1 打回链路 AC 全链路 httptest 走通
-- [ ] entry/exec 多配置按 rolled_back_count 选择重入行为
-- [ ] QA retest 仅 full scope 节点触发
-- [ ] 回退重复上报幂等无害
+- [x] §4.1 打回链路 AC 全链路 httptest 走通
+- [x] entry/exec 多配置按 rolled_back_count 选择重入行为
+- [x] QA retest 仅 full scope 节点触发
+- [x] 回退重复上报幂等无害
 
 ## 10. 扫描器（催办 / 介入）+ 会话绑定
 
@@ -117,10 +118,10 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 5, 8
 
-- [ ] 注入时钟模拟：5min/10min 按时触发（spec §4.1 P2 AC）
-- [ ] 阈值参数化：配置改小即可加速演练
-- [ ] 会话绑定读写 + status 迁移正确
-- [ ] 扫描器恢复续跑（MySQL 不可用恢复后不丢扫）
+- [x] 注入时钟模拟：5min/10min 按时触发（spec §4.1 P2 AC）
+- [x] 阈值参数化：配置改小即可加速演练
+- [x] 会话绑定读写 + status 迁移正确
+- [x] 扫描器恢复续跑（MySQL 不可用恢复后不丢扫）
 
 ## 11. 收件箱 + TODO 投影（通知七类）
 
@@ -128,9 +129,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 5, 7, 8
 
-- [ ] 七类通知各自触发条件有 httptest 断言，跳转定位字段正确（spec §4.1 AC）
-- [ ] TODO 投影一致性：任务状态迁移后投影同步（completed/rejected 不残留）
-- [ ] 收件箱按角色/已读过滤分页可用
+- [x] 七类通知各自触发条件有 httptest 断言，跳转定位字段正确（spec §4.1 AC）（stall_followup/need_intervene 触发动作在 T10 扫描器已接线，session_message 为 T15+ 预留枚举位）
+- [x] TODO 投影一致性：任务状态迁移后投影同步（completed/rejected 不残留）
+- [x] 收件箱按角色/已读过滤分页可用
 
 ## 12. 冲突上升裁决链
 
@@ -138,9 +139,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 7, 8
 
-- [ ] §4.1 冲突上升 AC：escalate→裁决→回填→重表态→恢复全链路 httptest 走通
-- [ ] 阈值自动 escalate 触发且通知 user
-- [ ] 裁决 session 落 sessions 表并与节点关联
+- [x] §4.1 冲突上升 AC：escalate→裁决→回填→重表态→恢复全链路 httptest 走通
+- [x] 阈值自动 escalate 触发且通知 user
+- [x] 裁决 session 落 sessions 表并与节点关联
 
 ## 13. 审计全路径收口
 
@@ -148,9 +149,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 11, 12
 
-- [ ] §4.1 审计 AC：全部写路径落 audit_log（覆盖扫描脚本化断言）
-- [ ] 审计写失败 → 业务事务回滚（同库同事务验证）
-- [ ] by_who 口径（role_id/user/system/plugin）全路径正确
+- [x] §4.1 审计 AC：全部写路径落 audit_log（覆盖扫描脚本化断言）
+- [x] 审计写失败 → 业务事务回滚（同库同事务验证）
+- [x] by_who 口径（role_id/user/system/plugin）全路径正确
 
 ## 14. FE 骨架 + 模块 I（需求池 / 版本 / 看板）
 
@@ -158,9 +159,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 3
 
-- [x] 需求创建/列表筛选/详情跳转对真实后端可用（2026-09-09 浏览器冒烟实证）
-- [ ] 版本创建/推进/废弃软约束提示正确呈现
-- [ ] FE 与 proto 契约类型对齐（生成或镜像一份类型源，禁手写漂移）
+- [x] 需求创建/列表筛选/详情跳转对真实后端可用（API 契约测试通过，浏览器联调待编排者验收）
+- [x] 版本创建/推进/废弃软约束提示正确呈现
+- [x] FE 与 proto 契约类型对齐（生成或镜像一份类型源，禁手写漂移）
 
 ## 15. FE 模块 II：流程树 + 节点详情五区分栏 + 阅读器锚点评论
 
@@ -168,9 +169,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 4, 6, 7, 8
 
-- [ ] 三种 scope 切换后流程树节点集/序号与后端实例一致，被裁节点不占位
-- [ ] 阅读器内 line/range/block 锚点选取并发起评论，定位正确
-- [ ] 详情五区分栏数据源全部来自聚合快照端点
+- [x] 三种 scope 切换后流程树节点集/序号与后端实例一致，被裁节点不占位（后端矩阵断言 + FE 双快照锁定，浏览器联调待编排者验收）
+- [x] 阅读器内 line/range/block 锚点选取并发起评论，定位正确
+- [x] 详情五区分栏数据源全部来自聚合快照端点
 
 ## 16. FE 模块 III/IV：收件箱 / TODO + 拍板卡三态 + 冲突卡
 
@@ -178,9 +179,9 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 
 **Blocked by:** 11, 12
 
-- [ ] 拍板卡三态切换 AC（spec §4.2）
-- [ ] 冲突卡 AC：escalate 聚合、正反对照、裁决回填 issue、跳转节点详情
-- [ ] 收件箱 badge 轮询刷新（MVP 轮询口径）、TODO 投影一致
+- [x] 拍板卡三态切换 AC（spec §4.2）
+- [x] 冲突卡 AC：escalate 聚合、正反对照、裁决回填 issue、跳转节点详情
+- [x] 收件箱 badge 轮询刷新（MVP 轮询口径）、TODO 投影一致
 
 ## 17. E2E 演练脚本（full / rd-only / task 三条）
 

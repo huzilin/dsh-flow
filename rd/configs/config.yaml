@@ -1,0 +1,43 @@
+# wbflow rd 服务配置（主配置，提交进仓库）
+#
+# 凭据红线：password 等敏感字段只允许环境变量占位（${VAR} 语法，加载时展开），
+# 真实值一律不落地本仓库文件。本地自测二选一：
+#   1) export WBFLOW_MYSQL_PASSWORD='真实密码'
+#   2) 复制本文件为 configs/config.local.yaml（已 gitignore）填真实值，覆盖任意字段。
+http:
+  port: 8080
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: ${WBFLOW_MYSQL_PASSWORD}
+  dbname: wbflow
+  # 连接池参数（按部署配置）
+  max_open_conns: 20
+  max_idle_conns: 10
+  conn_max_lifetime_sec: 3600
+log:
+  level: info
+  mode: dev
+  path: logs/rd.log
+# 简单 token 认证（本地部署口径）：Authorization: Bearer <token>；
+# 未设置（空串）时 API 路由全部 401（fail closed），/healthz 豁免。
+auth:
+  token: ${WBFLOW_AUTH_TOKEN}
+# 产物（T6）：document 类产物 href 的解析根目录（相对路径按服务进程工作目录解析）。
+# 读取路径 resolve（含 symlink 展开）后越出该目录一律拒绝（路径穿越防护）。
+artifacts:
+  docs_root: docs
+# 冲突上升（T12）：reopen 计数（澄清期 loop_count 读法）达阈值自动标 escalate
+# 并写 notification 通知行（spec §2 reopen≥5 口径）；≤0 视为关闭自动上升。
+escalate:
+  loop_threshold: 5
+# 扫描器（T10）：催办/介入阈值参数化（spec §2「agent 无响应」行——已结束 5min
+# 未表态催办 / 10min 通知 user 介入）。改小阈值即可加速演练（§4.1 P2 AC）。
+# intervene_after_sec 须 ≥ followup_after_sec，否则催办恒被介入取代。
+scanner:
+  enabled: true
+  interval_sec: 30
+  followup_after_sec: 300
+  intervene_after_sec: 600
+  retry_backoff_sec: 5

@@ -1,0 +1,159 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DecisionCard 三态 > 态二快照：agreed 迎宾结构锁定 1`] = `
+<section
+  class="panel-card decision-card"
+  data-gate-view="agreed"
+>
+  <h4>
+    ⑤ 门禁 / 拍板卡
+  </h4>
+  <div
+    class="decision-body"
+  >
+    <div
+      class="decision-progress"
+    >
+      <span
+        class="decision-title"
+      >
+        门禁汇总
+      </span>
+      <span>
+        表态 
+        2
+        /
+        2
+         · ✅同意
+         
+        2
+         · ⛔反对 
+        0
+         · ○待表态 
+        0
+      </span>
+    </div>
+    <div
+      class="decision-issues muted"
+    >
+      工单统计：待处理 
+      0
+       · 已处理待复核 
+      0
+       · 已解决 
+      1
+    </div>
+    <div
+      class="decision-summary"
+      role="status"
+    >
+      <h5>
+        各评审位结论
+      </h5>
+      <ul
+        class="decision-seats"
+      >
+        <li>
+          arch
+           · 
+          arch.prd-review
+          ：
+          同意
+        </li>
+        <li>
+          rd
+           · 
+          rd.prd-review
+          ：
+          同意
+        </li>
+      </ul>
+      <h5>
+        工单处理摘要
+      </h5>
+      <ul
+        class="decision-resolved"
+      >
+        <li
+          class="muted small"
+        >
+          cm-1
+           · 
+          resolved
+           · 按原口径执行
+        </li>
+      </ul>
+      <h5>
+        本节点产物
+      </h5>
+      <ul
+        class="decision-artifacts"
+      >
+        <li>
+          《产品需求文档》
+           
+          <span
+            class="badge badge-artifact-type"
+          >
+            prd
+          </span>
+        </li>
+      </ul>
+      <p
+        class="decision-advice"
+      >
+        建议：评审位全体同意、无反对与待表态——建议通过。保留意见见各评审位结论与工单摘要。
+      </p>
+    </div>
+    <div
+      class="decision-form"
+      data-testid="decision-actions"
+    >
+      <div
+        class="decision-form-buttons"
+      >
+        <button
+          class="primary"
+          type="button"
+        >
+          ✅ 通过
+        </button>
+        <button
+          class="danger"
+          disabled=""
+          title="打回必填理由（reject 结论协议）"
+          type="button"
+        >
+          ⛔ 打回
+        </button>
+      </div>
+      <textarea
+        aria-label="拍板理由"
+        placeholder="拍板理由（打回必填，通过可空）"
+        rows="2"
+      />
+      <input
+        aria-label="评审敲定分支名"
+        placeholder="评审敲定分支名（可选）"
+        value=""
+      />
+      <span
+        class="muted small"
+      >
+        操作身份：
+        user
+        （user_gate 终审位）
+      </span>
+    </div>
+    <div
+      class="muted small"
+    >
+      <a
+        href="#flow-tree"
+      >
+        ↗ 跳转流程树核对相关节点
+      </a>
+    </div>
+  </div>
+</section>
+`;
