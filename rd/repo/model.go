@@ -198,7 +198,7 @@ type Task struct {
 	Status string `gorm:"column:status;index:idx_tasks_status;size:16;notNull;default:'todo'" json:"status"`
 	// RootIssueID 锚定根 issue；NULL=非 issue 驱动
 	RootIssueID *string `gorm:"column:root_issue_id;size:32" json:"rootIssueId"`
-	// ReplyCount 回复数
+	// ReplyCount 回复数（TODO 死列：现无写入路径，计数由评论查询聚合；插件期接线，spec 注记-G，暂不 DROP）
 	ReplyCount int64 `gorm:"column:reply_count;notNull;default:0" json:"replyCount"`
 	// LastReplyAt 最近回复时间；NULL=无回复
 	LastReplyAt *int64 `gorm:"column:last_reply_at;index:idx_tasks_last_reply" json:"lastReplyAt"`

@@ -351,7 +351,7 @@ CREATE TABLE versions (
 | GET | /api/requirements/:reqId/dependencies/tree | （依赖树） | DependencyTreeReq/Resp | 动态加载，分析师视图 |
 | GET | /api/requirements/:reqId/history | wb_list_requirement_history | ListRequirementHistoryReq/Resp | 需求字段变更历史（注记-D3，仅读） |
 
-> **2026-09-09 拍板注记（A/B/C 细则，实现与测试以本注记为准）**：
+> **2026-09-09 拍板注记（A–G 细则，实现与测试以本注记为准）**：
 >
 > **-A 版本废弃 = 条件解绑**：`wb_deprecate_version` 语义由「有引用一律 blocked」改为条件解绑——判定单位为需求级，需求「已开始」=流程实例已进入编排（`flows.current_node_id` 非 NULL；T4 起需求创建即实例化 flows 行，故以编排进入为准而非「存在实例」——字面判定会使未开始解绑特性死置，实现口径见 semantica `23aeeaea`）；其下**任一**需求已开始 → 整个废弃请求 409 blocked（语义：已开始的推演不允许被版本废弃波及，未来再议）；其下**全部**需求未开始 → 废弃成功（versions.state=已废弃，终态），同时事务内将其下全部需求 version_id 置空（解绑，回到待分配池），逐行审计。与 ui-interaction-final §2「联动取消」口径的偏差：不取消需求、不写需求取消 history，改为解绑回池（本注记为裁决正本，UI 文档偏差由实现交付注记）。
 >
@@ -372,6 +372,12 @@ CREATE TABLE versions (
 > **-D5（N3 TODO 五分类投影口径）**：TODO = 收件箱通知的操作投影（基线规则+N3 定稿），非 tasks 投影——FE 从 notifications 投影五分类：待拍板←gate_pending；待澄清←clarify_task；待重表态←re_review（target_id 空）；待复验←re_review（target_id 非空，retest 子型）；冲突待裁决←escalation；stall_followup/need_intervene/session_message 为提醒类不产生 TODO。tasks 在途任务投影保留于节点详情④意见区（任务维度呈现），收件箱页 TODO 区按本口径改造。
 >
 > **-D6（P9 原型超集裁决）**：原型 P9 版本行「删除」按钮无对应路由（路由表无 wb_delete_version），不实现——原型为丢弃式视觉参照，功能边界以本路由表为准；「废弃」按钮已按注记-A 条件解绑实现。P9 依赖树入口（按需拉取）消费既有 GET /api/requirements/:reqId/dependencies/tree 逐需求装配，无新端点。
+>
+> **-E（node action 派发边界；CR 复审裁决 F，semantica `8e488988`）**：seed 词表中 `executor:"program"` 类 node action（如 `align.opening`，`on:"entry"`）不经 `wb_assign_task` 任务总线派发——node action 由服务端在节点相位内程序化执行（与 wbflow 程序化直启架构一致），任务总线仅承载 `actionTaskTypes` 有映射的 agent/人工动作；未知动作经 `TaskTypeForAction`「不可派发」拦截（domain/task.go），`align.opening` 无映射即天然不可派，实现行为与设计口径一致，本注记为文档化正本，不改路由。
+>
+> **-F（submit 动作不激活；CR 复审裁决 G，semantica `abf45f97`）**：seed 词表含 `submit`（登记请评，inline：「产物 wb_add_artifact 登记 → wb_comment 请评；登记齐、请评已发即完成」）但 `actionTaskTypes` 无映射、不激活——登记场景由 inline 动作经工具调用（`wb_add_artifact`+`wb_comment`）机械完成，不经任务总线；produce/complete 判据已覆盖其完成语义，补映射反而引入与判据重复的空派发，本注记为裁决正本。
+>
+> **-G（tasks.reply_count 死列；CR 复审裁决 I，semantica `ec4639b8`）**：迁移 v1 遗留列，现无写入路径（仅 model 定义与快照 DTO 读零值），回复计数语义由评论查询聚合承载——保留列 + TODO 注记插件期接线，不做迁移 DROP（v4 迁移成本大于收益），本注记为裁决正本。
 | GET | /api/projects · POST /api/projects | （registry） | ProjectReq/Resp | dsh 嵌入期启用 |
 
 - **移出 agent/HTTP 清单**：wb_decide（门禁判定 = 内部 collect 判定 + User 拍板专用路由 `POST /api/requirements/:reqId/nodes/:nodeId/decision`，DecisionReq/Resp，**已注册实现**）、wb_override（escalate/adjudicate 取代，`POST /api/comments/:commentId/adjudicate` 承载）——语义保留在 service 层。
