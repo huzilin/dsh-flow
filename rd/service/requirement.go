@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	gormio "gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -73,9 +74,29 @@ func (s *RequirementService) List(ctx context.Context, req *api.ListRequirements
 	if err != nil {
 		return nil, errs.Trace(err)
 	}
+	// dependencies 批量填充（注记-D4：flows.dependencies 透传；IN 一查免 N+1）
+	reqIDs := make([]string, 0, len(rows))
+	for _, row := range rows {
+		reqIDs = append(reqIDs, row.RequirementID)
+	}
+	flowRows, err := s.repo.ListFlowsByRequirementIDs(ctx, reqIDs)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	depsByReq := make(map[string][]string, len(flowRows))
+	for _, f := range flowRows {
+		deps, err := parseDependencyList(f.Dependencies)
+		if err != nil {
+			// 依赖 JSON 损坏不阻断整页（直改库才可能触发）：该行降级空集并留痕
+			log.Printf("[requirement] dependencies 解析失败（降级空集）: req=%s err=%v",
+				f.RequirementID, err)
+			deps = []string{}
+		}
+		depsByReq[f.RequirementID] = deps
+	}
 	items := make([]*api.RequirementItem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, requirementItem(row))
+		items = append(items, requirementItem(row, depsByReq[row.RequirementID]))
 	}
 	return &api.ListRequirementsResp{
 		Ok:       true,
@@ -191,16 +212,109 @@ func (s *RequirementService) Get(ctx context.Context, req *api.GetRequirementReq
 		return nil, errs.Trace(err)
 	}
 
+	// sessions 投影（注记-D2/N5：会话 tab 数据源；本期仅裁决链落行，空集合法）
+	sessionRows, err := s.repo.ListSessionsByRequirement(ctx, req.RequirementId)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	sessions := make([]*api.SessionItem, 0, len(sessionRows))
+	for _, sess := range sessionRows {
+		sessions = append(sessions, &api.SessionItem{
+			SessionId:     sess.SessionID,
+			RequirementId: sess.RequirementID,
+			NodeId:        sess.NodeID,
+			RoleId:        sess.RoleID,
+			Status:        sess.Status,
+			UpdatedAt:     sess.UpdatedAt,
+		})
+	}
+
+	// dependencies 填充（注记-D4：flows.dependencies 透传，取唯一实例行——
+	// uk_flows_req 唯一键保证单行；解析失败降级空集+日志，与 List 口径一致）
+	deps := []string{}
+	for _, f := range flowRows {
+		parsed, err := parseDependencyList(f.Dependencies)
+		if err != nil {
+			log.Printf("[requirement] dependencies 解析失败（降级空集）: req=%s err=%v",
+				f.RequirementID, err)
+			break
+		}
+		deps = parsed
+		break
+	}
+
 	return &api.GetRequirementResp{
 		Ok:            true,
-		Requirement:   requirementItem(row),
+		Requirement:   requirementItem(row, deps),
 		Version:       ver,
 		Flows:         flows,
 		FlowNodes:     nodes,
 		Artifacts:     artifacts,
 		Issues:        issues,
 		ReviewResults: reviewResults,
+		Sessions:      sessions,
 	}, nil
+}
+
+// ListHistory wb_list_requirement_history：需求字段变更历史（spec §1.2 注记-D3/N6，
+// 读 audit_log 中 table_name=requirements 且 row_id=reqId 行，created_at 倒序）。
+// 仅读端点，无新写路径；自然语句渲染归 FE。
+//
+// 入参：req.RequirementId 需求业务 id。
+// 出参：items 审计行投影（field/old/new 空值归一空串）。
+//
+// 错误集：底层 IO 错误经 Trace 上抛。
+func (s *RequirementService) ListHistory(ctx context.Context, req *api.ListRequirementHistoryReq) (*api.ListRequirementHistoryResp, error) {
+	if req == nil || req.RequirementId == "" {
+		return nil, invalidArg("requirement_id 必填")
+	}
+	// 存在性校验（与快照口径一致：不存在的需求 404，而非空集 200）
+	row, err := s.repo.GetRequirementByID(ctx, req.RequirementId)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	if row == nil {
+		return nil, notFound("需求 %q 不存在", req.RequirementId)
+	}
+	auditRows, err := s.repo.ListAuditByRow(ctx, "requirements", req.RequirementId, 0)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	items := make([]*api.HistoryItem, 0, len(auditRows))
+	for _, a := range auditRows {
+		item := &api.HistoryItem{
+			Field:     "",
+			OldValue:  "",
+			NewValue:  "",
+			ByWho:     a.ByWho,
+			CreatedAt: a.CreatedAt,
+			Action:    a.Action,
+		}
+		if a.Field != nil {
+			item.Field = *a.Field
+		}
+		if a.OldValue != nil {
+			item.OldValue = *a.OldValue
+		}
+		if a.NewValue != nil {
+			item.NewValue = *a.NewValue
+		}
+		items = append(items, item)
+	}
+	return &api.ListRequirementHistoryResp{Ok: true, Items: items}, nil
+}
+
+// parseDependencyList flows.dependencies JSON 文本 → 依赖需求 id 清单
+// （TEXT 列同构解析；空串/空数组归一空集）。
+func parseDependencyList(raw string) ([]string, error) {
+	deps := []string{}
+	if raw == "" {
+		return deps, nil
+	}
+	if err := utils.UnmarshalJSONText(raw, &deps); err != nil {
+		return nil, errs.Trace(err)
+	}
+	return deps, nil
 }
 
 // flowNodeItems 实例行 → 快照出参（定义属性填充 + review_results 扁平合并）。
@@ -342,7 +456,7 @@ func (s *RequirementService) Create(ctx context.Context, req *api.CreateRequirem
 	if err != nil {
 		return nil, err
 	}
-	return &api.CreateRequirementResp{Ok: true, Requirement: requirementItem(row)}, nil
+	return &api.CreateRequirementResp{Ok: true, Requirement: requirementItem(row, nil)}, nil
 }
 
 // createOnce 单次创建尝试（事务：取号 → 插入需求 → 流程实例化 → 审计）；
@@ -581,7 +695,7 @@ func (s *RequirementService) Update(ctx context.Context, req *api.UpdateRequirem
 	if txErr != nil {
 		return nil, txErr
 	}
-	return &api.UpdateRequirementResp{Ok: true, Requirement: requirementItem(updated)}, nil
+	return &api.UpdateRequirementResp{Ok: true, Requirement: requirementItem(updated, nil)}, nil
 }
 
 // Delete wb_delete_requirement ⚠️：删除类端点保持「需 User 明确指令」口径——
@@ -759,11 +873,15 @@ func diffRequirement(row *repo.Requirement, patch *updatePatch) map[string]requi
 	return changes
 }
 
-// requirementItem repo 行转 proto 契约出参（version_id NULL → 空串=待分配池）。
-func requirementItem(row *repo.Requirement) *api.RequirementItem {
+// requirementItem repo 行转 proto 契约出参（version_id NULL → 空串=待分配池；
+// dependencies=flows.dependencies 透传清单，无实例时传空集，注记-D4）。
+func requirementItem(row *repo.Requirement, dependencies []string) *api.RequirementItem {
 	versionID := ""
 	if row.VersionID != nil {
 		versionID = *row.VersionID
+	}
+	if dependencies == nil {
+		dependencies = []string{}
 	}
 	return &api.RequirementItem{
 		RequirementId: row.RequirementID,
@@ -778,6 +896,7 @@ func requirementItem(row *repo.Requirement) *api.RequirementItem {
 		CreatedBy:     row.CreatedBy,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
+		Dependencies:  dependencies,
 	}
 }
 

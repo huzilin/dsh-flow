@@ -96,7 +96,8 @@ type NotificationSpec struct {
 	RequirementID string
 	// NodeID 节点 id（跳转二级定位；会话类可空）
 	NodeID string
-	// TargetID 跳转目标业务 id（target_type=node 时空串——定位取 NodeID）
+	// TargetID 跳转目标业务 id；node 类未传时空串（定位取 NodeID），显式传入
+	// 保留为锚点增强（注记-D1：re_review retest 子型传 issueId）
 	TargetID string
 	// RecipientRole 收件角色（必填；空收件人无投递意义，Notify 拦截）
 	RecipientRole string
@@ -124,13 +125,10 @@ func (n *Notifier) Notify(ctx context.Context, spec NotificationSpec) (*repo.Iss
 	if spec.RecipientRole == "" {
 		return nil, fmt.Errorf("通知收件角色必填（kind=%s）", spec.Kind)
 	}
-	// target_type 恒按 Kind 确定性映射（notificationTargetTypes，无显式覆写口）
-	targetType := notificationTargetTypes[spec.Kind]
-	// target_type=node 跳转定位取 node_id 列，target_id 列位空（NULL）
+	// target_id 列位承载跳转锚点增强：target_type=node 的 kind 默认列位空
+	// （定位取 node_id 列）；调用方显式传入时保留（注记-D1：re_review retest
+	// 子型传 issueId 锚点，FE「待复验」投影与意见区跳转消费）
 	targetID := spec.TargetID
-	if targetType == "node" {
-		targetID = ""
-	}
 	sender := spec.Sender
 	if sender == "" {
 		sender = "plugin"

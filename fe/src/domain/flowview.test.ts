@@ -50,7 +50,7 @@ describe("summarizeReviews（与 SummarizeReviewResults 同口径）", () => {
         '{"role":"qa","capabilityId":"qa.rd-design-review","state":"unagree","round":0,"at":3}]',
     });
     const s = summarizeReviews(n);
-    expect(s).toEqual({ agree: 1, unagree: 1, reviewing: 1, seats: 2 });
+    expect(s).toEqual({ agree: 1, unagree: 1, reviewing: 1, seats: 2, maxRound: 1 });
   });
   it("无评审位/损坏 JSON 降级为零值不抛", () => {
     expect(summarizeReviews(node({ reviewers: "not-json", reviewResults: "" }))).toEqual({
@@ -58,6 +58,7 @@ describe("summarizeReviews（与 SummarizeReviewResults 同口径）", () => {
       unagree: 0,
       reviewing: 0,
       seats: 0,
+      maxRound: 0,
     });
   });
 });

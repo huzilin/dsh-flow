@@ -1,5 +1,5 @@
 import type { ApiClient } from "./client";
-import { MyTaskReq, MyTaskResp } from "./proto/api";
+import { DependencyTreeResp, MyTaskReq, MyTaskResp } from "./proto/api";
 
 /**
  * 流程实例端点（T4）：wb_my_task 三向校验（role × node × 相位）。
@@ -18,5 +18,17 @@ export function myTask(
     path: `/api/requirements/${encodeURIComponent(requirementId)}/my-task`,
     body: MyTaskReq.toJSON(req),
     decode: (raw) => MyTaskResp.fromJSON(raw),
+  });
+}
+
+/** 依赖树只读端点（分析师视图；原型 P9 版本依赖树按需拉取逐需求装配）。 */
+export function dependencyTree(
+  client: ApiClient,
+  requirementId: string,
+): Promise<DependencyTreeResp> {
+  return client.request({
+    method: "GET",
+    path: `/api/requirements/${encodeURIComponent(requirementId)}/dependencies/tree`,
+    decode: (raw) => DependencyTreeResp.fromJSON(raw),
   });
 }

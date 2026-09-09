@@ -25,7 +25,8 @@ export const protobufPackage = "wbflow.api.v1";
  *   int64 字段（时间戳 unix 毫秒 / 分页计数等）JSON 出参为**字符串**（如 "1730000000000"），
  *   入参接受字符串或数字两种形式；避免 JS Number 精度丢失（2^53），不改用 int32。
  *
- * 版本状态机（versions.state，单向）：待启动 → 进行中 → 已发布；任意阶段废弃=终态（已废弃）。
+ * 版本状态机（versions.state，单向）：待启动 → 进行中 → 已发布；任意阶段废弃=终态（已废弃）；
+ * 废弃时其下未开始需求解绑回待分配池（spec §1.2 拍板注记-A）。
  * 需求状态机（requirements.status）：待启动 / 进行中 / 已完成 / 已取消。
  * 类别（requirements.category，决定流程类型绑定，domain 层表驱动）：
  *   需求任务 → {business, tech, task}（默认 business）；
@@ -62,6 +63,11 @@ export interface ListRequirementsReq {
   page: string;
   /** page_size 页大小；0 视为默认 20，上限 100（强制分页，禁全量） */
   pageSize: string;
+  /**
+   * scope 按需求流程实例所选渲染 scope 筛选（full/rd/fe）；空=不过滤。
+   * 过滤语义：需求存在 flows.scope=本值的实例才命中（join flows 或等价子查询）。
+   */
+  scope: string;
 }
 
 /** RequirementItem 需求行（列表与详情快照共用）。 */
@@ -90,6 +96,11 @@ export interface RequirementItem {
   createdAt: string;
   /** updated_at 更新时间，unix 毫秒（乐观锁基线，更新时回传） */
   updatedAt: string;
+  /**
+   * dependencies 前置依赖需求 id 清单（flows.dependencies 透传，spec §1.2 注记-D4；
+   * 无实例（未创建流程）时为空集）
+   */
+  dependencies: string[];
 }
 
 /** ListRequirementsResp GET /api/requirements 出参。 */
@@ -434,6 +445,63 @@ export interface GetRequirementResp {
   issues: IssueItem[];
   /** review_results 评审轮结果汇总 JSON 文本（TEXT 列同构，默认 "[]"） */
   reviewResults: string;
+  /**
+   * sessions 会话绑定集（该需求 sessions 行投影，spec §1.2 注记-D2/N5：
+   * FE 会话 tab 按选中节点 nodeId 过滤；本期仅裁决链落行，空集合法）
+   */
+  sessions: SessionItem[];
+}
+
+/**
+ * SessionItem 会话绑定行投影（sessions 表只读透出，本期无会话端点——
+ * spec §1.2 路由表无 session 行，仅随快照呈现实例）。
+ */
+export interface SessionItem {
+  /** session_id 会话业务 id */
+  sessionId: string;
+  /** requirement_id 关联需求；空串=无 */
+  requirementId: string;
+  /** node_id 关联节点；空串=无 */
+  nodeId: string;
+  /** role_id 绑定角色 */
+  roleId: string;
+  /** status 生命周期：active / ended / disposed */
+  status: string;
+  /** updated_at 最近状态时间，unix 毫秒 */
+  updatedAt: string;
+}
+
+/**
+ * HistoryItem 需求字段变更历史条目（audit_log 只读投影，spec §1.2 注记-D3/N6：
+ * table_name=requirements 且 row_id=reqId 的审计行；自然语句渲染归 FE）。
+ */
+export interface HistoryItem {
+  /** field 变更字段；INSERT 为空串 */
+  field: string;
+  /** old_value 旧值；INSERT 为空串 */
+  oldValue: string;
+  /** new_value 新值；DELETE 为空串 */
+  newValue: string;
+  /** by_who 操作者 */
+  byWho: string;
+  /** created_at 变更时间，unix 毫秒 */
+  createdAt: string;
+  /** action INSERT/UPDATE/DELETE（需求行生命周期动作） */
+  action: string;
+}
+
+/** ListRequirementHistoryReq GET /api/requirements/:reqId/history 入参（reqId 取路径）。 */
+export interface ListRequirementHistoryReq {
+  /** requirement_id 需求业务 id（handler 自路径参数覆写） */
+  requirementId: string;
+}
+
+/** ListRequirementHistoryResp GET /api/requirements/:reqId/history 出参。 */
+export interface ListRequirementHistoryResp {
+  /** ok 恒 true */
+  ok: boolean;
+  /** items 变更历史行（created_at 倒序） */
+  items: HistoryItem[];
 }
 
 /** CreateRequirementReq POST /api/requirements 入参。 */
@@ -627,7 +695,8 @@ export interface DeprecateVersionReq {
 
 /**
  * DeprecateVersionResp POST /api/versions/:versionId/deprecate 出参。
- * 有引用（version_id 引用且状态非 已取消/已完成 的需求存在）时 blocked。
+ * 条件解绑（spec §1.2 拍板注记-A）：其下任一需求已开始（编排已进入）→ 409 blocked；
+ * 全部未开始 → 废弃成功并解绑全部需求回待分配池。
  */
 export interface DeprecateVersionResp {
   /** ok 恒 true */
@@ -728,6 +797,18 @@ export interface MyTaskNode {
   state: string;
   /** reviewers 实例评审位声明 JSON 文本（scope 过滤后静态声明） */
   reviewers: string;
+  /**
+   * rolled_back_count 回退计数：0=首次（exec 首产配置），≥1=重入（exec 返工配置
+   * revise/diagnosing-bugs/retest——activeActions 已按本计数选择，T9）
+   */
+  rolledBackCount: string;
+  /**
+   * reopen_source 重开来源：""/upstream-reject/downstream-reject/rework-return；
+   * 空=非重入
+   */
+  reopenSource: string;
+  /** feature_branch 评审敲定后的分支名；空=未敲定 */
+  featureBranch: string;
 }
 
 /** MyTaskResp POST /api/requirements/:reqId/my-task 出参。 */
@@ -1115,6 +1196,87 @@ export interface DecisionResp {
   lastDecision: string;
   /** next_node_id approved 后前移到的节点 id（未推进/重复拍板为空串） */
   nextNodeId: string;
+  /**
+   * rollback_node_id rejected 后回退重入的节点 id（exec 重入 revise 语义，T9；
+   * 未回退/重复拍板为空串）
+   */
+  rollbackNodeId: string;
+}
+
+/**
+ * AdvanceReq POST /api/requirements/:reqId/nodes/:nodeId/advance 入参
+ * （wb_advance 编排推进：reqId/nodeId 取路径）。
+ * 承载三类推进（spec §1.2 拍板注记-B）：①跨节点推进（exec 相位 complete 判据
+ * 已通过 → 下一节点相位初始化）；②节点内 CR 轮转（dev→review，轮 0 重开）；
+ * ③QA/门禁机械收口（collect rule4 空转语义）。wb_advance 自身幂等：重复调用
+ * 时若推进已完成则返回当前状态不重复推进（noop=true）。
+ */
+export interface AdvanceReq {
+  /** requirement_id 需求业务 id（reqId 取路径） */
+  requirementId: string;
+  /** node_id 实例节点 id（nodeId 取路径） */
+  nodeId: string;
+}
+
+/**
+ * AdvanceResp POST /api/requirements/:reqId/nodes/:nodeId/advance 出参。
+ * 推进后聚合状态：节点相位 / flows.current_node_id / 迁移结果摘要。
+ */
+export interface AdvanceResp {
+  /** ok 恒 true */
+  ok: boolean;
+  /** requirement_id 需求业务 id（回显） */
+  requirementId: string;
+  /** node_id 实例节点 id（回显） */
+  nodeId: string;
+  /** node_state 推进后该节点相位（""/entry/exec/review/respond） */
+  nodeState: string;
+  /** current_node_id 推进后 flows.current_node_id（空=未进入编排） */
+  currentNodeId: string;
+  /** next_node_id 本次跨节点推进落位的目标节点 id（未跨节点为空串） */
+  nextNodeId: string;
+  /**
+   * outcome 迁移结果摘要：rotate=节点内 CR 轮转（exec→review）/
+   * cross=跨节点推进（含并行组整组推进）/ wait=并行组本侧完成待对侧 /
+   * noop=幂等命中（推进已完成，返回当前态）
+   */
+  outcome: string;
+  /** noop true=幂等命中（推进已完成，库未变更） */
+  noop: boolean;
+}
+
+/**
+ * ReprojectScopeReq POST /api/requirements/:reqId/reproject 入参。
+ * 打回后范围重定（pending_scope 待重定标记的消费端点）：按新 scope 重投影
+ * 持有 pending_scope 节点（回退目标）的下游节点集（复用 T4 投影函数：被裁
+ * 节点删行不占位、新增定义节点插入新实例行、node_order 全量重排），随后清
+ * pending_scope 继续编排。
+ */
+export interface ReprojectScopeReq {
+  /** requirement_id 需求业务 id（reqId 取路径） */
+  requirementId: string;
+  /**
+   * scope 重定后的渲染 scope；须 ∈ flow_defs.scope_options；
+   * 空=按当前 scope 重投影（仅清 pending_scope，节点集不变——同范围重排）
+   */
+  scope: string;
+}
+
+/** ReprojectScopeResp POST /api/requirements/:reqId/reproject 出参。 */
+export interface ReprojectScopeResp {
+  /** ok 恒 true */
+  ok: boolean;
+  /** scope 生效 scope（重定值或既有值） */
+  scope: string;
+  /** noop true=无 pending_scope 待重定标记（幂等重放/无打回），库未变更 */
+  noop: boolean;
+  /** node_id 持有 pending_scope 的节点 id（=回退目标；noop 时为空串） */
+  nodeId: string;
+  /**
+   * reprojected_count 重投影覆盖的下游节点行数（保留重排 + 新增 + 删除裁剪；
+   * noop 时为 0）
+   */
+  reprojectedCount: string;
 }
 
 /**
@@ -1419,7 +1581,7 @@ export const ErrorResp: MessageFns<ErrorResp> = {
 };
 
 function createBaseListRequirementsReq(): ListRequirementsReq {
-  return { versionId: "", backlog: false, priority: "", status: "", page: "0", pageSize: "0" };
+  return { versionId: "", backlog: false, priority: "", status: "", page: "0", pageSize: "0", scope: "" };
 }
 
 export const ListRequirementsReq: MessageFns<ListRequirementsReq> = {
@@ -1441,6 +1603,9 @@ export const ListRequirementsReq: MessageFns<ListRequirementsReq> = {
     }
     if (message.pageSize !== "0") {
       writer.uint32(48).int64(message.pageSize);
+    }
+    if (message.scope !== "") {
+      writer.uint32(58).string(message.scope);
     }
     return writer;
   },
@@ -1506,6 +1671,14 @@ export const ListRequirementsReq: MessageFns<ListRequirementsReq> = {
             message.pageSize = reader.int64().toString();
             continue;
           }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.scope = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1534,6 +1707,7 @@ export const ListRequirementsReq: MessageFns<ListRequirementsReq> = {
         : isSet(object.page_size)
         ? globalThis.String(object.page_size)
         : "0",
+      scope: isSet(object.scope) ? globalThis.String(object.scope) : "",
     };
   },
 
@@ -1557,6 +1731,9 @@ export const ListRequirementsReq: MessageFns<ListRequirementsReq> = {
     if (message.pageSize !== "0") {
       obj.pageSize = message.pageSize;
     }
+    if (message.scope !== "") {
+      obj.scope = message.scope;
+    }
     return obj;
   },
 
@@ -1571,6 +1748,7 @@ export const ListRequirementsReq: MessageFns<ListRequirementsReq> = {
     message.status = object.status ?? "";
     message.page = object.page ?? "0";
     message.pageSize = object.pageSize ?? "0";
+    message.scope = object.scope ?? "";
     return message;
   },
 };
@@ -1589,6 +1767,7 @@ function createBaseRequirementItem(): RequirementItem {
     createdBy: "",
     createdAt: "0",
     updatedAt: "0",
+    dependencies: [],
   };
 }
 
@@ -1629,6 +1808,9 @@ export const RequirementItem: MessageFns<RequirementItem> = {
     }
     if (message.updatedAt !== "0") {
       writer.uint32(96).int64(message.updatedAt);
+    }
+    for (const v of message.dependencies) {
+      writer.uint32(106).string(v!);
     }
     return writer;
   },
@@ -1742,6 +1924,14 @@ export const RequirementItem: MessageFns<RequirementItem> = {
             message.updatedAt = reader.int64().toString();
             continue;
           }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.dependencies.push(reader.string());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1792,6 +1982,9 @@ export const RequirementItem: MessageFns<RequirementItem> = {
         : isSet(object.updated_at)
         ? globalThis.String(object.updated_at)
         : "0",
+      dependencies: globalThis.Array.isArray(object?.dependencies)
+        ? object.dependencies.map((e: any) => globalThis.String(e))
+        : [],
     };
   },
 
@@ -1833,6 +2026,9 @@ export const RequirementItem: MessageFns<RequirementItem> = {
     if (message.updatedAt !== "0") {
       obj.updatedAt = message.updatedAt;
     }
+    if (message.dependencies?.length) {
+      obj.dependencies = message.dependencies;
+    }
     return obj;
   },
 
@@ -1853,6 +2049,7 @@ export const RequirementItem: MessageFns<RequirementItem> = {
     message.createdBy = object.createdBy ?? "";
     message.createdAt = object.createdAt ?? "0";
     message.updatedAt = object.updatedAt ?? "0";
+    message.dependencies = object.dependencies?.map((e) => e) || [];
     return message;
   },
 };
@@ -4889,6 +5086,7 @@ function createBaseGetRequirementResp(): GetRequirementResp {
     artifacts: [],
     issues: [],
     reviewResults: "",
+    sessions: [],
   };
 }
 
@@ -4917,6 +5115,9 @@ export const GetRequirementResp: MessageFns<GetRequirementResp> = {
     }
     if (message.reviewResults !== "") {
       writer.uint32(66).string(message.reviewResults);
+    }
+    for (const v of message.sessions) {
+      SessionItem.encode(v!, writer.uint32(74).fork()).join();
     }
     return writer;
   },
@@ -4998,6 +5199,14 @@ export const GetRequirementResp: MessageFns<GetRequirementResp> = {
             message.reviewResults = reader.string();
             continue;
           }
+          case 9: {
+            if (tag !== 74) {
+              break;
+            }
+
+            message.sessions.push(SessionItem.decode(reader, reader.uint32()));
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -5030,6 +5239,9 @@ export const GetRequirementResp: MessageFns<GetRequirementResp> = {
         : isSet(object.review_results)
         ? globalThis.String(object.review_results)
         : "",
+      sessions: globalThis.Array.isArray(object?.sessions)
+        ? object.sessions.map((e: any) => SessionItem.fromJSON(e))
+        : [],
     };
   },
 
@@ -5059,6 +5271,9 @@ export const GetRequirementResp: MessageFns<GetRequirementResp> = {
     if (message.reviewResults !== "") {
       obj.reviewResults = message.reviewResults;
     }
+    if (message.sessions?.length) {
+      obj.sessions = message.sessions.map((e) => SessionItem.toJSON(e));
+    }
     return obj;
   },
 
@@ -5079,6 +5294,499 @@ export const GetRequirementResp: MessageFns<GetRequirementResp> = {
     message.artifacts = object.artifacts?.map((e) => ArtifactItem.fromPartial(e)) || [];
     message.issues = object.issues?.map((e) => IssueItem.fromPartial(e)) || [];
     message.reviewResults = object.reviewResults ?? "";
+    message.sessions = object.sessions?.map((e) => SessionItem.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseSessionItem(): SessionItem {
+  return { sessionId: "", requirementId: "", nodeId: "", roleId: "", status: "", updatedAt: "0" };
+}
+
+export const SessionItem: MessageFns<SessionItem> = {
+  encode(message: SessionItem, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.sessionId !== "") {
+      writer.uint32(10).string(message.sessionId);
+    }
+    if (message.requirementId !== "") {
+      writer.uint32(18).string(message.requirementId);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(26).string(message.nodeId);
+    }
+    if (message.roleId !== "") {
+      writer.uint32(34).string(message.roleId);
+    }
+    if (message.status !== "") {
+      writer.uint32(42).string(message.status);
+    }
+    if (message.updatedAt !== "0") {
+      writer.uint32(48).int64(message.updatedAt);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SessionItem {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSessionItem();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.sessionId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.roleId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.status = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.updatedAt = reader.int64().toString();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): SessionItem {
+    return {
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      roleId: isSet(object.roleId)
+        ? globalThis.String(object.roleId)
+        : isSet(object.role_id)
+        ? globalThis.String(object.role_id)
+        : "",
+      status: isSet(object.status) ? globalThis.String(object.status) : "",
+      updatedAt: isSet(object.updatedAt)
+        ? globalThis.String(object.updatedAt)
+        : isSet(object.updated_at)
+        ? globalThis.String(object.updated_at)
+        : "0",
+    };
+  },
+
+  toJSON(message: SessionItem): unknown {
+    const obj: any = {};
+    if (message.sessionId !== "") {
+      obj.sessionId = message.sessionId;
+    }
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    if (message.roleId !== "") {
+      obj.roleId = message.roleId;
+    }
+    if (message.status !== "") {
+      obj.status = message.status;
+    }
+    if (message.updatedAt !== "0") {
+      obj.updatedAt = message.updatedAt;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SessionItem>, I>>(base?: I): SessionItem {
+    return SessionItem.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SessionItem>, I>>(object: I): SessionItem {
+    const message = createBaseSessionItem();
+    message.sessionId = object.sessionId ?? "";
+    message.requirementId = object.requirementId ?? "";
+    message.nodeId = object.nodeId ?? "";
+    message.roleId = object.roleId ?? "";
+    message.status = object.status ?? "";
+    message.updatedAt = object.updatedAt ?? "0";
+    return message;
+  },
+};
+
+function createBaseHistoryItem(): HistoryItem {
+  return { field: "", oldValue: "", newValue: "", byWho: "", createdAt: "0", action: "" };
+}
+
+export const HistoryItem: MessageFns<HistoryItem> = {
+  encode(message: HistoryItem, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.field !== "") {
+      writer.uint32(10).string(message.field);
+    }
+    if (message.oldValue !== "") {
+      writer.uint32(18).string(message.oldValue);
+    }
+    if (message.newValue !== "") {
+      writer.uint32(26).string(message.newValue);
+    }
+    if (message.byWho !== "") {
+      writer.uint32(34).string(message.byWho);
+    }
+    if (message.createdAt !== "0") {
+      writer.uint32(40).int64(message.createdAt);
+    }
+    if (message.action !== "") {
+      writer.uint32(50).string(message.action);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): HistoryItem {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseHistoryItem();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.field = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.oldValue = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.newValue = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.byWho = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.createdAt = reader.int64().toString();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.action = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): HistoryItem {
+    return {
+      field: isSet(object.field) ? globalThis.String(object.field) : "",
+      oldValue: isSet(object.oldValue)
+        ? globalThis.String(object.oldValue)
+        : isSet(object.old_value)
+        ? globalThis.String(object.old_value)
+        : "",
+      newValue: isSet(object.newValue)
+        ? globalThis.String(object.newValue)
+        : isSet(object.new_value)
+        ? globalThis.String(object.new_value)
+        : "",
+      byWho: isSet(object.byWho)
+        ? globalThis.String(object.byWho)
+        : isSet(object.by_who)
+        ? globalThis.String(object.by_who)
+        : "",
+      createdAt: isSet(object.createdAt)
+        ? globalThis.String(object.createdAt)
+        : isSet(object.created_at)
+        ? globalThis.String(object.created_at)
+        : "0",
+      action: isSet(object.action) ? globalThis.String(object.action) : "",
+    };
+  },
+
+  toJSON(message: HistoryItem): unknown {
+    const obj: any = {};
+    if (message.field !== "") {
+      obj.field = message.field;
+    }
+    if (message.oldValue !== "") {
+      obj.oldValue = message.oldValue;
+    }
+    if (message.newValue !== "") {
+      obj.newValue = message.newValue;
+    }
+    if (message.byWho !== "") {
+      obj.byWho = message.byWho;
+    }
+    if (message.createdAt !== "0") {
+      obj.createdAt = message.createdAt;
+    }
+    if (message.action !== "") {
+      obj.action = message.action;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<HistoryItem>, I>>(base?: I): HistoryItem {
+    return HistoryItem.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<HistoryItem>, I>>(object: I): HistoryItem {
+    const message = createBaseHistoryItem();
+    message.field = object.field ?? "";
+    message.oldValue = object.oldValue ?? "";
+    message.newValue = object.newValue ?? "";
+    message.byWho = object.byWho ?? "";
+    message.createdAt = object.createdAt ?? "0";
+    message.action = object.action ?? "";
+    return message;
+  },
+};
+
+function createBaseListRequirementHistoryReq(): ListRequirementHistoryReq {
+  return { requirementId: "" };
+}
+
+export const ListRequirementHistoryReq: MessageFns<ListRequirementHistoryReq> = {
+  encode(message: ListRequirementHistoryReq, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.requirementId !== "") {
+      writer.uint32(10).string(message.requirementId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListRequirementHistoryReq {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseListRequirementHistoryReq();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ListRequirementHistoryReq {
+    return {
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+    };
+  },
+
+  toJSON(message: ListRequirementHistoryReq): unknown {
+    const obj: any = {};
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListRequirementHistoryReq>, I>>(base?: I): ListRequirementHistoryReq {
+    return ListRequirementHistoryReq.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListRequirementHistoryReq>, I>>(object: I): ListRequirementHistoryReq {
+    const message = createBaseListRequirementHistoryReq();
+    message.requirementId = object.requirementId ?? "";
+    return message;
+  },
+};
+
+function createBaseListRequirementHistoryResp(): ListRequirementHistoryResp {
+  return { ok: false, items: [] };
+}
+
+export const ListRequirementHistoryResp: MessageFns<ListRequirementHistoryResp> = {
+  encode(message: ListRequirementHistoryResp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ok !== false) {
+      writer.uint32(8).bool(message.ok);
+    }
+    for (const v of message.items) {
+      HistoryItem.encode(v!, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ListRequirementHistoryResp {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseListRequirementHistoryResp();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.ok = reader.bool();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.items.push(HistoryItem.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ListRequirementHistoryResp {
+    return {
+      ok: isSet(object.ok) ? globalThis.Boolean(object.ok) : false,
+      items: globalThis.Array.isArray(object?.items) ? object.items.map((e: any) => HistoryItem.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: ListRequirementHistoryResp): unknown {
+    const obj: any = {};
+    if (message.ok !== false) {
+      obj.ok = message.ok;
+    }
+    if (message.items?.length) {
+      obj.items = message.items.map((e) => HistoryItem.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListRequirementHistoryResp>, I>>(base?: I): ListRequirementHistoryResp {
+    return ListRequirementHistoryResp.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListRequirementHistoryResp>, I>>(object: I): ListRequirementHistoryResp {
+    const message = createBaseListRequirementHistoryResp();
+    message.ok = object.ok ?? false;
+    message.items = object.items?.map((e) => HistoryItem.fromPartial(e)) || [];
     return message;
   },
 };
@@ -7744,7 +8452,16 @@ export const RelatedNodeItem: MessageFns<RelatedNodeItem> = {
 };
 
 function createBaseMyTaskNode(): MyTaskNode {
-  return { nodeId: "", defNodeId: "", nodeType: "", state: "", reviewers: "" };
+  return {
+    nodeId: "",
+    defNodeId: "",
+    nodeType: "",
+    state: "",
+    reviewers: "",
+    rolledBackCount: "0",
+    reopenSource: "",
+    featureBranch: "",
+  };
 }
 
 export const MyTaskNode: MessageFns<MyTaskNode> = {
@@ -7763,6 +8480,15 @@ export const MyTaskNode: MessageFns<MyTaskNode> = {
     }
     if (message.reviewers !== "") {
       writer.uint32(42).string(message.reviewers);
+    }
+    if (message.rolledBackCount !== "0") {
+      writer.uint32(48).int64(message.rolledBackCount);
+    }
+    if (message.reopenSource !== "") {
+      writer.uint32(58).string(message.reopenSource);
+    }
+    if (message.featureBranch !== "") {
+      writer.uint32(66).string(message.featureBranch);
     }
     return writer;
   },
@@ -7820,6 +8546,30 @@ export const MyTaskNode: MessageFns<MyTaskNode> = {
             message.reviewers = reader.string();
             continue;
           }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.rolledBackCount = reader.int64().toString();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.reopenSource = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.featureBranch = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -7851,6 +8601,21 @@ export const MyTaskNode: MessageFns<MyTaskNode> = {
         : "",
       state: isSet(object.state) ? globalThis.String(object.state) : "",
       reviewers: isSet(object.reviewers) ? globalThis.String(object.reviewers) : "",
+      rolledBackCount: isSet(object.rolledBackCount)
+        ? globalThis.String(object.rolledBackCount)
+        : isSet(object.rolled_back_count)
+        ? globalThis.String(object.rolled_back_count)
+        : "0",
+      reopenSource: isSet(object.reopenSource)
+        ? globalThis.String(object.reopenSource)
+        : isSet(object.reopen_source)
+        ? globalThis.String(object.reopen_source)
+        : "",
+      featureBranch: isSet(object.featureBranch)
+        ? globalThis.String(object.featureBranch)
+        : isSet(object.feature_branch)
+        ? globalThis.String(object.feature_branch)
+        : "",
     };
   },
 
@@ -7871,6 +8636,15 @@ export const MyTaskNode: MessageFns<MyTaskNode> = {
     if (message.reviewers !== "") {
       obj.reviewers = message.reviewers;
     }
+    if (message.rolledBackCount !== "0") {
+      obj.rolledBackCount = message.rolledBackCount;
+    }
+    if (message.reopenSource !== "") {
+      obj.reopenSource = message.reopenSource;
+    }
+    if (message.featureBranch !== "") {
+      obj.featureBranch = message.featureBranch;
+    }
     return obj;
   },
 
@@ -7884,6 +8658,9 @@ export const MyTaskNode: MessageFns<MyTaskNode> = {
     message.nodeType = object.nodeType ?? "";
     message.state = object.state ?? "";
     message.reviewers = object.reviewers ?? "";
+    message.rolledBackCount = object.rolledBackCount ?? "0";
+    message.reopenSource = object.reopenSource ?? "";
+    message.featureBranch = object.featureBranch ?? "";
     return message;
   },
 };
@@ -10913,7 +11690,7 @@ export const DecisionReq: MessageFns<DecisionReq> = {
 };
 
 function createBaseDecisionResp(): DecisionResp {
-  return { ok: false, nodeId: "", verdict: "", noop: false, lastDecision: "", nextNodeId: "" };
+  return { ok: false, nodeId: "", verdict: "", noop: false, lastDecision: "", nextNodeId: "", rollbackNodeId: "" };
 }
 
 export const DecisionResp: MessageFns<DecisionResp> = {
@@ -10935,6 +11712,9 @@ export const DecisionResp: MessageFns<DecisionResp> = {
     }
     if (message.nextNodeId !== "") {
       writer.uint32(50).string(message.nextNodeId);
+    }
+    if (message.rollbackNodeId !== "") {
+      writer.uint32(58).string(message.rollbackNodeId);
     }
     return writer;
   },
@@ -11000,6 +11780,14 @@ export const DecisionResp: MessageFns<DecisionResp> = {
             message.nextNodeId = reader.string();
             continue;
           }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.rollbackNodeId = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -11032,6 +11820,11 @@ export const DecisionResp: MessageFns<DecisionResp> = {
         : isSet(object.next_node_id)
         ? globalThis.String(object.next_node_id)
         : "",
+      rollbackNodeId: isSet(object.rollbackNodeId)
+        ? globalThis.String(object.rollbackNodeId)
+        : isSet(object.rollback_node_id)
+        ? globalThis.String(object.rollback_node_id)
+        : "",
     };
   },
 
@@ -11055,6 +11848,9 @@ export const DecisionResp: MessageFns<DecisionResp> = {
     if (message.nextNodeId !== "") {
       obj.nextNodeId = message.nextNodeId;
     }
+    if (message.rollbackNodeId !== "") {
+      obj.rollbackNodeId = message.rollbackNodeId;
+    }
     return obj;
   },
 
@@ -11069,6 +11865,540 @@ export const DecisionResp: MessageFns<DecisionResp> = {
     message.noop = object.noop ?? false;
     message.lastDecision = object.lastDecision ?? "";
     message.nextNodeId = object.nextNodeId ?? "";
+    message.rollbackNodeId = object.rollbackNodeId ?? "";
+    return message;
+  },
+};
+
+function createBaseAdvanceReq(): AdvanceReq {
+  return { requirementId: "", nodeId: "" };
+}
+
+export const AdvanceReq: MessageFns<AdvanceReq> = {
+  encode(message: AdvanceReq, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.requirementId !== "") {
+      writer.uint32(10).string(message.requirementId);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(18).string(message.nodeId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceReq {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceReq();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceReq {
+    return {
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+    };
+  },
+
+  toJSON(message: AdvanceReq): unknown {
+    const obj: any = {};
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceReq>, I>>(base?: I): AdvanceReq {
+    return AdvanceReq.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceReq>, I>>(object: I): AdvanceReq {
+    const message = createBaseAdvanceReq();
+    message.requirementId = object.requirementId ?? "";
+    message.nodeId = object.nodeId ?? "";
+    return message;
+  },
+};
+
+function createBaseAdvanceResp(): AdvanceResp {
+  return {
+    ok: false,
+    requirementId: "",
+    nodeId: "",
+    nodeState: "",
+    currentNodeId: "",
+    nextNodeId: "",
+    outcome: "",
+    noop: false,
+  };
+}
+
+export const AdvanceResp: MessageFns<AdvanceResp> = {
+  encode(message: AdvanceResp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ok !== false) {
+      writer.uint32(8).bool(message.ok);
+    }
+    if (message.requirementId !== "") {
+      writer.uint32(18).string(message.requirementId);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(26).string(message.nodeId);
+    }
+    if (message.nodeState !== "") {
+      writer.uint32(34).string(message.nodeState);
+    }
+    if (message.currentNodeId !== "") {
+      writer.uint32(42).string(message.currentNodeId);
+    }
+    if (message.nextNodeId !== "") {
+      writer.uint32(50).string(message.nextNodeId);
+    }
+    if (message.outcome !== "") {
+      writer.uint32(58).string(message.outcome);
+    }
+    if (message.noop !== false) {
+      writer.uint32(64).bool(message.noop);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AdvanceResp {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseAdvanceResp();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.ok = reader.bool();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.nodeState = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.currentNodeId = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.nextNodeId = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.outcome = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 64) {
+              break;
+            }
+
+            message.noop = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): AdvanceResp {
+    return {
+      ok: isSet(object.ok) ? globalThis.Boolean(object.ok) : false,
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      nodeState: isSet(object.nodeState)
+        ? globalThis.String(object.nodeState)
+        : isSet(object.node_state)
+        ? globalThis.String(object.node_state)
+        : "",
+      currentNodeId: isSet(object.currentNodeId)
+        ? globalThis.String(object.currentNodeId)
+        : isSet(object.current_node_id)
+        ? globalThis.String(object.current_node_id)
+        : "",
+      nextNodeId: isSet(object.nextNodeId)
+        ? globalThis.String(object.nextNodeId)
+        : isSet(object.next_node_id)
+        ? globalThis.String(object.next_node_id)
+        : "",
+      outcome: isSet(object.outcome) ? globalThis.String(object.outcome) : "",
+      noop: isSet(object.noop) ? globalThis.Boolean(object.noop) : false,
+    };
+  },
+
+  toJSON(message: AdvanceResp): unknown {
+    const obj: any = {};
+    if (message.ok !== false) {
+      obj.ok = message.ok;
+    }
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    if (message.nodeState !== "") {
+      obj.nodeState = message.nodeState;
+    }
+    if (message.currentNodeId !== "") {
+      obj.currentNodeId = message.currentNodeId;
+    }
+    if (message.nextNodeId !== "") {
+      obj.nextNodeId = message.nextNodeId;
+    }
+    if (message.outcome !== "") {
+      obj.outcome = message.outcome;
+    }
+    if (message.noop !== false) {
+      obj.noop = message.noop;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AdvanceResp>, I>>(base?: I): AdvanceResp {
+    return AdvanceResp.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AdvanceResp>, I>>(object: I): AdvanceResp {
+    const message = createBaseAdvanceResp();
+    message.ok = object.ok ?? false;
+    message.requirementId = object.requirementId ?? "";
+    message.nodeId = object.nodeId ?? "";
+    message.nodeState = object.nodeState ?? "";
+    message.currentNodeId = object.currentNodeId ?? "";
+    message.nextNodeId = object.nextNodeId ?? "";
+    message.outcome = object.outcome ?? "";
+    message.noop = object.noop ?? false;
+    return message;
+  },
+};
+
+function createBaseReprojectScopeReq(): ReprojectScopeReq {
+  return { requirementId: "", scope: "" };
+}
+
+export const ReprojectScopeReq: MessageFns<ReprojectScopeReq> = {
+  encode(message: ReprojectScopeReq, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.requirementId !== "") {
+      writer.uint32(10).string(message.requirementId);
+    }
+    if (message.scope !== "") {
+      writer.uint32(18).string(message.scope);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReprojectScopeReq {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReprojectScopeReq();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ReprojectScopeReq {
+    return {
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+      scope: isSet(object.scope) ? globalThis.String(object.scope) : "",
+    };
+  },
+
+  toJSON(message: ReprojectScopeReq): unknown {
+    const obj: any = {};
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    if (message.scope !== "") {
+      obj.scope = message.scope;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReprojectScopeReq>, I>>(base?: I): ReprojectScopeReq {
+    return ReprojectScopeReq.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReprojectScopeReq>, I>>(object: I): ReprojectScopeReq {
+    const message = createBaseReprojectScopeReq();
+    message.requirementId = object.requirementId ?? "";
+    message.scope = object.scope ?? "";
+    return message;
+  },
+};
+
+function createBaseReprojectScopeResp(): ReprojectScopeResp {
+  return { ok: false, scope: "", noop: false, nodeId: "", reprojectedCount: "0" };
+}
+
+export const ReprojectScopeResp: MessageFns<ReprojectScopeResp> = {
+  encode(message: ReprojectScopeResp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ok !== false) {
+      writer.uint32(8).bool(message.ok);
+    }
+    if (message.scope !== "") {
+      writer.uint32(18).string(message.scope);
+    }
+    if (message.noop !== false) {
+      writer.uint32(24).bool(message.noop);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(34).string(message.nodeId);
+    }
+    if (message.reprojectedCount !== "0") {
+      writer.uint32(40).int64(message.reprojectedCount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReprojectScopeResp {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseReprojectScopeResp();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.ok = reader.bool();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.scope = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.noop = reader.bool();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.reprojectedCount = reader.int64().toString();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): ReprojectScopeResp {
+    return {
+      ok: isSet(object.ok) ? globalThis.Boolean(object.ok) : false,
+      scope: isSet(object.scope) ? globalThis.String(object.scope) : "",
+      noop: isSet(object.noop) ? globalThis.Boolean(object.noop) : false,
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      reprojectedCount: isSet(object.reprojectedCount)
+        ? globalThis.String(object.reprojectedCount)
+        : isSet(object.reprojected_count)
+        ? globalThis.String(object.reprojected_count)
+        : "0",
+    };
+  },
+
+  toJSON(message: ReprojectScopeResp): unknown {
+    const obj: any = {};
+    if (message.ok !== false) {
+      obj.ok = message.ok;
+    }
+    if (message.scope !== "") {
+      obj.scope = message.scope;
+    }
+    if (message.noop !== false) {
+      obj.noop = message.noop;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    if (message.reprojectedCount !== "0") {
+      obj.reprojectedCount = message.reprojectedCount;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReprojectScopeResp>, I>>(base?: I): ReprojectScopeResp {
+    return ReprojectScopeResp.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReprojectScopeResp>, I>>(object: I): ReprojectScopeResp {
+    const message = createBaseReprojectScopeResp();
+    message.ok = object.ok ?? false;
+    message.scope = object.scope ?? "";
+    message.noop = object.noop ?? false;
+    message.nodeId = object.nodeId ?? "";
+    message.reprojectedCount = object.reprojectedCount ?? "0";
     return message;
   },
 };

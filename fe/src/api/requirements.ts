@@ -4,6 +4,7 @@ import {
   CreateRequirementResp,
   DeleteRequirementResp,
   GetRequirementResp,
+  ListRequirementHistoryResp,
   ListRequirementsResp,
   UpdateRequirementReq,
   UpdateRequirementResp,
@@ -105,5 +106,17 @@ export function deleteRequirement(
     path: `/api/requirements/${encodeURIComponent(requirementId)}`,
     query: { confirm: confirm ? "true" : undefined },
     decode: (raw) => DeleteRequirementResp.fromJSON(raw),
+  });
+}
+
+/** wb_list_requirement_history（spec §1.2 注记-D3/N6：需求字段变更历史，时间倒序）。 */
+export function listRequirementHistory(
+  client: ApiClient,
+  requirementId: string,
+): Promise<ListRequirementHistoryResp> {
+  return client.request({
+    method: "GET",
+    path: `/api/requirements/${encodeURIComponent(requirementId)}/history`,
+    decode: (raw) => ListRequirementHistoryResp.fromJSON(raw),
   });
 }

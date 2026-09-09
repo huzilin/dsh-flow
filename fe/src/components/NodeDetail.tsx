@@ -4,8 +4,9 @@ import type {
   FlowNodeItem,
   IssueItem,
   MyTaskResp,
+  SessionItem,
 } from "../api/proto/api";
-import { NODE_TYPE_LABELS } from "../api/constants";
+import { NODE_TYPE_LABELS, SESSION_STATUS_LABELS } from "../api/constants";
 import {
   countOpenIssues,
   deriveGateView,
@@ -35,6 +36,7 @@ export function NodeDetail({
   myTask,
   artifacts,
   issues,
+  sessions = [],
   requirementId,
   focusIssueId = "",
   focusTaskId = "",
@@ -45,6 +47,8 @@ export function NodeDetail({
   /** 快照 artifacts 全集（面板内按节点过滤） */
   artifacts: ArtifactItem[];
   issues: IssueItem[];
+  /** 快照 sessions 全集（⑥ 会话 tab 按节点过滤；§6 N5） */
+  sessions?: SessionItem[];
   requirementId: string;
   /** 收件箱跳转定位（T16）：focus=issue 意见区锚点高亮 */
   focusIssueId?: string;
@@ -75,6 +79,8 @@ export function NodeDetail({
   const escalatedIssues = nodeIssues.filter((i) => i.escalate === "1");
   const normalIssues = nodeIssues.filter((i) => i.escalate !== "1");
   const nodeArtifacts = artifacts.filter((a) => a.nodeId === nodeId);
+  // 快照 sessions 按当前节点过滤（requirementId 恒匹配本需求快照）
+  const nodeSessions = sessions.filter((s) => s.nodeId === nodeId);
   const readerArtifact = nodeArtifacts.find((a) => a.artifactId === readerArtifactId);
 
   return (
@@ -123,7 +129,14 @@ export function NodeDetail({
           <div className="status-line muted">
             审批行：表态 {counts.agree + counts.unagree + counts.reviewing}/{counts.seats || "-"} ·
             ✅ {counts.agree} · ⛔ {counts.unagree} · ○ {counts.reviewing}
+            {counts.maxRound > 0 && ` · 第 ${counts.maxRound} 轮`}
             {gateView === "agreed" && " · 待拍板"}
+            {/* 疑似卡死高亮（原型 P1 卡②：轮次≥10 未收敛，拉长拉锯提示） */}
+            {counts.maxRound >= 10 && (counts.reviewing > 0 || counts.unagree > 0) && (
+              <span className="badge badge-stall" title="评审轮次≥10 未收敛，疑似卡死">
+                ⚠ 疑似卡死
+              </span>
+            )}
           </div>
           {node.enteredAt !== "0" && (
             <div className="muted small">进入执行：{formatTime(node.enteredAt)}</div>
@@ -219,6 +232,10 @@ export function NodeDetail({
             ) : undefined
           }
         />
+
+        <PanelCard no="⑥" title={`会话（${nodeSessions.length}）`} className="panel-sessions">
+          <SessionTab sessions={nodeSessions} nodeId={nodeId} />
+        </PanelCard>
       </div>
 
       {readerArtifact && (
@@ -334,5 +351,38 @@ function InFlightTasks({ myTask, focusTaskId }: { myTask: MyTaskResp | undefined
         ))}
       </ul>
     </div>
+  );
+}
+
+/**
+ * ⑥ 会话 tab（ui-interaction-final §6 N5 / 原型 P1 卡⑥）：历史/进行中 subagent
+ * 对话列表（sessions 按 node 关联）。条目=绑定角色+状态+时间；点击打开会话视图
+ * 属 plugin 泛用接口（DSH 嵌入期，本期条目只读呈现，不跳转）。
+ */
+function SessionTab({ sessions, nodeId }: { sessions: SessionItem[]; nodeId: string }) {
+  if (sessions.length === 0) {
+    return (
+      <div className="muted small">
+        暂无会话绑定（按需会话通道与裁决 session 在 DSH 嵌入期开放，节点 {nodeId}）。
+      </div>
+    );
+  }
+  return (
+    <ul className="session-list">
+      {sessions.map((s) => (
+        <li key={s.sessionId} className="session-row">
+          <span
+            className={`badge session-status-${s.status}`}
+            title={`sessions.status=${s.status}`}
+          >
+            {SESSION_STATUS_LABELS[s.status] ?? s.status}
+          </span>
+          <span className="session-role">{s.roleId}</span>
+          <span className="muted small session-id">{s.sessionId}</span>
+          <span className="muted small">{formatTime(s.updatedAt)}</span>
+        </li>
+      ))}
+      <li className="muted small">点击条目打开会话视图：plugin 泛用接口（DSH 嵌入期开放）。</li>
+    </ul>
   );
 }

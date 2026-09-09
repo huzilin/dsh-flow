@@ -78,6 +78,8 @@ export interface ReviewCounts {
   reviewing: number;
   /** 评审位总数（M；无评审位=0，UI 恒 '-'） */
   seats: number;
+  /** 当前最大评审轮号（原型 P1 卡②：轮次≥10 未收敛 → 「疑似卡死」黄色高亮） */
+  maxRound: number;
 }
 
 /** 评审轮聚合计数（与 rd/domain SummarizeReviewResults 同口径：全轮次累计）。 */
@@ -88,11 +90,13 @@ export function summarizeReviews(node: FlowNodeItem): ReviewCounts {
     unagree: 0,
     reviewing: 0,
     seats: parseReviewers(node.reviewers).length,
+    maxRound: 0,
   };
   for (const r of results) {
     if (r.state === "agree") counts.agree++;
     else if (r.state === "unagree") counts.unagree++;
     else if (r.state === "reviewing") counts.reviewing++;
+    if (r.round > counts.maxRound) counts.maxRound = r.round;
   }
   return counts;
 }

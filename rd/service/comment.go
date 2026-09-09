@@ -404,6 +404,7 @@ type transitionInput struct {
 func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) (*repo.Issue, error) {
 	row := &repo.Issue{}
 	escalateSet := false
+	prevState := ""
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		locked, err := s.repo.GetIssueByIssueIDLockTx(ctx, tx, in.issueID)
 		if err != nil {
@@ -413,6 +414,7 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 			return notFound("评论 %q 不存在", in.issueID)
 		}
 		*row = *locked
+		prevState = locked.State
 
 		view := domain.IssueView{
 			State:        row.State,
@@ -527,7 +529,34 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 	if escalateSet {
 		s.dispatchEscalationNotification(ctx, row)
 	}
+	// 修复提交 → retest 通知（spec §1.2 注记-D1/N1：re_review retest 子型，请提评者
+	// 回到评审循环复核）。触发=本次事务实际迁入 fixed（prevState≠fixed）——覆盖
+	// resolve(fix) 与「修复完成回复」（reply from to-fix）两条提交路径；
+	// Fixed→Fixed 幂等重入（重复 resolve/reply）不重发。
+	if prevState != repo.IssueStateFixed && row.State == repo.IssueStateFixed {
+		s.dispatchRetestNotification(ctx, row)
+	}
 	return row, nil
+}
+
+// dispatchRetestNotification 修复提交通知派发（注记-D1/N1：resolve path=fix 写入
+// fixed 后调用，事务外落库，失败不阻断业务）——re_review retest 子型：请提评者
+// 回到评审循环复核（target_id=缺陷 issueId 复核锚点，FE「待复验」投影按
+// target_id 非空区分子型）。收件=提评者角色（issues.reviewer_role）；
+// 非评审评论（reviewer_role 空）不派发——修复闭环仅评审链路语义。
+func (s *IssueService) dispatchRetestNotification(ctx context.Context, row *repo.Issue) {
+	recipient := derefString(row.ReviewerRole)
+	if recipient == "" {
+		return
+	}
+	Dispatch(s.notifier, NotificationSpec{
+		Kind:          NotificationKindReReview,
+		RequirementID: row.RequirementID,
+		NodeID:        row.NodeID,
+		TargetID:      row.IssueID,
+		RecipientRole: recipient,
+		Text:          fmt.Sprintf("缺陷 %s 已修复提交（fixed），待你复核", row.IssueID),
+	})
 }
 
 // issueAudit issue UPDATE 审计行装配（field 级留痕，old/new 文本化）。

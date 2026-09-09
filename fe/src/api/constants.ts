@@ -174,3 +174,52 @@ export const SCOPE_BADGE_BY_FLOW: Record<string, string> = {
   task: "rd|fe",
   plan: "",
 };
+
+/**
+ * flow_defs_id → scope_options（RequirementModal scope 下拉选项集；
+ * 与 rd/migration 0002_seed.sql 的 flow_defs.scope_options 同源：
+ * business/tech=["full","rd","fe"]、task=["rd","fe"]、plan=[]）。
+ * plan 无 scope：下拉禁用置 —（§6 N4 定稿口径）。
+ */
+export const SCOPE_OPTIONS_BY_FLOW: Record<string, string[]> = {
+  business: ["full", "rd", "fe"],
+  tech: ["full", "rd", "fe"],
+  task: ["rd", "fe"],
+  plan: [],
+};
+
+/**
+ * TODO 五分类（ui-interaction-final §6 N3 定稿：TODO=收件箱通知的操作投影，
+ * 非 tasks 投影；spec §1.2 注记-D5）。键=展示名；投影映射见 InboxPage
+ * todoProjection（悬置催办/需你介入/会话消息为提醒类，不产生 TODO）。
+ */
+export const TODO_CATEGORIES = [
+  "待拍板",
+  "待澄清",
+  "待重表态",
+  "待复验",
+  "冲突待裁决",
+] as const;
+
+export type TodoCategory = (typeof TODO_CATEGORIES)[number];
+
+/**
+ * 会话绑定状态展示（sessions.status：active/ended/disposed；§6 N5 会话 tab
+ * 条目状态标签口径）。
+ */
+export const SESSION_STATUS_LABELS: Record<string, string> = {
+  active: "进行中",
+  ended: "已结束",
+  disposed: "已释放",
+};
+
+/**
+ * 会话找 X 按钮的绑定角色推导（§6 N5：X 随节点绑定角色动态——
+ * full=qa / fe-only=fe / rd-only=rd；flows.scope 空串=未定（task 渲染期再选），
+ * 兜底 qa。DSH 嵌入期开放，本期按钮 disabled 占位）。
+ */
+export function sessionFindRoleForScope(flowScope: string): string {
+  if (flowScope === "rd") return "rd";
+  if (flowScope === "fe") return "fe";
+  return "qa";
+}

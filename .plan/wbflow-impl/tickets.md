@@ -6,6 +6,8 @@
 
 Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→2→3→4→{5,6,7}→8→{9,10,11,12}→13/17；FE 14 可与 4 并行开工，15、16 随后端会师。
 
+> **原型补齐 + 联调实证（2026-09-09 第 2 轮，`914a7dd`..`9a85f57`）**：ui-interaction-final §6 N1-N7 定稿 + 原型 P8-P11 落地——后端配套（spec §1.2 注记-D1..D6：retest 通知双触发+target_id 锚点 / 快照 sessions 投影 / history 端点 27→28 / dependencies 透传，`914a7dd`；CR-R6 发现 9 条 → R7 复审清零，`f7f89c2`+`1caa340`）+ FE 六模块（RequirementModal 编辑复用 / 详情⑥⑦卡+会话找X / 收件箱 TODO 五分类投影 / 看板双视图+✎编辑接线 / 版本四色聚合+依赖树+调度卡 / 评审疑似卡死高亮）。FE CR-R8（硬违规 1+应修 2：CSS merge 残缺括号、依赖树悬挂根渲染缺陷等）→ R9 复审清零（`9a85f57`）。全量闸门：rd gofmt/build/vet/test 绿 + ProtoD 真库 IT PASS + fe 17 文件 117 测试 / lint / build 绿。**浏览器联调（真实库 wbflow + rd:18080 + fe:5173，主线程实测）**：新建需求（N4 scope 三值派生）→ 看板四泳道 → 详情流程树 13 节点 → HTTP 驱动编排（对齐拍板 / 产品设计 / wb_advance 内聚 noop 幂等 / 评审三位 agree→agreed 停等）→ UI 拍板卡迎宾态+通过迁移 → 收件箱 badge+提醒条+gate_pending → retest 链路（resolve fix→fixed → re_review targetId=issueId → 「待复验」分组+focus=issue 锚点跳转）→ 版本页（四色聚合 / 依赖树空态 / 调度卡就绪池推导 / 编辑挂版本）→ 废弃 blocked（「1 条已开始推演的需求（编排已进入），废弃被拦截」——注记-A 真库生效）。观察项 1 条：Dispatch 吞错口径下通知落库偶发静默失败（req-002 gate_pending 一次未落；探针直连+req-003 复现均正常——spec §1.3「失败不阻断」既有拍板口径，建议未来补重试/审计留痕）。
+
 ## 1. 服务壳：配置 / MySQL 接入 / 健康检查
 
 **What to build:** rd 服务可启动、可探活——yaml 配置加载、zap 日志、GORM MySQL 连接（PrepareStmt + 连接池 + SkipDefaultTransaction）、/healthz 健康检查、统一错误映射骨架（哨兵错误 → HTTP 出参集中映射，接口永不 panic）、优雅退出。这是后续所有工单的地基（prefactoring）。

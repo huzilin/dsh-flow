@@ -90,6 +90,9 @@ message RequirementItem {
   int64 created_at = 11;
   // updated_at 更新时间，unix 毫秒（乐观锁基线，更新时回传）
   int64 updated_at = 12;
+  // dependencies 前置依赖需求 id 清单（flows.dependencies 透传，spec §1.2 注记-D4；
+  // 无实例（未创建流程）时为空集）
+  repeated string dependencies = 13;
 }
 
 // ListRequirementsResp GET /api/requirements 出参。
@@ -418,6 +421,57 @@ message GetRequirementResp {
   repeated IssueItem issues = 7;
   // review_results 评审轮结果汇总 JSON 文本（TEXT 列同构，默认 "[]"）
   string review_results = 8;
+  // sessions 会话绑定集（该需求 sessions 行投影，spec §1.2 注记-D2/N5：
+  // FE 会话 tab 按选中节点 nodeId 过滤；本期仅裁决链落行，空集合法）
+  repeated SessionItem sessions = 9;
+}
+
+// SessionItem 会话绑定行投影（sessions 表只读透出，本期无会话端点——
+// spec §1.2 路由表无 session 行，仅随快照呈现实例）。
+message SessionItem {
+  // session_id 会话业务 id
+  string session_id = 1;
+  // requirement_id 关联需求；空串=无
+  string requirement_id = 2;
+  // node_id 关联节点；空串=无
+  string node_id = 3;
+  // role_id 绑定角色
+  string role_id = 4;
+  // status 生命周期：active / ended / disposed
+  string status = 5;
+  // updated_at 最近状态时间，unix 毫秒
+  int64 updated_at = 6;
+}
+
+// HistoryItem 需求字段变更历史条目（audit_log 只读投影，spec §1.2 注记-D3/N6：
+// table_name=requirements 且 row_id=reqId 的审计行；自然语句渲染归 FE）。
+message HistoryItem {
+  // field 变更字段；INSERT 为空串
+  string field = 1;
+  // old_value 旧值；INSERT 为空串
+  string old_value = 2;
+  // new_value 新值；DELETE 为空串
+  string new_value = 3;
+  // by_who 操作者
+  string by_who = 4;
+  // created_at 变更时间，unix 毫秒
+  int64 created_at = 5;
+  // action INSERT/UPDATE/DELETE（需求行生命周期动作）
+  string action = 6;
+}
+
+// ListRequirementHistoryReq GET /api/requirements/:reqId/history 入参（reqId 取路径）。
+message ListRequirementHistoryReq {
+  // requirement_id 需求业务 id（handler 自路径参数覆写）
+  string requirement_id = 1;
+}
+
+// ListRequirementHistoryResp GET /api/requirements/:reqId/history 出参。
+message ListRequirementHistoryResp {
+  // ok 恒 true
+  bool ok = 1;
+  // items 变更历史行（created_at 倒序）
+  repeated HistoryItem items = 2;
 }
 
 // CreateRequirementReq POST /api/requirements 入参。

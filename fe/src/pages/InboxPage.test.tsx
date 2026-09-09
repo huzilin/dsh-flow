@@ -1,16 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import type { InboxItem, ListInboxResp, TodoItem } from "../api/proto/api";
+import type { InboxItem, ListInboxResp } from "../api/proto/api";
 import { NOTIFICATION_KINDS, NOTIFICATION_KIND_TARGETS } from "../api/constants";
-import { InboxPage, inboxItemLink, todoItemLink } from "./InboxPage";
+import { InboxPage, inboxItemLink } from "./InboxPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { jsonResponse } from "../test-utils";
 
 /**
- * 收件箱页测试（工单 T16 验收）：
- * 七类渲染/未读标记/角色·类别·已读筛选/分页/跳转定位/TODO 投影/全局冲突入口。
+ * 收件箱页测试（工单 T16 验收 + spec -D5 TODO 五分类投影）：
+ * 七类渲染/未读标记/角色·类别·已读筛选/分页/跳转定位/TODO 五分类投影（含 retest 子型
+ * 归类与跳转锚点）/待拍板提醒条/全局冲突入口。
  * 后端排序（未读优先）即呈现序，FE 不重排。
  */
 
@@ -33,23 +34,9 @@ function mkInbox(kind: string, over: Partial<InboxItem> = {}): InboxItem {
   };
 }
 
-const TODO_FIXTURE: TodoItem = {
-  taskId: "t-1",
-  requirementId: "req-001",
-  nodeId: "n-05",
-  actionId: "bus-03.clarify",
-  taskType: "respond",
-  status: "in-progress",
-  goal: "澄清工单 CM-9 的边界口径",
-  createdAt: "1730000000000",
-};
-
-function inboxResp(
-  notifications: InboxItem[],
-  todos: TodoItem[] = [],
-  total = String(notifications.length),
-): ListInboxResp {
-  return { ok: true, notifications, total, todos };
+function inboxResp(notifications: InboxItem[], total = String(notifications.length)): ListInboxResp {
+  // TODO 区已改为通知同源投影（spec -D5），todos 通道恒空（后端字段保留）
+  return { ok: true, notifications, total, todos: [] };
 }
 
 function routeFetch(responders: Array<(url: URL) => Response | undefined>) {
@@ -59,7 +46,7 @@ function routeFetch(responders: Array<(url: URL) => Response | undefined>) {
       const res = r(url);
       if (res) return Promise.resolve(res);
     }
-    return Promise.resolve(jsonResponse(200, inboxResp([], [], "0")));
+    return Promise.resolve(jsonResponse(200, inboxResp([])));
   });
 }
 
@@ -84,12 +71,12 @@ function defaultResponders() {
     (url: URL) => {
       if (url.pathname !== "/api/inbox") return undefined;
       if (url.searchParams.get("kind") === "escalation") {
-        return jsonResponse(200, inboxResp(escalated, [], "1"));
+        return jsonResponse(200, inboxResp(escalated, "1"));
       }
       const readFilter = url.searchParams.get("read_filter");
       const list = all.filter((n) => (readFilter === "unread" ? n.state === "open" : true));
       // total=40（>pageSize）保证翻页按钮可用（后端分页总数口径）
-      return jsonResponse(200, inboxResp(list, [TODO_FIXTURE], "40"));
+      return jsonResponse(200, inboxResp(list, "40"));
     },
   ];
 }
@@ -120,23 +107,111 @@ describe("InboxPage（模块 III/IV）", () => {
     expect(sessionRow?.textContent).toContain("DSH 嵌入期开放");
   });
 
-  it("TODO 投影区：在途任务呈现（含状态徽标与节点跳转），completed/rejected 不残留由后端同源保证", async () => {
-    vi.stubGlobal("fetch", routeFetch(defaultResponders()));
-    renderPage();
-    expect(await screen.findByText("澄清工单 CM-9 的边界口径")).toBeInTheDocument();
-    expect(screen.getByText("执行中")).toBeInTheDocument();
-    expect(screen.getByText("节点详情 →").closest("a")).toHaveAttribute(
-      "href",
-      "/requirements/req-001?node=n-05",
+  it("TODO 五分类投影：dock 条计数=五分类之和，组按 -D5 映射归类，提醒类不产生 TODO", async () => {
+    // mock 覆盖 -D5 全分支：gate_pending/clarify_task/re_review×2（澄清子型 targetId 空 +
+    // retest 子型 targetId 非空）/escalation，另含 stall_followup（提醒类，不产生 TODO）
+    const list = [
+      mkInbox("gate_pending"),
+      mkInbox("clarify_task"),
+      mkInbox("re_review", { targetId: "" }),
+      mkInbox("re_review", { issueId: "cm-retest", targetId: "cm-issue-9" }),
+      mkInbox("escalation"),
+      mkInbox("stall_followup"),
+    ];
+    vi.stubGlobal(
+      "fetch",
+      routeFetch([
+        (url: URL) => {
+          if (url.pathname !== "/api/inbox") return undefined;
+          if (url.searchParams.get("kind") === "escalation") {
+            return jsonResponse(200, inboxResp([mkInbox("escalation")], "1"));
+          }
+          return jsonResponse(200, inboxResp(list));
+        },
+      ]),
     );
+    renderPage();
+    // 等列表响应落地（TODO 投影区首帧先以空数据渲染）
+    await screen.findAllByText(/通知文本/);
+    const todo = screen.getByLabelText("TODO 投影");
+
+    // dock 条：未完成=五分类条数之和（stall_followup 不计）
+    const dock = within(todo).getByLabelText("TODO 五分类统计");
+    expect(dock).toHaveTextContent("未完成 5");
+    expect(dock).toHaveTextContent("待拍板 1");
+    expect(dock).toHaveTextContent("待澄清 1");
+    expect(dock).toHaveTextContent("待重表态 1");
+    expect(dock).toHaveTextContent("待复验 1");
+    expect(dock).toHaveTextContent("冲突待裁决 1");
+
+    // 分组小节：五组各 1 条；retest 子型（targetId 非空）归「待复验」而非「待重表态」
+    const gate = within(todo).getByText("待拍板（1）").closest("div");
+    expect(gate?.textContent).toContain("通知文本 gate_pending");
+    const reState = within(todo).getByText("待重表态（1）").closest("div");
+    expect(reState?.textContent).toContain("通知文本 re_review");
+    // 澄清子型仅 node 定位，不带 issue 锚点
+    expect(reState?.querySelector('a[href*="focus=issue"]')).toBeNull();
+    const retest = within(todo).getByText("待复验（1）").closest("div");
+    // retest 子型（targetId 非空）跳意见区锚点
+    expect(retest?.querySelector('a[href*="focus=issue&issue=cm-issue-9"]')).not.toBeNull();
+    const conflict = within(todo).getByText("冲突待裁决（1）").closest("div");
+    expect(conflict?.textContent).toContain("通知文本 escalation");
+    // 提醒类不产生 TODO：stall_followup 仅出现在通知列表，不在 TODO 投影区
+    expect(within(todo).queryByText("通知文本 stall_followup")).toBeNull();
+    expect(screen.getAllByText("通知文本 stall_followup")).toHaveLength(1);
+  });
+
+  it("retest 子型跳转：re_review 且 target_id 非空 → 意见区锚点 focus=issue&issue=", async () => {
+    // 纯函数分支：澄清子型（targetId 空）仅 node 定位，retest 子型追加 issue 锚点
+    expect(inboxItemLink(mkInbox("re_review"))).toBe("/requirements/req-001?node=n-05");
+    expect(inboxItemLink(mkInbox("re_review", { targetId: "cm-issue-9" }))).toBe(
+      "/requirements/req-001?node=n-05&focus=issue&issue=cm-issue-9",
+    );
+    // requirementId 空=不可跳（基线口径不变）
+    expect(
+      inboxItemLink(mkInbox("gate_pending", { requirementId: "", nodeId: "" })),
+    ).toBeNull();
+  });
+
+  it("待拍板提醒条：存在未读 gate_pending 时呈现并可锚点滚动，已读/无未读不呈现", async () => {
+    const user = userEvent.setup();
+    Element.prototype.scrollIntoView = vi.fn();
+    vi.stubGlobal("fetch", routeFetch(defaultResponders()));
+    const first = renderPage();
+    const toast = await screen.findByLabelText("待拍板提醒");
+    expect(toast.textContent).toContain("📬 有 1 条『待你拍板』待处理");
+    await user.click(within(toast).getByRole("button", { name: "查看待拍板 →" }));
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    first.unmount();
+
+    // 全部已读：不呈现提醒条
+    vi.stubGlobal(
+      "fetch",
+      routeFetch([
+        (url: URL) => {
+          if (url.pathname !== "/api/inbox") return undefined;
+          if (url.searchParams.get("kind") === "escalation") {
+            return jsonResponse(200, inboxResp([], "0"));
+          }
+          return jsonResponse(
+            200,
+            inboxResp([mkInbox("gate_pending", { state: "resolved" })]),
+          );
+        },
+      ]),
+    );
+    renderPage();
+    // 通知列表 + TODO 待拍板分组各渲染一次（同源投影）
+    await screen.findAllByText("通知文本 gate_pending");
+    expect(screen.queryByLabelText("待拍板提醒")).toBeNull();
   });
 
   it("全局冲突入口：escalation 未读聚合区 + 跳转 issue 锚点", async () => {
     vi.stubGlobal("fetch", routeFetch(defaultResponders()));
     renderPage();
-    expect(await screen.findByText(/冲突待裁决/)).toBeInTheDocument();
-    const entry = screen.getByText(/冲突待裁决/).closest("div");
-    expect(entry?.querySelector('a[href*="focus=issue"]')).not.toBeNull();
+    const entry = await screen.findByLabelText("全局冲突入口");
+    expect(entry).toHaveTextContent(/冲突待裁决/);
+    expect(entry.querySelector('a[href*="focus=issue"]')).not.toBeNull();
   });
 
   it("筛选与分页：改动触发对应 query 重查（page/kind/read_filter）", async () => {
@@ -171,15 +246,5 @@ describe("InboxPage（模块 III/IV）", () => {
       const calls = fetchMock.mock.calls.map((c) => new URL(String(c[0]), "http://localhost"));
       expect(calls.some((u) => u.searchParams.get("page") === "2")).toBe(true);
     });
-  });
-
-  it("inboxItemLink/todoItemLink 纯函数：requirementId 空=不可跳", () => {
-    expect(
-      inboxItemLink(mkInbox("gate_pending", { requirementId: "", nodeId: "" })),
-    ).toBeNull();
-    expect(
-      todoItemLink({ ...TODO_FIXTURE, nodeId: "" }),
-    ).toBe("/requirements/req-001");
-    expect(todoItemLink({ ...TODO_FIXTURE, requirementId: "" })).toBeNull();
   });
 });

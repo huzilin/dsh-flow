@@ -1,16 +1,19 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client";
-import { WEB_USER_ROLE } from "../api/constants";
-import { deleteRequirement } from "../api/requirements";
-import { useMyTaskQuery, useRequirementQuery } from "../hooks/queries";
+import { api, ApiError } from "../api/client";
+import { WEB_USER_ROLE, sessionFindRoleForScope } from "../api/constants";
+import { deleteRequirement, updateRequirement } from "../api/requirements";
+import type { FlowNodeItem, RequirementItem } from "../api/proto/api";
+import { useMyTaskQuery, useRequirementHistoryQuery, useRequirementQuery, useVersionsQuery } from "../hooks/queries";
 import { AlertBanner } from "../components/AlertBanner";
 import { PriorityBadge, StatusBadge } from "../components/Badges";
 import { FlowScopeBadge, FlowTree } from "../components/FlowTree";
 import { NodeDetail } from "../components/NodeDetail";
+import { RequirementModal } from "../components/CreateRequirementDialog";
 import { Modal } from "../components/Modal";
 import { formatTime } from "./RequirementPoolPage";
+import { describeHistory } from "../domain/historyview";
 
 /**
  * 需求详情 = 模块 II 主视图（T15）：需求头 + 流程树（SVG 纵向全节点渲染，scope 实值徽标）+
@@ -18,6 +21,8 @@ import { formatTime } from "./RequirementPoolPage";
  * 数据源全部走聚合快照 GET /api/requirements/:reqId + my_task，不自拼接口。
  * 选中节点缺省=当前节点（flows.current_node_id；空=未进入编排不预选）。
  * 收件箱跳转定位（T16）：?node=（选中节点）&focus=issue|task&issue=/task=（意见区/任务区锚点高亮）。
+ * 原型补齐（ui-interaction-final §6）：detailtop「会话找 X」（N5，scope 动态推导，DSH 嵌入期开放）+
+ * 详情页「编辑」（N4：RequirementModal 编辑复用）+ 底部补遗卡（N6：描述折叠+元信息+变更历史）。
  */
 export function RequirementDetailPage() {
   const { reqId = "" } = useParams();
@@ -26,13 +31,41 @@ export function RequirementDetailPage() {
   const focusIssueId = searchParams.get("issue") ?? "";
   const focusTaskId = searchParams.get("task") ?? "";
   const detail = useRequirementQuery(reqId);
+  const versions = useVersionsQuery();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // 编辑提交（乐观锁 409 → 提示冲突 + 快照/列表失效刷新基线）
+  const updateMutation = useMutation({
+    mutationFn: (input: { req: Parameters<typeof updateRequirement>[2]; reqId: string }) =>
+      updateRequirement(api, input.reqId, input.req),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["requirement", reqId] });
+      void queryClient.invalidateQueries({ queryKey: ["requirements"] });
+      void queryClient.invalidateQueries({ queryKey: ["requirementHistory", reqId] });
+      setEditOpen(false);
+      setEditError(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.isOptimisticLock) {
+        void queryClient.invalidateQueries({ queryKey: ["requirement", reqId] });
+        setEditOpen(false);
+        setEditError(null);
+        window.alert("基线冲突：需求已被他人修改，已刷新最新数据，请重试");
+      } else {
+        setEditError(err instanceof Error ? err.message : String(err));
+      }
+    },
+  });
 
   const flow = detail.data?.flows[0];
   const nodes = useMemo(() => detail.data?.flowNodes ?? [], [detail.data]);
   const issues = useMemo(() => detail.data?.issues ?? [], [detail.data]);
   const artifacts = useMemo(() => detail.data?.artifacts ?? [], [detail.data]);
+  const sessions = useMemo(() => detail.data?.sessions ?? [], [detail.data]);
 
   // 收件箱 issue 锚点未带 node 参数时，从快照反查该意见挂载节点
   const focusIssueNodeId = focusIssueId === "" ? "" : (issues.find((i) => i.issueId === focusIssueId)?.nodeId ?? "");
@@ -78,7 +111,21 @@ export function RequirementDetailPage() {
         <h2>
           {item.title} <span className="muted req-id">{item.requirementId}</span>
         </h2>
-        <DeleteRequirementButton reqId={item.requirementId} open={deleteOpen} setOpen={setDeleteOpen} />
+        <span className="row-actions">
+          <button type="button" onClick={() => setEditOpen(true)}>
+            编辑
+          </button>
+          {/* 会话找 X（§6 N5：X 随节点绑定角色动态——full=qa / fe-only=fe / rd-only=rd；
+              按需会话通道 DSH 嵌入期开放，本期 disabled 占位） */}
+          <button
+            type="button"
+            disabled
+            title="按需会话通道（DSH 嵌入期开放）；X 随 scope 动态"
+          >
+            💬 会话找 {sessionFindRoleForScope(flow?.scope ?? "")}
+          </button>
+          <DeleteRequirementButton reqId={item.requirementId} open={deleteOpen} setOpen={setDeleteOpen} />
+        </span>
       </div>
       <div className="detail-grid">
         <div>
@@ -100,12 +147,6 @@ export function RequirementDetailPage() {
         <div>创建：{formatTime(item.createdAt)}</div>
         <div className="muted">操作身份：{WEB_USER_ROLE}（my_task 三向校验）</div>
       </div>
-      {item.description !== "" && (
-        <details className="req-description">
-          <summary className="muted">描述</summary>
-          <pre className="description">{item.description}</pre>
-        </details>
-      )}
 
       {!detail.isLoading && <AlertBanner error={detail.error} onRetry={() => void detail.refetch()} />}
 
@@ -124,9 +165,43 @@ export function RequirementDetailPage() {
         myTask={myTask.data}
         artifacts={artifacts}
         issues={issues}
+        sessions={sessions}
         requirementId={reqId}
         focusIssueId={focusIssueId}
         focusTaskId={focusTaskId}
+      />
+
+      {/* 详情补遗卡（§6 N6：与五区分栏并存——描述折叠 + 元信息行 + 变更历史） */}
+      <RequirementFootnoteCard item={item} currentNode={nodes.find((n) => n.nodeId === currentNodeId)} />
+
+      <RequirementModal
+        open={editOpen}
+        mode="edit"
+        initial={item}
+        initialScope={flow?.scope ?? ""}
+        versions={versions.data?.items ?? []}
+        submitting={updateMutation.isPending}
+        submitError={editError}
+        onClose={() => {
+          setEditOpen(false);
+          setEditError(null);
+        }}
+        onUpdate={(req) => {
+          updateMutation.mutate({
+            reqId: item.requirementId,
+            req: {
+              requirementId: item.requirementId,
+              title: req.title,
+              description: req.description,
+              category: req.category,
+              priority: req.priority,
+              status: req.status,
+              owner: req.owner,
+              versionId: req.versionId,
+              updatedAt: req.updatedAt,
+            },
+          });
+        }}
       />
     </section>
   );
@@ -174,3 +249,60 @@ function DeleteRequirementButton({
     </>
   );
 }
+
+/** 详情补遗卡（§6 N6 定稿）：描述 Markdown 折叠 + 元信息行 + 变更历史（时间倒序自然语句）。 */
+function RequirementFootnoteCard({
+  item,
+  currentNode,
+}: {
+  item: RequirementItem;
+  currentNode?: FlowNodeItem;
+}) {
+  const [histOpen, setHistOpen] = useState(false);
+  const history = useRequirementHistoryQuery(item.requirementId, histOpen);
+
+  return (
+    <section className="footnote-card" aria-label="需求详情补遗">
+      <details className="req-description" open={false}>
+        <summary className="muted">描述（Markdown，点击展开）</summary>
+        <pre className="description">{item.description === "" ? "（无描述）" : item.description}</pre>
+      </details>
+      <div className="detail-grid footnote-meta">
+        <div>负责人：{item.owner === "" ? "—" : item.owner}</div>
+        <div>当前节点：{currentNode ? currentNode.nodeKey : "未进入编排"}</div>
+        <div>
+          进入时间：
+          {currentNode && currentNode.enteredAt !== "0" ? formatTime(currentNode.enteredAt) : "—"}
+        </div>
+        <div>回滚次数：{currentNode ? currentNode.rolledBackCount : 0}</div>
+      </div>
+      <div className="footnote-history">
+        <button type="button" className="button-link" onClick={() => setHistOpen((v) => !v)}>
+          变更历史（histPanel · 时间倒序）{histOpen ? " ▴" : " ▾"}
+        </button>
+        {histOpen && (
+          <ul className="history-list">
+            {history.isLoading && <li className="muted">加载中…</li>}
+            {history.error !== null && (
+              <li>
+                <AlertBanner error={history.error} onRetry={() => void history.refetch()} />
+              </li>
+            )}
+            {!history.isLoading && (history.data?.items.length ?? 0) === 0 && (
+              <li className="muted">暂无变更记录。</li>
+            )}
+            {(history.data?.items ?? []).map((h, idx) => (
+              <li key={`${h.createdAt}-${idx}`} className="history-row">
+                <span className="muted">{formatTime(h.createdAt)}</span>
+                <span>{describeHistory(h.action, h.field, h.oldValue, h.newValue)}</span>
+                <span className="muted">by {h.byWho}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// 审计行 → 自然语句装配移至 domain/historyview.ts（纯函数，可直测；N6 口径）
