@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# pre-push 闸门（2026-09-11 拍板一期④）：契约破坏性变更拦截 + 迁移差集审计。
+#
+# 启用（clone 后一次性）：git config core.hooksPath scripts/githooks
+# 语义：
+#   1. buf breaking——docs/api/v1/api.proto 与「被推前的远端 tip」比 wire 兼容性；
+#      本仓直提 main，基线取 push 前 origin/main（pre-push 时机尚未更新）。
+#      确需破坏性变更：提交信息与 spec 注记声明后 --no-verify 绕过（留痕在 commit）。
+#   2. qa_branch_audit——seed 动作可解析性+失效豁免（缺陷类 FAIL；补测差集默认放行）。
+set -euo pipefail
+REPO="$(git rev-parse --show-toplevel)"
+ZERO="0000000000000000000000000000000000000000"
+fail=0
+
+# 基线：逐个 push 行取远端旧 tip；全零（新分支）回退 origin/main。
+baseline=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_sha" != "$ZERO" ]; then baseline="$remote_sha"; break; fi
+done
+if [ -z "$baseline" ] && git rev-parse -q --verify origin/main >/dev/null; then
+  baseline="$(git rev-parse origin/main)"
+fi
+
+echo "[pre-push] buf breaking（基线 ${baseline:-<无，跳过>}）"
+if [ -n "$baseline" ]; then
+  if ! buf breaking "$REPO/docs/api/v1" --against ".git#commit=$baseline,subdir=docs/api/v1"; then
+    echo "[pre-push] FAIL：proto 契约破坏性变更（确认有意则 commit 注记声明 + --no-verify）"
+    fail=1
+  fi
+fi
+
+echo "[pre-push] qa_branch_audit"
+if ! python3 "$REPO/qa/qa_branch_audit.py"; then
+  fail=1
+fi
+
+exit $fail
