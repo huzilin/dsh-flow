@@ -219,7 +219,6 @@ def bug008():
         "issueType": "issue", "text": "diag 冲突评论"})
     cid = b["issue"]["issueId"]
     # 路径1：wb_comment escalate=true
-    st, b = api("POST", f"/api/comments/{cid}/resolve", {"commentId": cid, "path": "clarify", "note": "x", "operator": "qa"})
     st, b = api("POST", f"/api/requirements/{rid}/comments", {
         "requirementId": rid, "nodeId": N["bus-02"], "author": "qa", "roleId": "qa",
         "issueType": "issue", "text": "diag 冲突评论2", "escalate": True})

@@ -48,7 +48,7 @@
 | A-15 | wb_get_artifact_content | 真文件回读；href 越出 docs root；文件缺失 | content 非空 / 400 blocked / 404 |
 | A-16 | wb_assign_task | 新建 reused=false；同幂等键重放 reused=true 无新行；不可派发 action（align.opening，注记-E） | 200/200 幂等 / 拦截 |
 | A-17 | wb_task_update | ack→in-progress、progress 留痕、complete 判据未过 blocked+missing、非法 event | 状态机正确 |
-| A-18 | wb_comment | anchor 四级（document/line/range/block）；escalate=true 直升 | issue 行 state=open |
+| A-18 | wb_comment | anchor 两级（document/range，-L3；line/block 废弃 400 拒绝+存量只读兼容）；escalate=true 直升 | issue 行 state=open |
 | A-19 | wb_reply | roundCount++；to-fix 态回复 → fixed（注记-D1 路径②） | replies 追加 |
 | A-20 | wb_resolve | path=agree open→resolved；path=fix open→to-fix / to-fix→fixed + re_review 通知提评者 | 状态机 + 通知 |
 | A-21 | wb_confirm_review | fixed/pending-confirm → resolved | resolve_reviewer_confirmed=1 |

@@ -7,7 +7,7 @@
 1. 按主题分组、组内按时间排序，**每组最后一条 = 现行权威**；被推翻条目在状态列标 `superseded-by <条目号>`（允许跨组指向）。
 2. 方向相反的拍板对全部保留（如版本废弃联动取消、task scope 三值化又回滚、CR 内嵌↔独立），并明确哪条被哪条推翻；不删历史。
 3. 本台账是「这个问题是否已有结论」的**第一查询点**：回答任何设计问题前先查对应主题组末条；同题后拍覆盖先拍。
-4. **新拍板定稿后必须回写本表**：新条目置于对应组末，并给被推翻条目补 superseded-by。
+4. **新拍板定稿后必须回写本表**：新条目置于对应组末，并给被推翻条目补 superseded-by；涉术语变更同步更新 `CONTEXT.md` 词条与 `terminology-evolution.md` 演进行、退役词过 retired-terms-audit 四档清查、审计沿革进本目录不进现行文档（方案敲定三动作，见 README 与 alignment-protocol 机制 2）。
 5. 来源简写：`dsh·<短名>`＝dsh 会话库（test-flow 期与 dsh-flow 期目录为同批会话镜像，session-42289ff0 记作 4228）；`zc·<会话标题>`＝zcode 库（Wayfinder＝sess_53f2ab22，09-05~09-08，前半 cwd=test-flow）；`文档·`＝仓库文档/commit 侧证据（非用户原话时注明）；`一版·`＝tmp_1/test-flow 一版代码。
 
 ---

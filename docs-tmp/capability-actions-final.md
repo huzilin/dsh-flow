@@ -27,7 +27,7 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | submit（exec 闭环内联） | 不挂——登记=exec 完成判据的一部分（wb_add_artifact 落库），提评=plugin 判据校验通过后轮转 review 相位 | — | 「产物 wb_add_artifact 登记 → wb_comment 请评；登记齐、请评已发即完成」 |
 | clarify（respond） | 不挂 | — | 「读 assignee=本角色 且 open 意见/缺陷（CR 意见、qa 缺陷确认与归属争议同型，来源无关）→ 逐条说明意图/权衡/依据或确认/争议归属（引定位），缺陷性意见修订产物 → resolve」；**由节点激活清单声明服务哪些节点的 respond**（backend-dev/frontend-dev.clarify 服务 QA 验收节点；开发节点 respond=fix_on_review 不澄清） |
 | respond_to_cr（reviewed） | ——**已并入 clarify，退役**（2026-09-05：CR 意见=clarify 的实例，节点激活清单区分服务场景） | — | — |
-| confirm（respond 相位 · 复核环节，replied 事件触发） | 不挂 | — | 「读本人 pending-confirm 意见 → 核对澄清/修订 → wb_confirm_review 或 wb_reopen(附理由)」 |
+| confirm（respond 相位 · 复核环节，plugin 轮转触发） | 不挂 | — | 「读本人 pending-confirm 意见 → 核对澄清/修订 → wb_confirm_review 或 wb_reopen(附理由)」 |
 | fix_on_review（**respond**） | 不挂 | — | **节点内评审（CR 异化）轨道专用、只修复不澄清**——激活节点：开发节点 + 技术设计节点内嵌 CR 轮（4/6/8/9/B2/B4/C2）。评审轮内的意见修复响应（CR 复核 reopen 驱动）：读 CR 意见 → 逐条修复 → resolve → 重新进入复核；轮内闭环，不打回、不重入。**普适约束：一个 state 只能挂一个动作**（2026-09-05 用户严正声明，取代 R1 双动作——undermined）——跨节点评审 respond=clarify 单挂（修复=rejected → 产出节点 exec 重入 revise/diagnosing-bugs） |
 | diagnosing-bugs（**exec 重入**） | **diagnosing-bugs**（已有 mp） | 已有 | **打回返工流程，仅 dev/fe 节点 exec 重入**（代码域）——agree 判 reject 后再次进入触发：基于评审结论（qa 缺陷/cr 真问题）复现→一次一变量定位→修在正确接缝→补回归 → 重新提评（plugin 轮转） |
 | revise（**exec 重入**） | 不挂——inline「基于评审结论逐条修订〈产物〉对应章节 → 模板自检 → 重新提评」 | — | **文档产出节点 exec 重入**（文档域）——响应评审打回的修订返工；与 diagnosing-bugs 按域分立（代码=diagnosing-bugs，文档=revise） |
@@ -67,8 +67,8 @@ capability = { capability_id, role_id, inputs[], actions[] }
 | decide-cap | leader | ——（decide **退役**：join 裁决=plugin 内置轮转吸收；**create_reqs=leader 直执行 ✓**——不起 subagent） | create_reqs(exec@plan D7→to-tickets) | — |
 | final-approve | ——**退役**（2026-09-05：User 终审职责由 flow_def_nodes.user_gate 配置位承载） | —— | —— | — |
 
-> **已移除**：case-design-cap（19→18）；retest；respond_to_qa；align.closing；spec 命名；**how 四要素**。
-> **v3 词汇注记**：评审动作挂 review 相位（reviewing 收集表态）；复核动作挂 respond 相位的复核环节（replied 事件触发）；跨节点按 assignee+reporterRole 路由。**issue 即产物**：评审类动作产出=issue（plugin 内一等数据），outputProductTypes 为空是正确语义。
+> **已移除**：case-design-cap（19→18）；~~retest~~（**09-09 复活**：曾于 09-07 宣告退役 → 09-09 复活为现行动作名——QA exec 重入=复验重测 retest，见 acceptance-test 行）；respond_to_qa；align.closing；spec 命名；**how 四要素**。
+> **v3 词汇注记**：评审动作挂 review 相位（reviewing 收集表态）；复核动作挂 respond 相位的复核环节（plugin 轮转触发）；跨节点按 assignee+reporterRole 路由。**issue 即产物**：评审类动作产出=issue（plugin 内一等数据），outputProductTypes 为空是正确语义。
 > **跨流程复用（✅D5）**：inputs[]=可见性上限，实际按流程可用产物注入 my_task（backend-design 在 business 拿 product_doc、tech 拿 brd）——**每个 skill 必须写明上下文依赖来源，skill 实现阶段逐个校验，防止遗漏**。三流程实例化见 flow-derivation-tech-task-plan.md。
 
 ## 3. 待建 skill 清单（22 个：产出 8 + 开发编排 1 + 对象化评审 13）

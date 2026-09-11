@@ -147,7 +147,7 @@ func (s *IssueService) Comment(ctx context.Context, req *api.CommentReq) (*api.C
 			return nil, errs.Trace(ctxErr)
 		}
 		if reviewCtx {
-			return nil, invalidArg("评审上下文的 issue 评论必须锚定产物：请为 anchor 携带 artifactId（如被评审产物，document 级），或使用 line/range/block 级锚点")
+			return nil, invalidArg("评审上下文的 issue 评论必须锚定产物：请为 anchor 携带 artifactId（如被评审产物，document 级），或使用 range（划词）/ document（文档级）锚点")
 		}
 	}
 	escalate := int64(0)

@@ -194,13 +194,13 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 | 作废项 | 被推翻原因 | 取代 |
 |---|---|---|
 | v1 hook 表（7+1：entry/exec/feedback/replied/reject/exit/transform+task_stale，action 挂 hook） | 轮次制推演；trigger 与编排混同 | 两层属性状态机（§1） |
-| trigger 8 词表（含 reviewed/replied/approve/reject 为编排词） | 编排相位=唯一词汇（用户裁决统一 state） | 相位 4 值+reviewState 7 值（approve/reject=裁决事件名） |
+| trigger 8 词表（含 reviewed/replied/approve/reject 为编排词） | 编排相位=唯一词汇（用户裁决统一 state） | 相位 4 值+reviewState per-agent 三态（reviewing/agree/unagree；agreed 等不作存储态，v5 REV-06 口径） |
 | collect/reviewed/replied/complete/ready 作为节点相位 | 相位=有等待的编排步骤；收集/复核降为 reviewState；complete/ready=瞬时信号非相位 | §1.2 reviewState + 完成上报信号 |
 | 评审节点无 exec / 评审节点恢复 exec（两次摇摆） | exec/review 拆分定稿：审批类节点 exec 不配置、review=产出动作位 | §2 审批类实例化 |
 | re-entry / re-exec 相位 | 并入 entry/exec（计数位选择配置）——plugin 回退动作保留 | §1.4 |
 | Q-F「fix_on_review 统一并入 diagnosing-bugs」 | 用户二次纠正：两动作两挂载（fix_on_review@respond 只响应 CR；diagnosing-bugs@exec 重入响应打回） | §5.1 dev 激活清单 |
 | qa 意见直通打回 | qa 意见=可测性/安全性设计维度，同走轮次澄清 | §1.3 轮次循环 |
-| retest 独立动作 | 复验=accept 重跑组成 | §4.1 |
+| retest 独立动作 | 复验=accept 重跑组成 | §4.1（**09-09 复活注记**：曾于 09-07 宣告退役 → 09-09 复活为现行动作名——QA exec 重入=复验重测 retest，见 §5.1 与 capability-actions acceptance-test 行，现行使用有效） |
 | respond_to_cr / respond_to_qa 独立动作 | 统一 clarify（来源无关）+ fix_on_review 分立 | §5.1 |
 | after-exec hook（提评+评审派发） | 两层属性模型吸收其职责；hook 层全部退役 | §5 完成上报 + §1.2 轮转 |
 | 取消独立评审节点（提案） | 评审双轨制确立：跨节点评审需独立节点承载 | §3 |

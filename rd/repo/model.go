@@ -452,7 +452,7 @@ func (Version) TableName() string { return "versions" }
 
 // Outbox 通知可靠投递 outbox（表 notify_outbox，迁移 v4）——业务事务内 enqueue
 // 通知意图（与业务提交原子），flush/scanner 推送为 issues 通知行；推送失败不丢
-// 意图，retry 耗尽置 dead 终态 + audit 告警。
+// 意图，failed 无限补投（retry_count 仅观测），无 dead 放弃态（0004/CONTEXT 口径）。
 type Outbox struct {
 	// ID 纯自增主键
 	ID int64 `gorm:"column:id;primaryKey;autoIncrement" json:"id"`

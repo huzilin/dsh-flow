@@ -1,5 +1,7 @@
 # 版本架构设计文档：v1.0 —— 团队项目工作台平台（总集）
 
+> **⚠️ 定位标注（2026-09-12）**：本文件为 v1 设计基线的历史底稿——§7-§9 沿用 pkg-16 时代词汇（wb_decide/resolve(note)/overridden/pass|block 表态/19 旧能力等），与现行设计（docs-tmp/ 五件套 v5 口径）不一致。现行设计以 docs-tmp 为权威，本文件仅作基线留档；逐节刷新为独立 effort（未排期）。
+
 > **本文档是平台 v1.0 的架构设计总集**：整体架构 + 数据层 + 制度层 + 执行层 + 文档规范 + 里程碑的合并文档。
 > 由原 `arch_design.md`（架构）+ `05-domain-model.md`（数据）+ `06-flows-and-roles.md`（制度）+ `07-tools-and-orchestration.md`（执行）+ `08-doc-standards.md`（规范）+ `09-milestones.md`（进度）合并而成。
 > 定位：描述跑在 DeepSeek Harness（DSH）之上的「项目管理 + OA 流程 + 评审协作」三合一平台的完整设计，并据此把平台自身拆解为可并行实现的需求单元（模块级 prd/rd/fe 见各 module 目录）。

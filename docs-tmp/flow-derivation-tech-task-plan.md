@@ -366,7 +366,7 @@ node_type: produce | gate: 0 | user_gate: 0 | reviewers: []
 ### D6 架构规划评审
 
 ```yaml
-node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {pm: pm.alignment-review} ]
+node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {pm: pm.architecture-review} ]
 ```
 
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |

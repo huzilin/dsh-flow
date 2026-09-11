@@ -21,4 +21,6 @@ docs-tmp/ 设计定稿五件套（权威）
 
 ## 历史决策时间线（先查台账再拍板）
 
-**`.plan/timeline/decision-timeline.md` = 全部历史拍板的时间线正本**（五源合流：dsh 会话/zcode 会话/test-flow 会话/仓库文档代际/test-flow 一版代码）。纪律：讨论任何设计问题前先查台账——同一问题以**最后一次拍板**为现行权威，旧结论逐条标 superseded-by，**禁止把已废弃结论再拿来请用户确认**。台账未覆盖的新问题才进入新一轮拍板，定稿后回写台账。配套：repo-doc-generations.md（文档分层与多代沉积）、testflow-interaction-inventory.md（一版交互设计与 fe 履约对照）、zcode/dsh/testflow-sessions-decisions.md（三份会话原始提取）。
+**`.plan/timeline/decision-timeline.md` = 全部历史拍板的时间线正本**（五源合流：dsh 会话/zcode 会话/test-flow 会话/仓库文档代际/test-flow 一版代码）。纪律：讨论任何设计问题前先查台账——同一问题以**最后一次拍板**为现行权威，旧结论逐条标 superseded-by，**禁止把已废弃结论再拿来请用户确认**。台账未覆盖的新问题才进入新一轮拍板，定稿后回写台账。配套：repo-doc-generations.md（文档分层与多代沉积）、testflow-interaction-inventory.md（一版交互设计与 fe 履约对照）、terminology-evolution.md（**术语演进映射**：中文原话→历代名→现行定名）、retired-terms-audit.md（退役词引用清查四档台账）、zcode/dsh/testflow-sessions-decisions.md（三份会话原始提取）。
+
+**方案敲定三动作（常态化）**：每轮拍板定稿，随台账回写必走——①术语变更更新 `CONTEXT.md`（现行定义+_Avoid_）并在 terminology-evolution.md 加行；②退役词过 retired-terms-audit 四档清查；③审计沿革进 timeline/archive，现行文档不留变更日志。详见 `docs/templates/alignment-protocol.md` 机制 2。

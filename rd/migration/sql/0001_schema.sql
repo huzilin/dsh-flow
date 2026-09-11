@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS capabilities (
   role_id        VARCHAR(32)  NOT NULL COMMENT '归属角色，逻辑引用 roles.role_id',
   inputs         TEXT         NOT NULL COMMENT '输入可见性契约 JSON 文本：[{"productType":"…","useThreads":true}]，service 层序列化',
   actions        TEXT         NOT NULL COMMENT '动作清单 JSON 文本：[{"actionId":"…","name":"…","on":"exec","skill":"…","inline":"…","outputProductTypes":[…]}]',
-  products       TEXT         NOT NULL COMMENT '产物清单 JSON 文本：[{"docPath":"…","templatePath":"…","demoPath":"…"}]',
+  products       TEXT         NOT NULL COMMENT '产物清单 JSON 文本：[{"docPath":"…","demoPath":"…"}]（v0.29 起无 templatePath，产出标准以产出 skill 为权威——handoff-3 D4）',
   created_at     BIGINT       NOT NULL COMMENT '创建时间，unix 毫秒',
   updated_at     BIGINT       NOT NULL COMMENT '更新时间，unix 毫秒（乐观锁）',
   PRIMARY KEY (id),

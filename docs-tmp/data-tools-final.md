@@ -71,7 +71,7 @@
 
 **issues（评论/问题）**：
 - 新增：**`escalate`** INTEGER NOT NULL DEFAULT 0（冲突响应标记——wb_resolve/wb_reopen 可选参数写入；escalate=1 → plugin 拉起会话通道裁决 session）
-- `state` 枚举扩展（2026-09-07 issue 状态机 v2）：open（待澄清）/ pending-confirm（已澄清待复核）/ **to-fix（待修复——确认真问题）** / **fixed（已修复——待复核）** / resolved / overridden；已处理=pending-confirm
+- `state` 枚举扩展（2026-09-07 issue 状态机 v2）：open（待澄清）/ pending-confirm（已澄清待复核）/ **to-fix（待修复——确认真问题）** / **fixed（已修复——待复核）** / resolved / overridden；已处理=pending-confirm——现行枚举=五态（open/pending-confirm/to-fix/fixed/resolved），overridden 已废（09-11 裁决，返工见 retired-terms-audit D1）
   - 澄清阶段子机：open → pending-confirm → resolved（疑问解）/ to-fix（真问题）/ open（回待澄清）
   - 修复阶段子机：to-fix → fixed → 复核 → resolved / to-fix（失败回退）
 - 新增：**`loop_count`** INTEGER NOT NULL DEFAULT 0（回退计数器——澄清阶段读=reopen 次数，修复阶段读=revise 次数；每次回到前一状态 +1）
