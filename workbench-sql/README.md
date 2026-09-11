@@ -1,5 +1,7 @@
 # 团队工作台 · sqlite 建库与种子数据（workbench-sql/）
 
+> **⚠️ 定位标注（2026-09-12，退役词清查 D5 处置）**：本目录为**设计期 sqlite 底稿**（v0.15~v0.29 时代），已冻结、不再随实现演进。**运行时数据库真相 = `rd/migration/sql/`（MySQL 迁移链 0001~0004）**——schema 以 0001 为准、种子以 0002 为准（40 定义节点/node_actions 激活清单/requirements·versions 两表等均为运行时新增，本目录均无）。已知差异示例：本目录 seed 仅 33 节点、无 node_actions。头部「依据」所指 `docs/design/m*.md` 已随旧目录结构迁档（见 `.archive/`）。本文件仅供历史追溯，**勿据以实现**。
+>
 > 依据：`docs/design/m8-flow-simplify.md` §3.4（能力模型）、§3.6.2（核心表结构）；`docs/design/m6-flow-templates.md`（tech/task/plan 节点定义）；`docs/design/m8-doc-templates.md`（模板 structure/quality_gates，已内联进 capabilities）。
 >
 > **模型 v0.15（User 拍板修正）**：roles → capabilities 为 **1 对多**（`capabilities.role_id` 唯一归属，**无 role_capabilities 关联表**）；评审能力按角色拆分（同一评审节点上各角色看各自维度——arch 看技术路线、fe 看接口契约、qa 看可测性、pm 看工期/价值、rd 看设计完整性、user 拍板）。
