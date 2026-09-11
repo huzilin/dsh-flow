@@ -5,3 +5,7 @@ rd/trade/.superpowers/
 .worktrees/
 config.local.yaml
 .gocache/
+rd/docs
+docs/docs
+.agents/
+.dsh/
