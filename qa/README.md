@@ -8,7 +8,7 @@
 
 | 文件 | 用途 |
 |---|---|
-| `qa_env_up.sh` | 一键拉起验收环境：scratch 库（`wbflow_qa_<ts>`，迁移 v4+seed）+ 真实服务进程 :18081；凭据经环境变量注入零落地 |
+| `qa_env_up.sh` | 一键拉起验收环境：scratch 库（`wbflow_qa_<ts>`，迁移 v4+seed）+ 真实服务进程 :6081；凭据经环境变量注入零落地 |
 | `qa_env_down.sh` | 拆环境：按端口杀进程 + DROP scratch 库（绝不触 wbflow 联调库） |
 | `qa_drive.py` | 全量验收驱动：28 wb_* 端点 × 4 流程 40 节点 × 全分支 + 产物矩阵/审计对账（基线 **196 PASS / 0 FAIL / 1 SKIP**，含 A-15g 产物入库守卫断言） |
 | `qa_diag_min.py` | 诊断最小复现环：逐缺陷独立节实测（~8s，软失败继续） |

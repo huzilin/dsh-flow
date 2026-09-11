@@ -11,7 +11,7 @@ import subprocess
 import urllib.error
 import urllib.request
 
-BASE = os.environ.get("QA_BASE", "http://127.0.0.1:18081")
+BASE = os.environ.get("QA_BASE", "http://127.0.0.1:6081")
 TOKEN = os.environ.get("QA_TOKEN", "wbflow-qa-token")
 MY = dict(
     host=os.environ.get("QA_MYSQL_HOST", "192.168.3.100"),

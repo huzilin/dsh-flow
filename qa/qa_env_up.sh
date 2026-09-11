@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# wbflow QA 环境拉起：scratch 库（迁移+seed）+ 真实服务进程（:18081）。
+# wbflow QA 环境拉起：scratch 库（迁移+seed）+ 真实服务进程（:6081）。
 # 用法: qa_env_up.sh   （凭据经环境变量注入，见 config.local.yaml 口径；零落地）
 set -euo pipefail
 QA_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$QA_DIR/.." && pwd)"
 TS=$(date +%s)
 DB="wbflow_qa_${TS}"
-PORT=18081
+PORT=6081
 TOKEN="wbflow-qa-token"
 
 : "${QA_MYSQL_HOST:=192.168.3.100}"

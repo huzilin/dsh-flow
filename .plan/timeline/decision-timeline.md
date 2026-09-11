@@ -164,6 +164,7 @@
 | DM-06 | 08-17 18:24 | dsh·4228 | 裁 reviewer_focus/inputs（reviewer 能力写在角色能力上；task 上下文已含相关文档） | 现行权威 |
 | DM-07 | 09-05 14:50~16:32 | test-flow·zc-L | 新增 project 维度（不同 project 绑定不同工作区）；flow_template/flow_template_nodes 更名 flow_defs/flow_def_nodes | 现行权威 |
 | DM-08 | 09-08 02:04 | zc·Wayfinder | 数据库 MySQL；技术栈 Go；HTTP Gin；前端本期实现在 web（推翻 DM-01 SQLite，随 MVP 重写换栈） | 现行权威 |
+| DM-09 | 09-12 | zc·ask-matt | **测试端口范围定死 6000-6099**：全部测试用端口（QA 服务/testpage/后续新增）一律落此区间，不得外溢；现有 18081/18090 已迁改为 6081/6090 | 现行权威 |
 | DM-09 | 09-08 02:14 | zc·Wayfinder | 技术规格硬约束：可执行完整 DDL、每表 created_at+updated_at 毫秒精度、主键 BIGINT UNSIGNED AUTO_INCREMENT、不建物理外键、乐观锁=updated_at、不用 MySQL JSON 类型、proto 为真相源 | 现行权威 |
 
 ## 15. ProductType 与产物路径

@@ -2,11 +2,11 @@
 """wbflow 拍板校验测试页面服务（qa/testpage.html 的承载 + API 代理）。
 
 rd 服务无 CORS 头，浏览器直连会被拦——本进程同源承载静态页并把 /api/* 反代到
-rd（默认 http://127.0.0.1:18081，QA_BASE 可覆盖）。零第三方依赖。
+rd（默认 http://127.0.0.1:6081，QA_BASE 可覆盖）。零第三方依赖。
 
 用法：
   source /tmp/wbflow-qa-env.env   # 先起验收环境（qa_env_up.sh）
-  python3 testpage_server.py      # 打开 http://127.0.0.1:18090
+  python3 testpage_server.py      # 打开 http://127.0.0.1:6090
 """
 import os
 import urllib.error
@@ -14,8 +14,8 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RD_BASE = os.environ.get("QA_BASE", "http://127.0.0.1:18081")
-PORT = int(os.environ.get("QA_TESTPAGE_PORT", "18090"))
+RD_BASE = os.environ.get("QA_BASE", "http://127.0.0.1:6081")
+PORT = int(os.environ.get("QA_TESTPAGE_PORT", "6090"))
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -18,6 +18,7 @@ docs/  需求与设计基线（docs/v1.0 三模块 PRD/RD/FE + roadmap + arch_de
 
 - **pre-push hook（2026-09-11 拍板一期④）**：`git config core.hooksPath scripts/githooks` 启用（clone 后一次性）。push 前自动跑 `buf breaking`（proto 契约对「被推前远端 tip」的 wire 兼容拦截）+ `qa/qa_branch_audit.py`（seed 动作可解析性 + 失效豁免；补测差集默认放行，`--strict` 锁定）。确需破坏性契约变更：commit 注记声明后 `--no-verify` 绕过。
 - **提交闸门惯例**：Go 侧 `gofmt -l . && go vet ./... && go build ./... && go test ./...`；FE 侧 `npm test`；QA 驱动 `qa/qa_drive.py`（需 qa_env_up.sh 环境）。
+- **测试端口约定（2026-09-12 拍板 DM-09）**：测试用端口一律落在 **6000-6099** 区间（QA 服务 :6081、testpage :6090），不得外溢。
 
 ## 历史决策时间线（先查台账再拍板）
 
