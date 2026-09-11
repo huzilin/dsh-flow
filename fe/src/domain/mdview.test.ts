@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseInline, parseMarkdown } from "./mdview";
+import { mdLineViews, parseInline, parseMarkdown } from "./mdview";
 
 /** 轻量 Markdown 视图模型表驱动测试（BUG-012 描述卡渲染口径）。 */
 
@@ -125,5 +125,38 @@ describe("OPT-005 扩容：表格与引用块", () => {
     if (blocks[0]?.kind !== "blockquote") return;
     expect(blocks[0]!.text.some((tk) => tk.t === "text" && tk.v.includes("第二行延续"))).toBe(true);
     expect(blocks[1]?.kind).toBe("paragraph");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 阅读器行级 md 视图（一版 renderLineContent 同构回归；行号映射 1:1 不漂移）
+// ---------------------------------------------------------------------------
+
+describe("mdLineViews（阅读器逐行分类）", () => {
+  it("标题/列表/有序/引用/围栏逐行分类，标记符剥离", () => {
+    const views = mdLineViews(["# 大标题", "- 项目一", "1. 第一步", "> 引用", "```sql", "select 1;", "正文"]);
+    expect(views.map((v) => v.kind)).toEqual([
+      "heading",
+      "list",
+      "ordered",
+      "quote",
+      "fence",
+      "text",
+      "text",
+    ]);
+    expect(views[0]).toMatchObject({ level: 1, text: "大标题" });
+    expect(views[1]).toMatchObject({ text: "项目一" });
+    expect(views[3]).toMatchObject({ text: "引用" });
+    expect(views[4]).toMatchObject({ text: "```sql" });
+  });
+
+  it("管道表格：次行为分隔行 → 表头行；后续管道行 → 数据行；分隔行独立", () => {
+    const views = mdLineViews(["| a | b |", "|---|---|", "| 1 | 2 |", "尾行"]);
+    expect(views.map((v) => v.kind)).toEqual(["table-head", "table-sep", "table-row", "text"]);
+  });
+
+  it("行数守恒：输入 N 行恒输出 N 条视图（锚点不漂移前提）", () => {
+    const lines = ["# t", "", "```", "x", "```", "| a |", "|-|-|", "| 1 |"];
+    expect(mdLineViews(lines)).toHaveLength(lines.length);
   });
 });

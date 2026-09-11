@@ -69,7 +69,7 @@ export function postSettle(
   commentId: string,
   req: Omit<ResolveReq, "commentId" | "path">,
 ): Promise<ResolveResp> {
-  const body: ResolveReq = { ...req, commentId };
+  const body: ResolveReq = { ...req, commentId, path: "agree" };
   return client.request({
     method: "POST",
     path: `/api/comments/${encodeURIComponent(commentId)}/settle`,
@@ -84,7 +84,7 @@ export function postQualify(
   commentId: string,
   req: Omit<ResolveReq, "commentId" | "path">,
 ): Promise<ResolveResp> {
-  const body: ResolveReq = { ...req, commentId };
+  const body: ResolveReq = { ...req, commentId, path: "fix" };
   return client.request({
     method: "POST",
     path: `/api/comments/${encodeURIComponent(commentId)}/qualify`,

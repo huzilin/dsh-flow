@@ -135,7 +135,7 @@ describe("评论五端点（T7）", () => {
     });
   });
 
-  it("wb_settle / wb_qualify：路由承载语义（path 参数取消）", async () => {
+  it("wb_settle / wb_qualify：路由承载语义（path 由端点固化：settle=agree / qualify=fix）", async () => {
     fetchMock.mockImplementation(() => jsonResponse(200, { ok: true, issue: {} }));
     await postSettle(client, "cm-2", {
       operator: "user",
@@ -147,6 +147,7 @@ describe("评论五端点（T7）", () => {
       commentId: "cm-2",
       operator: "user",
       note: "口径一致",
+      path: "agree",
     });
     await postQualify(client, "cm-2", {
       operator: "user",
@@ -154,6 +155,12 @@ describe("评论五端点（T7）", () => {
       escalate: false,
     });
     expect(fetchMock.mock.calls[1][0]).toBe("/api/comments/cm-2/qualify");
+    // toJSON 空串字段不落（proto 惯例），qualify body 无 note 键
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      commentId: "cm-2",
+      operator: "user",
+      path: "fix",
+    });
   });
 
   it("wb_confirm / wb_reopen / wb_revise：POST confirm / reopen / revise", async () => {

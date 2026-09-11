@@ -511,8 +511,11 @@ input.invalid {
   margin: 12px 0;
 }
 .flow-tree {
-  max-width: 100%;
-  height: auto;
+  display: block;
+}
+/* 横向时序布局（一版 client.js:602-710 回归）：宽自适应节点数，容器横向滚动 */
+.flow-tree-scroll {
+  overflow-x: auto;
 }
 .flow-node {
   cursor: pointer;
@@ -531,6 +534,32 @@ input.invalid {
 }
 .flow-node-card.is-idle {
   fill: #f5f6f8;
+}
+/* 并行泳道分支色（一版 RD 上蓝 / FE 下绿；色值对齐全站 scope 徽标三色） */
+.flow-node-card.lane-rd {
+  fill: #f7faff;
+  stroke: #245bdb;
+}
+.flow-node-card.lane-fe {
+  fill: #f6fbf7;
+  stroke: #21853a;
+}
+.flow-lane-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+.flow-lane-label.lane-rd {
+  fill: #245bdb;
+}
+.flow-lane-label.lane-fe {
+  fill: #21853a;
+}
+/* 回滚角标（rolled_back_count>1 显 ↣n，红） */
+.flow-rollback {
+  font-size: 10px;
+  font-weight: 600;
+  fill: #d83931;
 }
 .flow-node-card.is-current {
   fill: #fffaf0;
@@ -772,10 +801,26 @@ input.invalid {
   padding: 0;
   cursor: pointer;
   border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 .review-seat.is-open {
   outline: 2px solid #3370ff;
   outline-offset: 1px;
+}
+/* 药丸本体高亮（一版 A3-2 形态）：N 未解决 Number badge + 轮≥10 卡死红边 */
+.review-seat.is-stalled {
+  outline: 2px solid #d83931;
+  outline-offset: 1px;
+}
+.pill-open-count {
+  background: #ffe9e7;
+  color: #d83931;
+}
+.pill-round {
+  background: #fff8e6;
+  color: #b26a00;
 }
 .review-seat-thread {
   margin-top: 8px;
@@ -904,6 +949,41 @@ input.invalid {
   margin-top: 6px;
   width: 100%;
 }
+/* 已解决评论折叠（一版 client.js:245-252 回归）：一行摘要 + 展开/收起 */
+.comment-card.is-collapsed {
+  padding: 4px 10px;
+}
+.comment-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  cursor: pointer;
+  text-align: left;
+}
+.comment-summary-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #646a73;
+}
+.comment-collapse {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-left: auto;
+  color: #8f959e;
+  font-size: 12px;
+  cursor: pointer;
+}
+.comment-collapse:hover {
+  color: #3370ff;
+}
 
 /* 拍板卡 */
 .decision-progress {
@@ -1021,6 +1101,77 @@ input.invalid {
 }
 .reader-selection {
   font-size: 12px;
+}
+/* 行级轻量 md 渲染（一版 renderLineContent 回归；行号映射 1:1，锚点不漂移） */
+.reader-line .line-text {
+  flex: 1;
+}
+.line-md.line-heading {
+  font-weight: 700;
+  line-height: 1.35;
+}
+.line-md.line-list,
+.line-md.line-ordered {
+  padding-left: 14px;
+}
+.line-md-bullet {
+  color: #646a73;
+}
+.line-md.line-quote {
+  display: inline-block;
+  border-left: 3px solid #c9cdd4;
+  padding-left: 8px;
+  color: #4e5969;
+}
+.line-md.line-table-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+}
+.line-md.line-table-row .line-cell {
+  display: inline-block;
+  padding: 0 10px;
+  border: 1px solid #e5e6eb;
+  margin: 0 -1px -1px 0;
+}
+.line-md.line-table-row.is-head .line-cell {
+  background: #f2f3f5;
+  font-weight: 600;
+}
+.line-md.line-table-sep,
+.line-md.line-fence {
+  color: #bbbec4;
+}
+/* 阅读器评论筛选药丸（一版 client.js:748-750 回归）：作者×状态 toggle */
+.reader-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 2px 0 8px;
+}
+.filter-pill {
+  padding: 1px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  border: 1px solid #d0d3d9;
+  background: #fff;
+  color: #646a73;
+}
+.filter-pill.on {
+  color: #245bdb;
+  border-color: #3370ff;
+  background: #e8f0ff;
+}
+.filter-pill-state.on {
+  color: #b26a00;
+  border-color: #e8b34a;
+  background: #fff8e6;
+}
+.reader-filter-divider {
+  width: 1px;
+  height: 16px;
+  background: #e5e7eb;
+  margin: 0 4px;
 }
 .link-card {
   margin: 12px 14px;
@@ -1467,11 +1618,7 @@ input.invalid {
   color: #646a73;
 }
 
-/* ── 卡② 疑似卡死高亮（原型 P1：轮次≥10 未收敛）── */
-.badge-stall {
-  background: rgba(232, 179, 74, 0.15);
-  color: #b54708;
-}
+/* 卡死高亮已并入评审药丸本体（.review-seat.is-stalled / .pill-round） */
 
 /* ── 待拍板提醒条（原型 P10 lead 行：badge/toast 不抢占焦点）── */
 .gate-entry {

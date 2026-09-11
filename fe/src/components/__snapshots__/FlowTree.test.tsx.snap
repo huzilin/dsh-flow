@@ -4,11 +4,59 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
 <svg
   aria-label="流程树"
   class="flow-tree"
-  height="882"
+  height="328"
   role="list"
-  viewBox="0 0 460 882"
-  width="460"
+  viewBox="0 0 3316 328"
+  width="3316"
 >
+  <path
+    class="flow-link"
+    d="M228,134 H272"
+  />
+  <path
+    class="flow-link"
+    d="M484,134 H528"
+  />
+  <path
+    class="flow-link"
+    d="M740,134 H784"
+  />
+  <path
+    class="flow-link"
+    d="M996,134 H1040"
+  />
+  <path
+    class="flow-link"
+    d="M1252,134 H1296"
+  />
+  <path
+    class="flow-link"
+    d="M1508,134 H1552"
+  />
+  <path
+    class="flow-link"
+    d="M1764,134 H1808"
+  />
+  <path
+    class="flow-link"
+    d="M2020,134 H2064"
+  />
+  <path
+    class="flow-link"
+    d="M2276,134 H2320"
+  />
+  <path
+    class="flow-link"
+    d="M2532,134 H2576"
+  />
+  <path
+    class="flow-link"
+    d="M2788,134 H2832"
+  />
+  <path
+    class="flow-link"
+    d="M3044,134 H3088"
+  />
   <g
     aria-label="节点 1 待启动"
     class="flow-node"
@@ -17,42 +65,41 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     tabindex="0"
   >
     <rect
-      class="flow-node-card   "
-      height="54"
+      class="flow-node-card    "
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="12"
+      width="212"
+      x="16"
+      y="102"
     />
     <circle
       class="phase-dot phase-review"
-      cx="30"
-      cy="39"
+      cx="32"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="34"
+      x="44"
+      y="124"
     >
       1
       . 
       待启动
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="34"
-    >
-      review / gate / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="54"
+      x="32"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="32"
+      y="158"
+    >
+      review / gate / user_gate
     </text>
   </g>
   <g
@@ -62,47 +109,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,66 v12"
-    />
     <rect
-      class="flow-node-card   "
-      height="54"
+      class="flow-node-card    "
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="78"
+      width="212"
+      x="272"
+      y="102"
     />
     <circle
       class="phase-dot phase-review"
-      cx="30"
-      cy="105"
+      cx="288"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="100"
+      x="300"
+      y="124"
     >
       2
       . 
       需求对齐
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="100"
-    >
-      review / align / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="120"
+      x="288"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="288"
+      y="158"
+    >
+      review / align / user_gate
     </text>
   </g>
   <g
@@ -112,47 +154,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,132 v12"
-    />
     <rect
-      class="flow-node-card   "
-      height="54"
+      class="flow-node-card    "
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="144"
+      width="212"
+      x="528"
+      y="102"
     />
     <circle
       class="phase-dot phase-review"
-      cx="30"
-      cy="171"
+      cx="544"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="166"
+      x="556"
+      y="124"
     >
       3
       . 
       产品设计
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="166"
-    >
-      review / produce
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="186"
+      x="544"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="544"
+      y="158"
+    >
+      review / produce
     </text>
   </g>
   <g
@@ -162,47 +199,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,198 v12"
-    />
     <rect
-      class="flow-node-card   "
-      height="54"
+      class="flow-node-card    "
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="210"
+      width="212"
+      x="784"
+      y="102"
     />
     <circle
       class="phase-dot phase-review"
-      cx="30"
-      cy="237"
+      cx="800"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="232"
+      x="812"
+      y="124"
     >
       4
       . 
       产品设计评审
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="232"
-    >
-      review / review / gate / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="252"
+      x="800"
+      y="142"
     >
       表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+    <text
+      class="flow-node-chips"
+      x="800"
+      y="158"
+    >
+      review / review / gate / user_gate
     </text>
   </g>
   <g
@@ -212,47 +244,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,264 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="276"
+      width="212"
+      x="1040"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="303"
+      cx="1056"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="298"
+      x="1068"
+      y="124"
     >
       5
       . 
       RD 技术设计
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="298"
-    >
-      produce
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="318"
+      x="1056"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="1056"
+      y="158"
+    >
+      produce
     </text>
   </g>
   <g
@@ -262,47 +289,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,330 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="342"
+      width="212"
+      x="1296"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="369"
+      cx="1312"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="364"
+      x="1324"
+      y="124"
     >
       6
       . 
       RD 技术评审
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="364"
-    >
-      review / gate / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="384"
+      x="1312"
+      y="142"
     >
       表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+    <text
+      class="flow-node-chips"
+      x="1312"
+      y="158"
+    >
+      review / gate / user_gate
     </text>
   </g>
   <g
@@ -312,47 +334,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,396 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="408"
+      width="212"
+      x="1552"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="435"
+      cx="1568"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="430"
+      x="1580"
+      y="124"
     >
       7
       . 
       FE 技术设计
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="430"
-    >
-      produce
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="450"
+      x="1568"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="1568"
+      y="158"
+    >
+      produce
     </text>
   </g>
   <g
@@ -362,47 +379,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,462 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="474"
+      width="212"
+      x="1808"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="501"
+      cx="1824"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="496"
+      x="1836"
+      y="124"
     >
       8
       . 
       FE 设计评审
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="496"
-    >
-      review / gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="516"
+      x="1824"
+      y="142"
     >
       表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+    <text
+      class="flow-node-chips"
+      x="1824"
+      y="158"
+    >
+      review / gate
     </text>
   </g>
   <g
@@ -412,47 +424,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,528 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="540"
+      width="212"
+      x="2064"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="567"
+      cx="2080"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="562"
+      x="2092"
+      y="124"
     >
       9
       . 
       RD 开发
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="562"
-    >
-      produce / gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="582"
+      x="2080"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="2080"
+      y="158"
+    >
+      produce / gate
     </text>
   </g>
   <g
@@ -462,47 +469,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,594 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="606"
+      width="212"
+      x="2320"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="633"
+      cx="2336"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="628"
+      x="2348"
+      y="124"
     >
       10
       . 
       FE 开发
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="628"
-    >
-      produce / gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="648"
+      x="2336"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="2336"
+      y="158"
+    >
+      produce / gate
     </text>
   </g>
   <g
@@ -512,47 +514,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,660 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="672"
+      width="212"
+      x="2576"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="699"
+      cx="2592"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="694"
+      x="2604"
+      y="124"
     >
       11
       . 
       QA 验收（含联调）
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="694"
-    >
-      produce / gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="714"
+      x="2592"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="2592"
+      y="158"
+    >
+      produce / gate
     </text>
   </g>
   <g
@@ -562,47 +559,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,726 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="738"
+      width="212"
+      x="2832"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="765"
+      cx="2848"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="760"
+      x="2860"
+      y="124"
     >
       12
       . 
       用户验收
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="760"
-    >
-      gate / gate / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="780"
+      x="2848"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="2848"
+      y="158"
+    >
+      gate / gate / user_gate
     </text>
   </g>
   <g
@@ -612,47 +604,42 @@ exports[`FlowTree（scope 重排快照） > scope=full：13 节点全渲染快�
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,792 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="804"
+      width="212"
+      x="3088"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="831"
+      cx="3104"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="826"
+      x="3116"
+      y="124"
     >
       13
       . 
       完成
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="826"
-    >
-      gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="846"
+      x="3104"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="3104"
+      y="158"
+    >
+      gate
     </text>
   </g>
 </svg>
@@ -662,11 +649,43 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
 <svg
   aria-label="流程树"
   class="flow-tree"
-  height="618"
+  height="328"
   role="list"
-  viewBox="0 0 460 618"
-  width="460"
+  viewBox="0 0 2292 328"
+  width="2292"
 >
+  <path
+    class="flow-link"
+    d="M228,134 H272"
+  />
+  <path
+    class="flow-link"
+    d="M484,134 H528"
+  />
+  <path
+    class="flow-link"
+    d="M740,134 H784"
+  />
+  <path
+    class="flow-link"
+    d="M996,134 H1040"
+  />
+  <path
+    class="flow-link"
+    d="M1252,134 H1296"
+  />
+  <path
+    class="flow-link"
+    d="M1508,134 H1552"
+  />
+  <path
+    class="flow-link"
+    d="M1764,134 H1808"
+  />
+  <path
+    class="flow-link"
+    d="M2020,134 H2064"
+  />
   <g
     aria-label="节点 1 待启动"
     class="flow-node"
@@ -675,42 +694,41 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     tabindex="0"
   >
     <rect
-      class="flow-node-card   "
-      height="54"
+      class="flow-node-card    "
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="12"
+      width="212"
+      x="16"
+      y="102"
     />
     <circle
       class="phase-dot phase-review"
-      cx="30"
-      cy="39"
+      cx="32"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="34"
+      x="44"
+      y="124"
     >
       1
       . 
       待启动
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="34"
-    >
-      review / gate / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="54"
+      x="32"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="32"
+      y="158"
+    >
+      review / gate / user_gate
     </text>
   </g>
   <g
@@ -720,47 +738,42 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,66 v12"
-    />
     <rect
-      class="flow-node-card   "
-      height="54"
+      class="flow-node-card    "
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="78"
+      width="212"
+      x="272"
+      y="102"
     />
     <circle
       class="phase-dot phase-review"
-      cx="30"
-      cy="105"
+      cx="288"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="100"
+      x="300"
+      y="124"
     >
       2
       . 
       需求对齐
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="100"
-    >
-      review / align / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="120"
+      x="288"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="288"
+      y="158"
+    >
+      review / align / user_gate
     </text>
   </g>
   <g
@@ -770,47 +783,42 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,132 v12"
-    />
     <rect
-      class="flow-node-card   "
-      height="54"
+      class="flow-node-card    "
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="144"
+      width="212"
+      x="528"
+      y="102"
     />
     <circle
       class="phase-dot phase-review"
-      cx="30"
-      cy="171"
+      cx="544"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="166"
+      x="556"
+      y="124"
     >
       3
       . 
       产品设计
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="166"
-    >
-      review / produce
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="186"
+      x="544"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="544"
+      y="158"
+    >
+      review / produce
     </text>
   </g>
   <g
@@ -820,47 +828,42 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,198 v12"
-    />
     <rect
-      class="flow-node-card   "
-      height="54"
+      class="flow-node-card    "
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="210"
+      width="212"
+      x="784"
+      y="102"
     />
     <circle
       class="phase-dot phase-review"
-      cx="30"
-      cy="237"
+      cx="800"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="232"
+      x="812"
+      y="124"
     >
       4
       . 
       产品设计评审
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="232"
-    >
-      review / review / gate / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="252"
+      x="800"
+      y="142"
     >
       表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+    <text
+      class="flow-node-chips"
+      x="800"
+      y="158"
+    >
+      review / review / gate / user_gate
     </text>
   </g>
   <g
@@ -870,47 +873,42 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,264 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="276"
+      width="212"
+      x="1040"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="303"
+      cx="1056"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="298"
+      x="1068"
+      y="124"
     >
       5
       . 
       RD 技术设计
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="298"
-    >
-      produce
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="318"
+      x="1056"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="1056"
+      y="158"
+    >
+      produce
     </text>
   </g>
   <g
@@ -920,47 +918,42 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,330 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="342"
+      width="212"
+      x="1296"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="369"
+      cx="1312"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="364"
+      x="1324"
+      y="124"
     >
       6
       . 
       RD 技术评审
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="364"
-    >
-      review / gate / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="384"
+      x="1312"
+      y="142"
     >
       表态 0/2 · 同意 0 · 反对 0 · 待表态 0
+    </text>
+    <text
+      class="flow-node-chips"
+      x="1312"
+      y="158"
+    >
+      review / gate / user_gate
     </text>
   </g>
   <g
@@ -970,47 +963,42 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,396 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="408"
+      width="212"
+      x="1552"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="435"
+      cx="1568"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="430"
+      x="1580"
+      y="124"
     >
       7
       . 
       RD 开发
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="430"
-    >
-      produce / gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="450"
+      x="1568"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="1568"
+      y="158"
+    >
+      produce / gate
     </text>
   </g>
   <g
@@ -1020,47 +1008,42 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,462 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="474"
+      width="212"
+      x="1808"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="501"
+      cx="1824"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="496"
+      x="1836"
+      y="124"
     >
       8
       . 
       用户验收
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="496"
-    >
-      gate / gate / user_gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="516"
+      x="1824"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="1824"
+      y="158"
+    >
+      gate / gate / user_gate
     </text>
   </g>
   <g
@@ -1070,47 +1053,42 @@ exports[`FlowTree（scope 重排快照） > scope=rd：9 节点单链快照（fe
     role="listitem"
     tabindex="0"
   >
-    <path
-      class="flow-link"
-      d="M230,528 v12"
-    />
     <rect
-      class="flow-node-card   is-idle"
-      height="54"
+      class="flow-node-card    is-idle"
+      height="64"
       rx="8"
-      width="436"
-      x="12"
-      y="540"
+      width="212"
+      x="2064"
+      y="102"
     />
     <circle
       class="phase-dot phase-none"
-      cx="30"
-      cy="567"
+      cx="2080"
+      cy="120"
       r="5"
     />
     <text
       class="flow-node-title"
-      x="46"
-      y="562"
+      x="2092"
+      y="124"
     >
       9
       . 
       完成
     </text>
     <text
-      class="flow-node-chips"
-      text-anchor="end"
-      x="440"
-      y="562"
-    >
-      gate
-    </text>
-    <text
       class="flow-node-sub"
-      x="46"
-      y="582"
+      x="2080"
+      y="142"
     >
       无评审位
+    </text>
+    <text
+      class="flow-node-chips"
+      x="2080"
+      y="158"
+    >
+      gate
     </text>
   </g>
 </svg>

@@ -390,3 +390,213 @@ describe("ArtifactReader（BUG-013 评审上下文锚产物）", () => {
     expect(screen.getByText(/锚点：/)).toHaveTextContent("锚点：《RD 技术设计》（全文）");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 一版交互蓝本回归（inventory A4-11/B-43、A4-2/B-34、A4-16/B-47）
+// ---------------------------------------------------------------------------
+
+describe("CommentCard 已解决折叠（一版 A4-11 回归）", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("resolved 默认折叠一行摘要（角色+状态徽标+文本），展开回全文 thread，可再收起", () => {
+    renderWithClient(
+      <CommentCard
+        requirementId="req-001"
+        issue={issue({
+          state: "resolved",
+          text: "口径已对齐，按此执行",
+          resolvePath: "agree",
+          resolveBy: "rd",
+          resolveNote: "双方确认",
+          replies: JSON.stringify([
+            { replyId: "r-1", by: "rd", roleId: "rd", text: "收到", at: 1730000001000 },
+          ]),
+        })}
+      />,
+    );
+    // 折叠态：摘要行（徽标+角色+文本+箭头），全文操作/回复/resolve 信息不渲染
+    expect(screen.getByText("已解决")).toBeInTheDocument();
+    expect(screen.getByText("arch（arch）")).toBeInTheDocument();
+    expect(screen.getByText("口径已对齐，按此执行")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "回复" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/协商一致关闭/)).not.toBeInTheDocument();
+    expect(screen.queryByText("收到")).not.toBeInTheDocument();
+    // 展开：全文 thread + resolve 信息 + 操作矩阵
+    fireEvent.click(screen.getByRole("button", { name: /展开已解决评论/ }));
+    expect(screen.getByRole("button", { name: "回复" })).toBeInTheDocument();
+    expect(screen.getByText("收到")).toBeInTheDocument();
+    expect(screen.getByText(/协商一致关闭 · rd · 双方确认/)).toBeInTheDocument();
+    // 再收起
+    fireEvent.click(screen.getByRole("button", { name: "收起评论" }));
+    expect(screen.queryByRole("button", { name: "回复" })).not.toBeInTheDocument();
+  });
+
+  it("open/to-fix/fixed/pending-confirm 保持展开（to-fix 直接可见操作矩阵）", () => {
+    renderWithClient(
+      <CommentCard
+        requirementId="req-001"
+        issue={issue({ state: "to-fix", assignee: "user" })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "回复" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /协商一致关闭（settle）/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /展开已解决评论/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("ArtifactReader 轻量 md 渲染（一版 A4-2 回归，行映射 1:1 不漂移）", () => {
+  const MD_CONTENT = [
+    "# 标题一",
+    "",
+    "- **加粗项** 与 `wb_code` 项",
+    "> 引用一行",
+    "| a | b |",
+    "|---|---|",
+    "| 1 | 2 |",
+    "普通段落 **粗体**",
+  ].join("\n");
+
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  function mockContent(content: string) {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).endsWith("/content")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            ok: true,
+            artifactId: "art-1",
+            nodeId: "n-04",
+            productType: "rd_design",
+            label: "《RD 技术设计》",
+            kind: "document",
+            href: "docs/v1/rd-design.md",
+            content,
+            mimeType: "text/markdown",
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(200, { ok: true, issue: { issueId: "cm-new" } }));
+    });
+  }
+
+  it("标题/列表/粗体/行内代码/表格单元格/blockquote 就地渲染", async () => {
+    mockContent(MD_CONTENT);
+    const { container } = renderWithClient(
+      <ArtifactReader
+        requirementId="req-001"
+        nodeId="n-04"
+        artifact={artifact()}
+        issues={[]}
+        onClose={() => undefined}
+      />,
+    );
+    await screen.findByText("标题一");
+    expect(container.querySelector(".reader-line .md-h1")?.textContent).toBe("标题一");
+    expect(screen.getByText("加粗项").tagName).toBe("STRONG");
+    expect(screen.getByText("wb_code").tagName).toBe("CODE");
+    expect(screen.getByText("引用一行").closest(".line-quote")).not.toBeNull();
+    // 管道表格按行切单元格（表头行加粗底、数据行单元格）
+    const headRow = container.querySelector('.reader-line[data-line="5"] .line-table-row')!;
+    expect(headRow.querySelectorAll(".line-cell")).toHaveLength(2);
+    const dataRow = container.querySelector('.reader-line[data-line="7"] .line-table-row')!;
+    expect(dataRow.querySelectorAll(".line-cell")).toHaveLength(2);
+    expect(screen.getByText("普通段落")).toBeInTheDocument();
+  });
+
+  it("锚点不漂移：渲染行数=源行数（data-line 1..N 恒在），划词锚按渲染后行定位", async () => {
+    mockContent(MD_CONTENT);
+    const { container } = renderWithClient(
+      <ArtifactReader
+        requirementId="req-001"
+        nodeId="n-04"
+        artifact={artifact()}
+        issues={[]}
+        onClose={() => undefined}
+      />,
+    );
+    await screen.findByText("标题一");
+    const lineNos = Array.from(container.querySelectorAll(".reader-line")).map((el) =>
+      el.getAttribute("data-line"),
+    );
+    expect(lineNos).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
+    // 渲染行点击仍按源行号装配 range 锚（md 渲染不改坐标系）
+    const user = userEvent.setup();
+    await user.click(container.querySelector('.reader-line[data-line="4"]')!);
+    expect(screen.getByText(/评论第 4 行区间|评论第 4 行/)).toBeInTheDocument();
+  });
+});
+
+describe("ArtifactReader 评论筛选药丸（一版 A4-16 回归）", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  function mockContent(content: string) {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).endsWith("/content")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            ok: true,
+            artifactId: "art-1",
+            nodeId: "n-04",
+            productType: "rd_design",
+            label: "《RD 技术设计》",
+            kind: "document",
+            href: "docs/v1/rd-design.md",
+            content,
+            mimeType: "text/markdown",
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(200, { ok: true, issue: { issueId: "cm-new" } }));
+    });
+  }
+
+  it("作者（按 role）× 状态五态药丸：点选过滤、再点取消", async () => {
+    mockContent(DOC_CONTENT);
+    const user = userEvent.setup();
+    renderWithClient(
+      <ArtifactReader
+        requirementId="req-001"
+        nodeId="n-04"
+        artifact={artifact()}
+        issues={[
+          issue({ anchorKind: "line", anchorLine: "6" }),
+          issue({
+            issueId: "cm-doc",
+            anchorKind: "document",
+            anchorLine: "0",
+            text: "整体建议",
+            roleId: "qa",
+            reviewerRole: "qa",
+            state: "resolved",
+          }),
+        ]}
+        onClose={() => undefined}
+      />,
+    );
+    await screen.findByText("设计正文第七行");
+    // 初始全量：行内评论 + document 评论（resolved 折叠摘要也可见）
+    expect(screen.getByText("这里的口径?")).toBeInTheDocument();
+    expect(screen.getByText("整体建议")).toBeInTheDocument();
+    // 状态过滤：待处理（open）→ resolved 的 qa 评论隐藏
+    await user.click(screen.getByRole("button", { name: "待处理" }));
+    expect(screen.getByText("这里的口径?")).toBeInTheDocument();
+    expect(screen.queryByText("整体建议")).not.toBeInTheDocument();
+    // 再点取消
+    await user.click(screen.getByRole("button", { name: "待处理" }));
+    expect(screen.getByText("整体建议")).toBeInTheDocument();
+    // 作者过滤：qa → arch 行内评论隐藏
+    await user.click(screen.getByRole("button", { name: "qa" }));
+    expect(screen.queryByText("这里的口径?")).not.toBeInTheDocument();
+    expect(screen.getByText("整体建议")).toBeInTheDocument();
+  });
+});

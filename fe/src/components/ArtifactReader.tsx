@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactItem, IssueItem } from "../api/proto/api";
+import { ISSUE_STATE_LABELS } from "../api/constants";
 import {
   inSelection,
   scanFenceBlocks,
@@ -7,24 +8,31 @@ import {
   splitContentLines,
 } from "../domain/flowview";
 import { assembleCommentAnchor, issueAnchorOrder } from "../api/comments";
+import { mdLineViews, parseInline, splitRow, type MdLineView } from "../domain/mdview";
 import { reviewAnchorGuardError } from "../domain/flowview";
 import { useArtifactContentQuery, useCommentMutation } from "../hooks/queries";
 import { AlertBanner } from "./AlertBanner";
 import { CommentCard } from "./CommentCard";
+import { InlineTokens } from "./MarkdownView";
 
 /**
  * 产物阅读器（模块 II ③ 产物区点击弹出）：
- * - document：行号渲染（1-based）+ 懒加载分段（每段 200 行，滚动到底自动续载——
- *   选「懒加载分段」而非虚拟滚动：实现轻、DOM 保留完整选区高亮，seed 场景文档一次载完）；
- *   轻量 Markdown 渲染不做——行号直映原文是锚点防漂移的前提，渲染层转换会破坏 line↔内容对应。
- * - block 锚点：按围栏（```/~~~）扫描代码块，块首行「选代码块」钮整块选取
- *   （后端 ValidateIssueAnchor 要求 lang 非空，无围栏文档无 block 入口）。
+ * - document：行号渲染（1-based）+ 懒加载分段（每段 200 行，滚动到底自动续载）+
+ *   轻量 Markdown 渲染（一版 client.js:227-231 renderLineContent 同构回归——inventory
+ *   A4-2/B-34：每源行恒渲染一行，行号↔内容 1:1 映射不漂移，划词锚按渲染后行定位；
+ *   标题/列表/粗体/行内代码/管道表格/blockquote 复用 domain/mdview 行级视图）。
+ * - block 锚点：围栏块仅视觉标记（后端 block 锚 400 废弃，注记-L3）。
  * - link：外链卡（不拉正文）。
- * - 底部固定输入框：document 默认态 / 选行（click）/ 选区间（click+shift-click）/ 选块。
- * - 锚定评论就地渲染：line=行下方、range/block=末行下方、document 级=正文末尾。
+ * - 评论区筛选药丸（一版 client.js:748-750 回归——inventory A4-16/B-47）：作者（按
+ *   role）× 状态（五态）两轴，点选过滤、再点取消；行内锚定评论与 document 级整列同滤。
+ * - 底部固定输入框：document 默认态 / 选行（click）/ 选区间（click+shift-click）。
+ * - 锚定评论就地渲染：range=末行下方、document 级=正文末尾。
  */
 const CHUNK_SIZE = 200;
 const INITIAL_CHUNKS = 3;
+
+/** 筛选药丸值域（状态五态现行词汇，CONTEXT.md issue 状态机）。 */
+const READER_STATE_FILTERS = ["open", "pending-confirm", "to-fix", "fixed", "resolved"] as const;
 
 export function ArtifactReader({
   requirementId,
@@ -55,10 +63,14 @@ export function ArtifactReader({
   const [text, setText] = useState("");
   const [guardMsg, setGuardMsg] = useState<string | null>(null);
   const [visibleChunks, setVisibleChunks] = useState(INITIAL_CHUNKS);
+  // 评论筛选（null=不过滤；再点取消——一版药丸 toggle 同手感）
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [stateFilter, setStateFilter] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const lines = useMemo(() => splitContentLines(content.data?.content ?? ""), [content.data]);
   const fences = useMemo(() => scanFenceBlocks(lines), [lines]);
+  const mdViews = useMemo(() => mdLineViews(lines.map((l) => l.text)), [lines]);
   const shownCount = Math.min(visibleChunks * CHUNK_SIZE, lines.length);
 
   // 本文物语境评论：锚定本文物的（按行就位）+ document 级（末尾整列）
@@ -66,10 +78,26 @@ export function ArtifactReader({
     () => issues.filter((i) => i.anchorKind === "document" || i.anchorArtifactId === artifact.artifactId),
     [issues, artifact.artifactId],
   );
-  const documentIssues = useMemo(
-    () => readerIssues.filter((i) => i.anchorKind === "document"),
-    [readerIssues],
+  // 筛选药丸值域：作者按 role（一版按 author，此处按本单口径 role）、状态五态
+  const authorRoles = useMemo(() => {
+    const seen: string[] = [];
+    for (const i of readerIssues) if (!seen.includes(i.roleId)) seen.push(i.roleId);
+    return seen;
+  }, [readerIssues]);
+  const visibleIssues = useMemo(
+    () =>
+      readerIssues.filter(
+        (i) =>
+          (roleFilter === null || i.roleId === roleFilter) &&
+          (stateFilter === null || i.state === stateFilter),
+      ),
+    [readerIssues, roleFilter, stateFilter],
   );
+  const documentIssues = useMemo(
+    () => visibleIssues.filter((i) => i.anchorKind === "document"),
+    [visibleIssues],
+  );
+  const hasFilters = authorRoles.length > 0;
 
   // 滚动到底自动续载（IntersectionObserver；测试/旧环境无该 API 时兜底「加载后续」按钮）
   useEffect(() => {
@@ -100,6 +128,15 @@ export function ArtifactReader({
               {artifact.href}
             </a>
           </div>
+          {hasFilters && (
+            <ReaderFilterBar
+              roles={authorRoles}
+              roleFilter={roleFilter}
+              stateFilter={stateFilter}
+              onRole={setRoleFilter}
+              onState={setStateFilter}
+            />
+          )}
           <CommentThread
             issues={documentIssues}
             requirementId={requirementId}
@@ -127,9 +164,19 @@ export function ArtifactReader({
           <AlertBanner error={content.error} onRetry={() => void content.refetch()} />
         )}
         <div className="reader-body">
+          {hasFilters && (
+            <ReaderFilterBar
+              roles={authorRoles}
+              roleFilter={roleFilter}
+              stateFilter={stateFilter}
+              onRole={setRoleFilter}
+              onState={setStateFilter}
+            />
+          )}
           <div className="reader-lines">
-            {lines.slice(0, shownCount).map((line) => {
+            {lines.slice(0, shownCount).map((line, idx) => {
               const fenceStart = fences.find((f) => f.startLine === line.no);
+              const view = mdViews[idx] ?? { kind: "text", level: 0, text: line.text };
               return (
                 <div key={line.no}>
                   <div
@@ -157,12 +204,14 @@ export function ArtifactReader({
                     }
                   >
                     <span className="line-no">{line.no}</span>
-                    <span className="line-text">{line.text === "" ? " " : line.text}</span>
+                    <span className="line-text">
+                      {line.text === "" ? " " : <LineMdContent view={view} />}
+                    </span>
                   </div>
                   {fenceStart && <span className="fence-mark" aria-hidden />}
                   <AnchorCommentsAt
                     position={line.no}
-                    issues={readerIssues}
+                    issues={visibleIssues}
                     requirementId={requirementId}
                   />
                 </div>
@@ -268,6 +317,111 @@ export function ArtifactReader({
 interface SelectionState {
   start: number;
   end: number;
+}
+
+/**
+ * 行级轻量 md 渲染（mdview.mdLineViews 视图 → React；一版 renderLineContent 同构）：
+ * 标题分级/列表/引用/管道表格（按行切单元格，行号映射 1:1 不聚合成 table——锚点
+ * 防漂移优先）/围栏标记淡化；行内粗体/行内代码/链接复用 MarkdownView.InlineTokens。
+ */
+function LineMdContent({ view }: { view: MdLineView }) {
+  switch (view.kind) {
+    case "heading": {
+      const level = Math.min(6, Math.max(1, view.level));
+      return (
+        <span className={`line-md line-heading md-h${level}`}>
+          <InlineTokens tokens={parseInline(view.text)} />
+        </span>
+      );
+    }
+    case "list":
+      return (
+        <span className="line-md line-list">
+          <span className="line-md-bullet" aria-hidden>
+            ▪
+          </span>{" "}
+          <InlineTokens tokens={parseInline(view.text)} />
+        </span>
+      );
+    case "ordered":
+      return (
+        <span className="line-md line-ordered">
+          <InlineTokens tokens={parseInline(view.text)} />
+        </span>
+      );
+    case "quote":
+      return (
+        <span className="line-md line-quote">
+          <InlineTokens tokens={parseInline(view.text)} />
+        </span>
+      );
+    case "table-head":
+    case "table-row": {
+      const cells = splitRow(view.text);
+      return (
+        <span className={`line-md line-table-row${view.kind === "table-head" ? " is-head" : ""}`}>
+          {cells.map((cell, i) => (
+            <span key={i} className="line-cell">
+              <InlineTokens tokens={parseInline(cell)} />
+            </span>
+          ))}
+        </span>
+      );
+    }
+    case "table-sep":
+      return <span className="line-md line-table-sep">{view.text}</span>;
+    case "fence":
+      return <span className="line-md line-fence">{view.text}</span>;
+    default:
+      return <InlineTokens tokens={parseInline(view.text)} />;
+  }
+}
+
+/**
+ * 评论区筛选药丸（一版 client.js:748-750 同构回归）：作者（按 role）× 状态五态；
+ * 点选过滤、再点取消（toggle）。
+ */
+function ReaderFilterBar({
+  roles,
+  roleFilter,
+  stateFilter,
+  onRole,
+  onState,
+}: {
+  roles: string[];
+  roleFilter: string | null;
+  stateFilter: string | null;
+  onRole: (role: string | null) => void;
+  onState: (state: string | null) => void;
+}) {
+  return (
+    <div className="reader-filters" role="group" aria-label="评论筛选">
+      <span className="muted small">评论筛选：</span>
+      {roles.map((role) => (
+        <button
+          key={role}
+          type="button"
+          className={`filter-pill${roleFilter === role ? " on" : ""}`}
+          aria-pressed={roleFilter === role}
+          onClick={() => onRole(roleFilter === role ? null : role)}
+        >
+          {role}
+        </button>
+      ))}
+      <span className="reader-filter-divider" aria-hidden />
+      {READER_STATE_FILTERS.map((state) => (
+        <button
+          key={state}
+          type="button"
+          className={`filter-pill filter-pill-state${stateFilter === state ? " on" : ""}`}
+          aria-pressed={stateFilter === state}
+          onClick={() => onState(stateFilter === state ? null : state)}
+        >
+          {ISSUE_STATE_LABELS[state] ?? state}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function ReaderHeader({ artifact, onClose }: { artifact: ArtifactItem; onClose: () => void }) {

@@ -129,3 +129,5 @@ function InlineTokens({ tokens }: { tokens: MdInline[] }) {
     </>
   );
 }
+
+export { InlineTokens };

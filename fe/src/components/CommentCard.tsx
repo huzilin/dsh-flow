@@ -47,6 +47,11 @@ export function CommentCard({
   const replies = parseReplies(issue.replies);
   const isAssignee = issue.assignee === WEB_USER_ROLE;
   const isReviewer = issueReviewerOf(issue) === WEB_USER_ROLE;
+  // 已解决评论默认折叠（一版 client.js:245-252 回归——inventory A4-11/B-43）：
+  // resolved 一行摘要（角色+状态徽标+截断文本）可展开回全文；open/pending-confirm/
+  // to-fix/fixed 恒展开（overridden 态已废除，override 动作置 resolved）。
+  const collapsible = issue.state === "resolved";
+  const [expanded, setExpanded] = useState(!collapsible || highlight);
   // settle/qualify 入口状态域：open/pending-confirm 定性 to-fix；to-fix/fixed 重申报修复关闭；
   // settle 直落 resolved（后端裁决，UI 按 domain 口径收敛；09-12 裁决 overridden 态废除）
   const canResolve = isAssignee && issue.state !== "resolved";
@@ -54,6 +59,35 @@ export function CommentCard({
   const canReopen = isReviewer && (issue.state === "pending-confirm" || issue.state === "fixed");
   const busy = reply.isPending || resolve.isPending || confirm.isPending || reopen.isPending;
   const actionError = reply.error ?? resolve.error ?? confirm.error ?? reopen.error;
+
+  // 折叠态：一行摘要（状态徽标+角色+截断文本+展开箭头），点击展开全文 thread
+  if (!expanded) {
+    return (
+      <article
+        className="comment-card is-collapsed"
+        data-issue-id={issue.issueId}
+        data-state={issue.state}
+        data-focus-flash={highlight ? "1" : undefined}
+      >
+        <button
+          type="button"
+          className="comment-summary"
+          aria-expanded={false}
+          aria-label={`展开已解决评论：${issue.text}`}
+          onClick={() => setExpanded(true)}
+        >
+          <IssueStateBadge state={issue.state} />
+          <span className="comment-meta">
+            {issue.author}（{issue.roleId}）
+          </span>
+          <span className="comment-summary-text">{issue.text}</span>
+          <span className="muted" aria-hidden>
+            ▸
+          </span>
+        </button>
+      </article>
+    );
+  }
 
   return (
     <article
@@ -72,6 +106,17 @@ export function CommentCard({
           {issue.author}（{issue.roleId}） · {formatTime(issue.createdAt)} · 轮 {issue.roundCount}
           {issue.loopCount !== "0" && ` · 回退 ${issue.loopCount}`}
         </span>
+        {collapsible && (
+          <button
+            type="button"
+            className="comment-collapse"
+            aria-expanded
+            aria-label="收起评论"
+            onClick={() => setExpanded(false)}
+          >
+            收起 ▴
+          </button>
+        )}
       </header>
       {showAnchor && (
         <div className="comment-anchor muted">

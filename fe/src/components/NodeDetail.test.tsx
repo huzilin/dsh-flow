@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { NodeDetail } from "./NodeDetail";
-import type { ArtifactItem, FlowNodeItem, MyTaskResp, SessionItem } from "../api/proto/api";
+import { renderWithClient } from "../test-utils";
+import type { ArtifactItem, FlowNodeItem, IssueItem, MyTaskResp, SessionItem } from "../api/proto/api";
 
 /** ⑥ 会话 tab 测试（§6 N5：sessions 按节点过滤呈现，空集占位）。 */
 function makeNode(): FlowNodeItem {
@@ -155,5 +156,94 @@ describe("NodeDetail ② 评审药丸可点（OPT-002）", () => {
     fireEvent.click(pill);
     expect(pill).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText(/暂无意见/)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 药丸本体高亮（一版 A3-2/B-27 回归：N 未解决 Number badge + 轮次≥10 卡死红边）
+// ---------------------------------------------------------------------------
+
+function makeIssue(partial: Partial<IssueItem>): IssueItem {
+  return {
+    issueId: "cm-1",
+    nodeId: "n-04",
+    anchorKind: "document",
+    author: "arch",
+    roleId: "arch",
+    text: "口径待澄清",
+    state: "open",
+    escalate: "0",
+    loopCount: "0",
+    roundCount: "1",
+    createdAt: "1730000000000",
+    issueType: "issue",
+    reviewerRole: "arch",
+    assignee: "rd",
+    anchorArtifactId: "",
+    anchorLine: "0",
+    anchorStartLine: "0",
+    anchorEndLine: "0",
+    anchorBlockStart: "0",
+    anchorBlockEnd: "0",
+    anchorLang: "",
+    replies: "[]",
+    lastReplyAt: "0",
+    resolvePath: "",
+    resolveBy: "",
+    resolveAt: "0",
+    resolveNote: "",
+    resolveReviewerConfirmed: "0",
+    resolvedBy: "",
+    resolvedAt: "0",
+    updatedAt: "1730000000000",
+    ...partial,
+  };
+}
+
+function renderPillCase(reviewResults: string, issues: IssueItem[]) {
+  const node = makeNode();
+  node.reviewers = '[{"role":"arch","capabilityId":"arch.prd-review"}]';
+  node.reviewResults = reviewResults;
+  // issues 非空集会渲染 CommentCard（mutations）——走 renderWithClient 装配 QueryClient
+  return renderWithClient(
+    <NodeDetail
+      nodeId="n-04"
+      node={node}
+      myTask={makeMyTask()}
+      artifacts={[makeArtifact({ artifactId: "art-up", nodeId: "n-02" })]}
+      issues={issues}
+      requirementId="req-001"
+    />,
+  );
+}
+
+describe("NodeDetail ② 药丸本体高亮（一版 A3-2 回归）", () => {
+  it("N 未解决 Number badge 上药丸；轮次≥10 且未闭合 → is-stalled 红边 + 轮 N 徽标", () => {
+    const { container } = renderPillCase(
+      '[{"role":"arch","capabilityId":"arch.prd-review","state":"unagree","round":12,"at":1}]',
+      [
+        makeIssue({ issueId: "cm-1", state: "open" }),
+        makeIssue({ issueId: "cm-2", state: "to-fix", text: "待修复项" }),
+      ],
+    );
+    const pill = screen.getByRole("button", {
+      name: "arch（arch.prd-review）表态药丸，2 未解决，疑似卡死",
+    });
+    expect(pill.className).toContain("is-stalled");
+    expect(pill.textContent).toContain("2 未解决");
+    expect(pill.textContent).toContain("轮 12");
+    expect(pill.getAttribute("aria-expanded")).toBe("false");
+    // ① 状态卡不再重复放卡死徽标（高亮已移药丸本体）
+    expect(container.querySelector(".badge-stall")).toBeNull();
+  });
+
+  it("无未闭合评论：无 badge 无红边（aria-label 不带后缀）", () => {
+    renderPillCase(
+      '[{"role":"arch","capabilityId":"arch.prd-review","state":"agree","round":12,"at":1}]',
+      [],
+    );
+    const pill = screen.getByRole("button", { name: "arch（arch.prd-review）表态药丸" });
+    expect(pill.className).not.toContain("is-stalled");
+    expect(pill.textContent).not.toContain("未解决");
   });
 });

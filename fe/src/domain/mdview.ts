@@ -1,8 +1,8 @@
 /**
  * 轻量 Markdown 视图模型（BUG-012 描述卡渲染源；纯函数，禁 IO）。
  * 覆盖集（与 ArtifactReader「不引重库」同口径）：标题/无序+有序列表/围栏代码块/段落；
- * 行内：粗体/行内代码/链接。产物阅读器不用此渲染（行号直映原文是锚点防漂移前提，
- * 见 ArtifactReader 头注）。
+ * 行内：粗体/行内代码/链接。另含阅读器行级视图 mdLineViews（产物阅读器逐行轻量
+ * 渲染源——行号↔内容 1:1 映射，锚点防漂移前提下补 md 可读性，inventory A4-2/B-34）。
  * 安全性：输出结构化 token 交 React 渲染，不拼 HTML 字符串；链接仅放行 http(s)
  * （其余 scheme 的链接按纯文本呈现，防 javascript: 注入）。
  */
@@ -28,6 +28,92 @@ export type MdBlock =
 /** http(s) 外才可点击（其余 scheme 原样文本呈现）。 */
 function safeHref(href: string): string | null {
   return /^https?:\/\//.test(href) ? href : null;
+}
+
+/** 管道表格行切分（parseMarkdown 与阅读器逐行渲染同口径）。 */
+export function splitRow(row: string): string[] {
+  return row
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((c) => c.trim());
+}
+
+function isTableSep(s: string): boolean {
+  return /-/.test(s) && /^\s*\|?[\s:|-]+\|?\s*$/.test(s);
+}
+
+/**
+ * 阅读器行级 md 视图（ArtifactReader 逐行轻量渲染源；一版 client.js:227-231
+ * renderLineContent 同构）。与 parseMarkdown（整块聚合）不同：每源行恒产出一条
+ * 视图，行号↔内容 1:1 映射不漂移——划词锚按渲染后行定位的前提（inventory A4-2/
+ * B-34 复核取舍：锚点防漂移与 md 可读性兼得）。
+ */
+export type MdLineKind =
+  | "heading"
+  | "list"
+  | "ordered"
+  | "quote"
+  | "table-head"
+  | "table-sep"
+  | "table-row"
+  | "fence"
+  | "text";
+
+export interface MdLineView {
+  kind: MdLineKind;
+  /** heading 1-6 级（非 heading 恒 0） */
+  level: number;
+  /** 渲染文本（heading/list/quote 已剥标记符；表格行保留原文由渲染层切单元格） */
+  text: string;
+}
+
+/** 逐行分类：标题/列表/引用/围栏标记/管道表格（表头=管道行且次行为分隔行）。 */
+export function mdLineViews(lines: string[]): MdLineView[] {
+  const views: MdLineView[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (fenceLine(line) !== null) {
+      views.push({ kind: "fence", level: 0, text: line.trim() });
+      continue;
+    }
+    const heading = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (heading) {
+      views.push({ kind: "heading", level: (heading[1] ?? "#").length, text: heading[2] ?? "" });
+      continue;
+    }
+    const unordered = /^\s*[-*+]\s+(.+)$/.exec(line);
+    if (unordered) {
+      views.push({ kind: "list", level: 0, text: unordered[1] ?? "" });
+      continue;
+    }
+    const ordered = /^\s*(\d+[.)])\s+(.+)$/.exec(line);
+    if (ordered) {
+      views.push({ kind: "ordered", level: 0, text: `${ordered[1]} ${ordered[2] ?? ""}` });
+      continue;
+    }
+    const quoted = /^\s*>\s?(.*)$/.exec(line);
+    if (quoted) {
+      views.push({ kind: "quote", level: 0, text: quoted[1] ?? "" });
+      continue;
+    }
+    if (isTableSep(line)) {
+      views.push({ kind: "table-sep", level: 0, text: line });
+      continue;
+    }
+    if (/^\s*\|/.test(line)) {
+      const next = lines[i + 1] ?? "";
+      views.push(
+        isTableSep(next)
+          ? { kind: "table-head", level: 0, text: line }
+          : { kind: "table-row", level: 0, text: line },
+      );
+      continue;
+    }
+    views.push({ kind: "text", level: 0, text: line });
+  }
+  return views;
 }
 
 /** 行内解析：单趟正则扫描（代码/粗体/链接，先到先得；源串原样保真）。 */
@@ -127,8 +213,6 @@ export function parseMarkdown(src: string): MdBlock[] {
       const sep = /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1] ?? "") && /-/.test(lines[i + 1] ?? "");
       if (sep) {
         flushAll();
-        const splitRow = (row: string): string[] =>
-          row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
         const header = splitRow(line).map((c) => parseInline(c));
         const rows: MdInline[][][] = [];
         let j = i + 2;

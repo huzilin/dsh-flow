@@ -8,7 +8,6 @@ import type {
 } from "../api/proto/api";
 import { NODE_TYPE_LABELS, SESSION_STATUS_LABELS, WEB_USER_ROLE } from "../api/constants";
 import {
-  countOpenIssues,
   deriveGateView,
   inReviewCommentContext,
   parseReviewers,
@@ -140,12 +139,7 @@ export function NodeDetail({
             ✅ {counts.agree} · ⛔ {counts.unagree} · ○ {counts.reviewing}
             {counts.maxRound > 0 && ` · 第 ${counts.maxRound} 轮`}
             {gateView === "agreed" && " · 待拍板"}
-            {/* 疑似卡死高亮（原型 P1 卡②：轮次≥10 未收敛，拉长拉锯提示） */}
-            {counts.maxRound >= 10 && (counts.reviewing > 0 || counts.unagree > 0) && (
-              <span className="badge badge-stall" title="评审轮次≥10 未收敛，疑似卡死">
-                ⚠ 疑似卡死
-              </span>
-            )}
+            {/* 卡死高亮已上评审药丸本体（ReviewPills is-stalled，一版 A3-2 形态） */}
           </div>
           {node.enteredAt !== "0" && (
             <div className="muted small">进入执行：{formatTime(node.enteredAt)}</div>
@@ -155,7 +149,6 @@ export function NodeDetail({
         <PanelCard no="②" title="评审状态" className="panel-review">
           <ReviewPills
             node={node}
-            openCount={countOpenIssues(nodeIssues)}
             issues={nodeIssues}
             requirementId={requirementId}
             artifactLabels={artifactLabels}
@@ -372,13 +365,11 @@ function ExecActionText({ myTask }: { myTask: MyTaskResp | undefined }) {
  */
 function ReviewPills({
   node,
-  openCount,
   issues,
   requirementId,
   artifactLabels,
 }: {
   node: FlowNodeItem;
-  openCount: number;
   issues: IssueItem[];
   requirementId: string;
   artifactLabels?: Record<string, string>;
@@ -399,22 +390,40 @@ function ReviewPills({
         {seats.map((s) => {
           const key = `${s.role}:${s.capabilityId}`;
           const expanded = key === openSeatKey;
+          // 药丸本体信息密度（一版 client.js:724 形态回归——inventory A3-2/B-27）：
+          // N 未解决 Number badge + 轮次≥10 卡死红边（不再只放药丸行下方文字）。
+          const seatIssues = issues.filter((i) => i.reviewerRole === s.role || i.roleId === s.role);
+          const openN = seatIssues.filter((i) => i.state !== "resolved").length;
+          const seatRound = parseReviewResults(node.reviewResults)
+            .filter((r) => r.role === s.role && r.capabilityId === s.capabilityId)
+            .reduce((max, r) => Math.max(max, r.round), 0);
+          const stalled = seatRound >= 10 && openN > 0;
           return (
             <button
               key={key}
               type="button"
-              className={`review-seat${expanded ? " is-open" : ""}`}
+              className={`review-seat${expanded ? " is-open" : ""}${stalled ? " is-stalled" : ""}`}
               title={`${s.role} · ${s.capabilityId}${s.scopeExpr ? ` · ${s.scopeExpr}` : ""}（点击展开该角色意见）`}
-              aria-label={`${s.role}（${s.capabilityId}）表态药丸`}
+              aria-label={`${s.role}（${s.capabilityId}）表态药丸${openN > 0 ? `，${openN} 未解决` : ""}${stalled ? "，疑似卡死" : ""}`}
               aria-expanded={expanded}
               onClick={() => setOpenSeatKey(expanded ? null : key)}
             >
               <ReviewStatePill state={latestStateOf(node, s.role, s.capabilityId)} />
+              {openN > 0 && (
+                <span className="badge pill-open-count" title="该评审位未闭合评论数">
+                  {openN} 未解决
+                </span>
+              )}
+              {stalled && (
+                <span className="badge pill-round" title="评审轮次≥10 未收敛，疑似卡死">
+                  轮 {seatRound}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
-      <div className="muted small">未闭合评论 {openCount} 条 · 药丸主态=该评审位最新表态 · 点击药丸看该角色意见</div>
+      <div className="muted small">药丸主态=该评审位最新表态 · N 未解决/卡死高亮在药丸本体 · 点击药丸看该角色意见</div>
       {openSeat !== undefined && (
         <div className="review-seat-thread" data-seat={openSeat.role}>
           {openSeatIssues.length === 0 ? (
