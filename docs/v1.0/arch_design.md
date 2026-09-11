@@ -139,7 +139,7 @@ graph TD
 - **技术**：wbflow Client（interaction view）+ Host RPC。
 - **接口**：`wb.listRequirements / wb.listVersions / wb.getRequirement / wb.createRequirement / wb.updateRequirement / wb.deleteRequirement / wb.createVersion / wb.updateVersion / wb.advanceVersion / wb.deprecateVersion / wb.deleteVersion`。
 - **数据**：`requirements.json`、`versions.json`；需求 7 字段编辑审计 `history[]`。
-- **状态机**：版本 `待启动→进行中→已发布` 单向，任意阶段可废弃（联动需求已取消）；需求 `待启动/进行中/已完成/已取消`。
+- **状态机**：版本 `待启动→进行中→已发布` 单向，任意阶段可废弃（按注记-A 条件解绑，不取消需求）；需求 `待启动/进行中/已完成/已取消`，与编排推进自动联动（待启动节点通过→进行中；落位尾节点→已完成，§7.3）。
 - 设计细节见 `01-module-board/{prd/prd.md, rd/design.md, fe/design.md}`。
 
 ### 模块 II：需求 OA 流程树（需求详情页）
@@ -232,7 +232,7 @@ graph TD
 | `state` | `待启动 / 进行中 / 已发布 / 已废弃` |
 | `isBacklog` | 是否待分配池（仅 `v-backlog` 为 true） |
 
-**状态机**：`待启动 → 进行中 → 已发布` 单向推进；任意阶段可直接「废弃」（终态，v1 不可恢复）；废弃联动其下需求 `status → 已取消`（详见 `01-module-board/rd/design.md` §3.6）。
+**状态机**：`待启动 → 进行中 → 已发布` 单向推进；任意阶段可「废弃」（state=已废弃，终态）——**条件解绑**（spec §1.2 注记-A，2026-09-09 拍板）：其下全部需求未开始 → 废弃成功并解绑回待分配池（**不取消需求**）；任一需求已进入编排 → 409 blocked（详见 `01-module-board/rd/design.md` §3.6）。
 
 **Requirement（需求）**
 
@@ -294,6 +294,7 @@ note, added_by（登记人）, created_at, updated_at
 ```
 
 - 产物即「文件行」：文件名 + href + note；文档正文由作者用文件工具写入项目目录，登记只写元数据。
+- **产物入库约束（spec 注记-K，BUG-015 拍板 2026-09-10）**：expected_outputs 期望的产物必须 kind=document 且 href 为相对 docs root 路径、文件真实存在；登记口期望 document 而以 link 登记 → 400 blocked，判据口仅 kind 合规计入；link 仅用于期望外补充外链（如 code_mr）。
 - 一节点可多产物（QA 验收 = test.md + defect.md；并行开发 = rd/fe 各一份）。
 
 **Task（任务，唯一待办总线）**
@@ -377,7 +378,7 @@ rejected → in-progress（返工重做）
 
 **需求状态与版本状态**
 
-- 需求 `status`：`待启动 / 进行中 / 已完成 / 已取消`；废弃版本联动 → 已取消；收尾（最后节点通过）→ `已完成`。
+- 需求 `status`：`待启动 / 进行中 / 已完成 / 已取消`；废弃版本按注记-A 条件解绑（不取消需求）；与编排推进自动联动（2026-09-10 BUG-001 拍板，spec §1.2 注记-J1）：**待启动节点通过（流程首次进入编排，`flows.current_node_id` 空变非空）→ `进行中`；落位尾节点（流程定义最后一个节点被激活/驻留）→ `已完成`**。联动在推进核内同事务落值 + 审计（by_who=plugin/system），值不变不写（幂等），已取消为终态不覆盖；手动 `wb_update_requirement` 仍可显式改状态（空串=不修改，注记-J2）。
 - 版本状态机见 §8（`01-module-board/rd/design.md` §3.6）。
 
 ### 7.4 审计与一致性
@@ -396,14 +397,14 @@ rejected → in-progress（返工重做）
 **capabilities（能力注册表）**
 
 ```sql
--- 能力注册表（v0.28 products 单列：产出型 11 项有 products、评审/决策 8 项 '[]'；未固化项 template/demo = JSON null）
+-- 能力注册表（v0.28 products 单列：产出型 11 项有 products、评审/决策 8 项 '[]'；示例未固化项 demo_path = JSON null；v0.29 起 products 项无 template_path）
 CREATE TABLE capabilities (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   capability_id TEXT NOT NULL UNIQUE,   -- 'backend-design' | 'backend-dev' | …（唯一标识）
   name          TEXT NOT NULL,          -- 能力显示名
   role_id       TEXT NOT NULL,          -- 归属角色（逻辑引用 roles.role_id，1 对多）
   how           TEXT NOT NULL DEFAULT '[]',   -- JSON:[行为步骤]（能力本体；评审维度内聚在评审能力 how）
-  products      TEXT NOT NULL DEFAULT '[]',   -- JSON:[{doc_path, template_path, demo_path}]
+  products      TEXT NOT NULL DEFAULT '[]',   -- JSON:[{doc_path, demo_path}]（v0.29 删 template_path，标准指针不入 DB）
   created_at    INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
   updated_at    INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)
 );
@@ -422,10 +423,9 @@ CREATE TABLE capabilities (
     "数据设计保证可测性：字段/约束清晰、测试构造容易、QA 可按口径验收",
     "登记产物 → 提评"
   ],
-  "products": [                                       // JSON: 产出物清单（v0.28 合并三列）
+  "products": [                                       // JSON: 产出物清单（v0.28 合并三列，v0.29 删 template_path）
     {
       "doc_path": "docs/v2.0/req-019/rd/design.md",   // 产出文档存放路径
-      "template_path": "docs/templates/backend-design-doc-template.md",
       "demo_path": "docs/templates/backend-design-doc-demo.md"
     }
   ],
@@ -575,7 +575,7 @@ CREATE TABLE flow_nodes (
   branch          TEXT NOT NULL DEFAULT '',
   parallel_group  TEXT NOT NULL DEFAULT '',
   reviewers       TEXT NOT NULL DEFAULT '[]',  -- JSON:[{role,capability_id,scope?}]
-  feature_branch  TEXT,                 -- 评审敲定后写入的 git 分支名（NULL=未敲定）
+  feature_branch  TEXT,                 -- 评审敲定后写入的落点约定：feature 集成线名（工单分支自其切出合回；NULL=未敲定）
   state           TEXT NOT NULL DEFAULT '未开始',  -- 未开始/进行中/待评审/已通过
   entered_at      INTEGER,              -- 节点进入执行时间（NULL=未进入；业务语义≠行创建）
   rolled_back_count INTEGER NOT NULL DEFAULT 0,
@@ -602,7 +602,7 @@ CREATE TABLE flow_nodes (
     { "role": "fe",   "capability_id": "fe-tech-review",   "focus": "接口契约" },
     { "role": "qa",   "capability_id": "qa-tech-review",   "focus": "可测性" }
   ],
-  "feature_branch": null,                             // 评审敲定后写入（null=未敲定）
+  "feature_branch": null,                             // 评审敲定集成线后写入（null=未敲定）
   "state": "待评审",                                  // 未开始/进行中/待评审/已通过
   "entered_at": 1786000800000,                        // 节点进入时间（null=未进入）
   "rolled_back_count": 0,                             // 回滚次数
@@ -700,7 +700,7 @@ CREATE TABLE artifacts (
   "requirement_id": "req-019",
   "node_id": "n-03",                                  // 挂到产出节点
   "label": "《RD 技术设计》",                          // 显示名
-  "href": "docs/v2.0/req-019/rd/design.md",           // 文档路径（kind=link 时为 URL）
+  "href": "v2.0/req-019/rd/design.md",                // 相对 docs root 路径（kind=link 时为外链 URL；spec 注记-K）
   "kind": "document",                                 // document | link
   "note": "含接口契约 v2 修订",                        // 可选备注（''=无）
   "added_by": "rd",                                   // 登记人
@@ -857,7 +857,7 @@ CREATE TABLE meta (
 | 节点用什么能力 | flow_template_nodes.capability_id → capabilities（how/products，v0.28） |
 | 问题归属 L1/L2/L3 | issues(assignee) + reviewer_role；L3 domain 工具写 assignee |
 | 审计留痕 | audit_log（v0.18；snapshots 已删） |
-| 产物模板固化 | capabilities.products[].template_path/demo_path → docs/templates/（外置文件，v0.23） |
+| 产出标准权威 | v0.23 模板外置 docs/templates/ → v0.29 收敛进产出 skill（docs/templates/skills/，有 skill 的 4 类；无 skill 模板暂承载待建）；products=[{doc_path, demo_path}]（D4 拍板 47c53ed9） |
 
 ### 7.6 迁移与并发
 
@@ -891,7 +891,7 @@ erDiagram
         TEXT name
         TEXT role_id FK "引用 ROLES.role_id（1对多，角色拥有能力）"
         TEXT how "JSON 行为步骤（能力本体，v0.23）"
-        TEXT products "JSON [{doc_path,template_path,demo_path}] 产出物清单（v0.28 合并；评审/决策类 '[]'）"
+        TEXT products "JSON [{doc_path,demo_path}] 产出物清单（v0.28 合并；v0.29 删 template_path；评审/决策类 '[]'）"
         INTEGER created_at "unix ms"
         INTEGER updated_at "unix ms"
     }
@@ -940,7 +940,7 @@ erDiagram
         TEXT branch "''=非并行"
         TEXT parallel_group "''=非并行"
         TEXT reviewers "JSON [{role,capability_id,scope?}] 静态评审声明（v0.28；v0.18 取代 FLOW_NODE_REVIEWERS）"
-        TEXT feature_branch "NULL=未敲定"
+        TEXT feature_branch "feature 集成线名（落点约定，BUG-014 口径）；NULL=未敲定"
         TEXT state "未开始/进行中/待评审/已通过"
         INTEGER entered_at "节点进入时间（NULL=未进入）"
         INTEGER rolled_back_count
@@ -1120,7 +1120,7 @@ erDiagram
 | ① 产品设计 | Architect | 产品方案 | 需求描述 + 架构文档 | 《产品设计文档》 | —（产出后由②把关） |
 | ② 需求评审 | PM | 评审合理性 + 产品方案 | 产品设计文档 | 评审结论 | PM 价值/优先级/范围 + Architect 技术可行性 + **User 拍板** |
 | ③ RD 技术设计 | RD | 后端技术方案 | 产品设计文档 | 《RD 技术设计》 | — |
-| ④ RD 技术评审 | RD 发起 | 评审 RD 方案；敲定 feature 分支名 | RD 技术设计 | 评审意见 | Architect 路线一致 + RD 完整性/自测 + FE 接口可对接 + QA 可测性 + PM 工期依赖 + **User 拍板** |
+| ④ RD 技术评审 | RD 发起 | 评审 RD 方案；敲定 feature 集成线与分支拆合约定 | RD 技术设计 | 评审意见 | Architect 路线一致 + RD 完整性/自测 + FE 接口可对接 + QA 可测性 + PM 工期依赖 + **User 拍板** |
 | ⑤ FE 技术设计 | FE | 前端技术方案 | 产品设计 + RD 设计 | 《FE 技术设计》 | — |
 | ⑥ FE 设计评审 | FE 发起 | 评审 FE 方案 | FE 技术设计 | 评审意见 | QA 交互可测性/关键路径可验证 |
 | ⑦ 用例设计 | QA | 明确前后端各自自测、如何联调 | RD/FE 设计文档 | 《用例/联调设计》 | — |
@@ -1138,14 +1138,14 @@ erDiagram
 |---|---|---|---|---|---|
 | ① 需求对齐 | RD | 对齐目标；无产物；疑问与架构师/User 澄清拍板 | 需求描述 | —（结论落 issues） | User 拍板确认对齐结论 |
 | ② RD 技术设计 | RD | 后端技术方案 | 需求描述 + 架构文档 | 《RD 技术设计》 | — |
-| ③ RD 技术评审 | RD 发起 | 评审；敲定 feature 分支名 | RD 技术设计 | 评审意见 | Architect 路线 + FE 接口（按需）+ QA 可测性 + User 拍板 |
+| ③ RD 技术评审 | RD 发起 | 评审；敲定 feature 集成线与分支拆合约定 | RD 技术设计 | 评审意见 | Architect 路线 + FE 接口（按需）+ QA 可测性 + User 拍板 |
 | ④ FE 技术设计 | FE | 前端技术方案 | 产品设计 + RD 设计 | 《FE 技术设计》 | — |
 | ⑤ 用例设计 | QA | 自测/回归/联调口径 | RD/FE 设计文档 | 《用例设计》 | RD、FE（按需）口径 |
 | ⑥ 并行开发 | RD + FE | 开发+自测+MR | 用例设计 | 代码 MR(link) | Code Reviewer（分别 CR） |
 | ⑦ QA 验收 | QA | 按用例验收；缺陷打回 | MR + rd/fe 设计 | 《测试用例与验收记录》+《缺陷文档》 | QA 用例执行/缺陷闭环 |
 | ⑧ 用户验收 | User | 验收通过 | 验收记录 | — | User 目标达成 |
 
-**分支约定**：feature 分支名在 ③ 敲定（`feature/<需求id>-<主题>`），后续开发/CR/QA 验收同一分支。
+**分支约定（2026-09-10 BUG-014 口径修订）**：feature **集成线**在 ③ 敲定（`feature/<需求id>-<主题>`）；各执行任务从集成线切出工单分支（`<集成线>-t<N>-<slug>`）在独立 worktree 干活，完成后合回集成线；后续开发/CR/QA 验收**全程看同一集成线**。原「同一分支」口径在 worktree 并行下物理不成立（git 一个分支仅允许一个 worktree checkout），收敛点由集成线承接、隔离由工单分支+worktree 承接（铁律⑦⑧配套）。
 
 **任务（task）：5 节点 + 待启动**
 
@@ -1265,8 +1265,8 @@ flowchart TD
 - **评审能力按角色拆分不共享**：arch/rd/fe/qa 各自 tech-review（视角不同），另有 pm-review / code-review / decide-cap / final-approve。
 - **reviewers 条目** `{role, capability_id, scope?}`；**leader 不在 reviewers**（决策者 ≠ 评审表态者）。
 - **mode**：`produce`（有产物，默认）｜`align`（无产物自主对齐，结论落 issues；capability_id=NULL）。
-- **products 单列 JSON**（v0.28）：`[{doc_path, template_path, demo_path}]`；一能力可多产物（acceptance-test 挂 qa/test.md + qa/defect.md）；template/demo 为 null = 模板未固化。
-- **字段收缩轨迹（v0.23，User 拍板）**：曾内联 `structure/version/quality_gates/reviewer_focus/inputs`，v0.23 删除——`reviewer_focus` 职责错位（评审维度应写在**评审能力自身**的 how，而非被评审能力）；`inputs` 冗余（依赖已在派发时 task.context 给出）；`quality_gates/structure/version` 由**模板文件**承载（DB 不再内联）；v0.28 三列合并为单列 products。
+- **products 单列 JSON**（v0.28 合并；v0.29 删 template_path）：`[{doc_path, demo_path}]`；一能力可多产物（acceptance-test 挂 qa/test.md + qa/defect.md）；demo 为 null = 填充示例未固化。产出标准不入 DB：按产出 skill 寻址（docs/templates/skills/）。
+- **字段收缩轨迹（v0.23，User 拍板）**：曾内联 `structure/version/quality_gates/reviewer_focus/inputs`，v0.23 删除——`reviewer_focus` 职责错位（评审维度应写在**评审能力自身**的 how，而非被评审能力）；`inputs` 冗余（依赖已在派发时 task.context 给出）；`quality_gates/structure/version` 由**模板文件**承载（DB 不再内联）；v0.28 三列合并为单列 products；v0.29 删 template_path（标准权威迁产出 skill，D4 拍板）。
 - **how = 能力本体**：行为步骤（"对照 prd 核对功能点→接口契约 FE 可对接→与架构一致→数据可测性→登记提评"）——评审类能力在 how 里写明评审维度与表态流程。
 - **1 对多一致性规则**（wb_my_task 校验）：节点 `role_id` 必须等于其 `capability_id` 能力的 `role_id`（执行者拥有该能力）；唯一例外 task 流程「开发」节点 owner=executor（动态角色，模板默认 backend-dev）。
 
@@ -1308,7 +1308,7 @@ flowchart TD
 - **评审者 5 步**：读产物 → 按 focus 审 → 评论（wb_comment 锚到产物）→ 表态（wb_review pass/block）→ 复核（confirm/reopen）。
 - **被评审者 5 步**：读全部意见 → 澄清分歧（wb_reply）→ 修订 resolve → 复核 → 等推进。
 - **persona 只留**：专业能力卡 + 产物规范 + 3 行协作协议（① 被分配任务先调 wb_my_task；② 评论/缺陷只传 reqId+nodeId+内容(+domain)；③ 不越权：流程推进归 Leader wb_decide）。
-- **协作铁律**：① 文档先行 ② 小步多确认 ③ feature branch + MR ④ 审计即证据 ⑤ 破坏性操作确认 ⑥ 验收闭环 ⑦ 同一 feature 分支 ⑧ 多任务并行用 worktree。
+- **协作铁律**：① 文档先行 ② 小步多确认 ③ feature branch + MR ④ 审计即证据 ⑤ 破坏性操作确认 ⑥ 验收闭环 ⑦ 同一 feature 集成线（工单分支切出合回，评审/QA/CR 看集成线） ⑧ 多任务并行用 worktree。
 
 **角色卡（已实现 4 张：RD/FE/CR/QA；Architect/PM/Investigator 待落地，按同风格定义）**：
 
@@ -1355,28 +1355,30 @@ flowchart TD
 
 - 入参 `{reqId, role, nodeId?}`；nodeId 缺省 = 当前节点。
 - 返回：requirement / node / mode(produce|align) / gate / task / roleObjective / behaviors / onFeedback / reviewers / artifactsToReview / dependencyDocs / outputs / `sessionsByNode`。
+- **被评审产物（2026-09-10 BUG-011 拍板，spec 注记-J5）**：评审节点的 relatedArtifacts/artifactsToReview 注入**直接上游 produce 节点已登记产物**（提评来源，多上游取全部直接上游——实例链线性即紧邻前驱起的连续 produce 段），置前于本节点产物；评审者零跳转读被评审文档。
 - **sessionsByNode**：全需求每个 node 的全部会话（issue/discussion/notification 全含），按 node 分组、双重复位（nodeId+nodeKey）；对话本体唯一载体 = issues。
 - **任务派生规则**：对每个「进行中或待评审」节点，ownerRole===role → 产出任务；gate 且 reviewers 含 role 且未表态 → 评审任务。
 - **并行编排 vs 确定性任务**：org 层并行组是流程结构；`wb_my_task` 返回扁平化具体任务列表，不做推断。
 
-**四者联通组装链（节点 → 能力 → 模板 → 角色 → 讨论 → 上下文，m8 §3.4.4）**：
+**四者联通组装链（节点 → 能力 → 产出 skill → 角色 → 讨论 → 上下文，m8 §3.4.4；v0.29 模板层改 skill 层）**：
 
 ```
 wb_my_task(reqId, nodeId, role) 组装：
   1. 节点：flow_template_nodes[key] → capability_id + roleId + mode + scope + expectedOutputs（引用 capability_id）
-  2. 能力：capabilities[capability_id] → how（行为步骤=能力本体）+ products（doc_path + template_path/demo_path，v0.28 单列展开）
-  3. 模板：products[].template_path → docs/templates/xxx-template.md（章节骨架 + 质量门槛，外置文件）
+  2. 能力：capabilities[capability_id] → how（行为步骤=能力本体）+ products（doc_path + demo_path，v0.29 无 template_path）
+  3. 产出 skill：按能力→skill 约定寻址（docs/templates/skills/，frontmatter 声明动作绑定）——章节骨架/门禁/准出权威；demo 由 products[].demo_path 指向
   4. 角色：roles[role] + capabilities 校验「该角色是否拥有该能力」（roleId 匹配）
   5. 讨论：该需求全流程 issues（含 align 阶段 discussion 澄清结论）打包进上下文，subagent 无需自行检索
   6. 输出：{ nodeKey, mode, capability:{name, how[]}, products[], reviewers[]（capability_id→各自评审能力.how 取维度）, discussions, dependencyDocs（来自 task.context） }
-  —— 角色拿到「做什么(how) + 模板(template_path) + 讨论(discussions) + 依赖(dependencyDocs)」完整上下文，persona 零流程逻辑
+  —— 角色拿到「做什么(how) + 产出 skill + 示例(demo_path) + 讨论(discussions) + 依赖(dependencyDocs)」完整上下文，persona 零流程逻辑
 ```
 
-**示例（RD 技术设计节点，role=RD）**：nodeKey=`RD 技术设计`、mode=produce；capability.how=`["对照 prd 核对功能点，接口覆盖前端页面","接口契约可对接 FE","与架构文档一致","数据可测性","登记+提评"]`；products=`[{doc_path:"docs/<版本>/<需求>/rd/design.md", template_path:"docs/templates/backend-design-doc-template.md", demo_path:"…/backend-design-doc-demo.md"}]`；reviewers=`[{role:"arch",capability_id:"arch-tech-review"},…]`（维度从各评审能力.how 取）；dependencyDocs 来自 task.context（QA 验收额外含 rd/design.md+fe/design.md「接口协议」+MR/featureBranch「代码」）。
+**示例（RD 技术设计节点，role=RD）**：nodeKey=`RD 技术设计`、mode=produce；capability.how=`["读输入…","按产出 skill（to-rd-techdesign）标准逐节撰写…","按 skill 自检节自检…","登记+提评"]`；products=`[{doc_path:"docs/<版本>/<需求>/rd/design.md", demo_path:"…/backend-design-doc-demo.md"}]`；reviewers=`[{role:"arch",capability_id:"arch-tech-review"},…]`（维度从各评审能力.how 取）；dependencyDocs 来自 task.context（QA 验收额外含 rd/design.md+fe/design.md「接口协议」+MR/featureBranch「代码」）。
 
 ### 9.3 默认路由与问题归属
 
 - **wb_comment 全切默认路由**：agent 只传 `reqId+nodeId+text+anchor(+type?+domain?)`；`reviewerRole/to/assignee` 程序推导。
+- **评审评论必须锚产物（2026-09-10 BUG-013 拍板「所有的评审都是挂在文档上的」，spec 注记-J6）**：评审上下文（节点 state ∈ {review, respond}，或 author 角色 ∈ 节点评审位）的 issue 类评论，document 级锚点必须携带 `anchorArtifactId`（指向被评审产物），否则 400 invalidArg 引导挂锚；notification/discussion 类不受限；存量数据不回溯。无产物节点（纯对齐/门禁）document 锚保持合法。
 - **问题归属三层**：L1 锚点产物作者 → L2 节点 owner → L3 QA 跨端根因判定（`domain=rd|fe`）；domain 是 L3 的根因输出，不是「打回谁」标签。
 
 ### 9.4 交互模式（5 种可复用模式）
@@ -1478,52 +1480,51 @@ docs/
 
 **开发完成检查（RD/FE 通用）**：读依据文档 → 核对四类一致性（覆盖/一致/契约/边界）→ 输出实现-设计对照表（附 dev.md）→ 偏差处理（行为/接口变更 → 停止报告 Leader）→ 完成判定（对照表全一致+自测通过+MR 就绪）。
 
-### 10.3 产物模板机制
+### 10.3 产物标准机制（v0.29：产出 skill 为权威）
 
-- 模板 = **章节骨架（structure）+ 质量门禁（quality_gates）**，由 `docs/templates/*.md` 外置承载——`*-template.md`（骨架+门禁）与 `*-demo.md`（示例）**成对**。
-- **capabilities.products 引用**：`template_path / demo_path` 指向模板文件；`wb_my_task` 的 outputs[] 经 capability_id 展开出 doc_path/template_path。
-- **程序做路由、agent 做专业**：调整模板 = 改 `docs/templates/` 对应文件，全局生效（不碰 persona / 不碰代码）。
-- 已固化 **9 组**（18 文件）；未固化 3 项（backend-dev / frontend-dev / plan-cap，模板待建）。
+- **标准权威分层**（v0.29，User 拍板 D1-D6，semantica 47c53ed9）：有产出 skill 的产物，章节骨架 / required / purpose / 质量门禁 / 准出 / 接口协议**全部内联在 skill**（`docs/templates/skills/<skill>/SKILL.md`）——brd/prd/rd/fe 四类已迁（to-brd / to-prd / to-rd-techdesign / to-fe-techdesign）；无 skill 的产物暂由 `docs/templates/*-template.md` 承载（**skill 待建**，索引见 `docs/templates/README.md`）。`*-demo.md`（填充示例）恒保留，与 skill 骨架保持一致（D5）。
+- **capabilities.products 引用（v0.29）**：`[{doc_path, demo_path}]`——**DB 不存标准指针**；产出/评审端经**产出 skill 寻址**（skill frontmatter 声明「用于 X 产出型动作」即绑定）。
+- **程序做路由、agent 做专业**：调整产出标准 = 改对应 skill 文件，全局生效（不碰 persona / 不碰代码 / 不碰 DB）。
 
-**模板作用机制（三层，m8 §1.2）**：
+**标准作用机制（三层，v0.29 改写自模板三层 m8 §1.2）**：
 
 ```
-模板（定义：structure + quality_gates + owner_role → products[].template_path 指向文件）
-  ├─ structure       → wb_my_task.outputs[] 命中 template_id 后注入产出者：按章节骨架组织正文
-  ├─ quality_gates   → 双重消费：
-  │                    ① 产出者完成前按 gates 自检（check 是具体动作，ref 指明对照文档）
-  │                    ② 评审者（各审各的）评审时按 gates 核对；CR/QA 验收按结构逐节核对
-  └─ owner_role      → 与 flow 节点 ownerRole 匹配，程序校验「谁产出」；doc_path 与目录约定一致
-wb_my_task.dependencyDocs  ← 与 quality_gates[].ref 同源（同一套路径约定）
+产出 skill（定义：章节骨架 + 质量门禁 + 准出 + 接口协议，内联 SKILL.md）
+  ├─ 章节骨架        → 产出者按 skill「必填节 + Process」逐节撰写（必填节内联，无自造小标题）
+  ├─ 质量门禁/准出   → 双重消费：
+  │                    ① 产出者完成前按 skill「自检」节逐条自检（severity 分级）
+  │                    ② 评审者按评审能力 how 的「按产出 skill 自检节逐条核对」步骤核对（D1）
+  └─ demo（示例）    → products[].demo_path 指向填充示例，结构与 skill 骨架一致（D5）
+wb_my_task.dependencyDocs  ← 与自检项 ref 同源（同一套路径约定）
 ```
 
-- **产出端**：`wb_my_task` 返回 `outputs[]`（label/path/template_id）→ 角色按 `structure` 逐节撰写、按 `quality_gates` 自检 → 写盘（doc_path）→ `wb_add_artifact` 登记；
-- **评审端**：评审者拿到模板的 `quality_gates`，按 `severity` 分级核对（blocker 不满足则门禁不过、major 必查、minor 建议）；
-- **ref 约定**：`ref` 一律写目录约定的相对路径短名（`prd/prd.md` / `rd/design.md` / `fe/design.md` / `qa/cases.md` / `qa/test.md` / `qa/defect.md` / `rd/dev.md` / `fe/dev.md` / `plan.md` / `align.md` / `research.md` / `arch_design.md` / `roadmap.md`）；`—（自含）` 表示该检查只依据本文件内容，无外部依赖。
+- **产出端**：`wb_my_task` 返回 outputs[]（doc_path/demo_path）+ 能力 how → 角色按产出 skill 逐节撰写、按自检节自检 → 写盘（doc_path）→ `wb_add_artifact` 登记；
+- **评审端（D1=a）**：评审者按评审能力 how 内「按产出 skill 自检节逐条核对」步骤 severity 分级核对（blocker 不过即打回、major 必查、minor 建议）——自检在产出动作内（skill 自检节）完成，**flow 无专门自检节点**；
+- **ref 约定**：skill 自检项引用文档一律写目录约定的相对路径短名（`prd/prd.md` / `rd/design.md` / `fe/design.md` / `qa/cases.md` / `qa/test.md` / `qa/defect.md` / `rd/dev.md` / `fe/dev.md` / `plan.md` / `align.md` / `research.md` / `arch_design.md` / `roadmap.md`）；`—（自含）` 表示该检查只依据本文件内容，无外部依赖。
 
-**模板固化范围（v0.28：产出型能力 11 项，已建档 9 组；acceptance-test 合并后挂 2 产物）**：
+**产出 skill 覆盖范围（v0.29：产出型能力 11 项；已建 skill 4 类，其余模板暂承载待建）**：
 
-| capability_id | 名称 | role_id | 已建档模板（template_path） | products（doc_path 简述） | 服务对象（谁审什么） |
+| capability_id | 名称 | role_id | 产出 skill / 暂承载模板 | products（doc_path 简述） | 服务对象（谁审什么） |
 |---|---|---|---|---|---|
-| product-design | 产品设计 | arch | prd-template.md | prd/prd.md | 需求评审（PM 价值/可行性） |
-| backend-design | 后端技术设计 | rd | backend-design-doc-template.md | rd/design.md | RD 技术评审（Architect/RD/FE/QA/PM） |
-| frontend-design | 前端技术设计 | fe | frontend-design-doc-template.md | fe/design.md | FE 设计评审（QA 可测性） |
-| case-design-cap | 用例/联调设计 | qa | qa-testcase-review-template.md | qa/cases.md | 用例评审（RD/FE 口径） |
-| acceptance-test | 验收与缺陷管理（v0.28 合并） | qa | qa-acceptance-*.md + qa-defect-management-*.md | **2 产物**：qa/test.md + qa/defect.md | QA 验收（AC 逐条）+ User |
-| research-cap | 竞品调研 | inv | research-open-source-tech-template.md | research.md | 调研评审（Architect 覆盖度/建议） |
-| arch-cap | 架构规划 | arch | arch-version-design-template.md | arch_design.md | 架构规划评审（Leader/PM/User） |
-| alignment-cap | 需求对齐 | arch | arch-version-scope-align-template.md | align.md | 立项评审（PM/User） |
-| backend-dev | 后端开发 | rd | （待固化） | rd/dev.md | CR（设计落地核对） |
-| frontend-dev | 前端开发 | fe | （待固化） | fe/dev.md | CR（设计落地核对） |
-| plan-cap | 方案设计（任务） | executor | （待固化） | plan.md | 方案评审（QA 可测性/User 拍板） |
+| product-design | 产品设计 | arch | **to-prd** | prd/prd.md | 需求评审（PM 价值/可行性） |
+| backend-design | 后端技术设计 | rd | **to-rd-techdesign** | rd/design.md | RD 技术评审（Architect/RD/FE/QA/PM） |
+| frontend-design | 前端技术设计 | fe | **to-fe-techdesign** | fe/design.md | FE 设计评审（QA 可测性） |
+| case-design-cap | 用例/联调设计 | qa | qa-testcase-review-template.md（skill 待建） | qa/cases.md | 用例评审（RD/FE 口径） |
+| acceptance-test | 验收与缺陷管理（v0.28 合并） | qa | qa-acceptance-*.md + qa-defect-management-*.md（skill 待建） | **2 产物**：qa/test.md + qa/defect.md | QA 验收（AC 逐条）+ User |
+| research-cap | 竞品调研 | inv | research-open-source-tech-template.md（skill 待建） | research.md | 调研评审（Architect 覆盖度/建议） |
+| arch-cap | 架构规划 | arch | arch-version-design-template.md（skill 待建） | arch_design.md | 架构规划评审（Leader/PM/User） |
+| alignment-cap | 需求对齐 | arch | arch-version-scope-align-template.md（skill 待建） | align.md | 立项评审（PM/User） |
+| backend-dev | 后端开发 | rd | dev-notes-template.md（skill 待建） | rd/dev.md | CR（设计落地核对） |
+| frontend-dev | 前端开发 | fe | dev-notes-template.md（skill 待建） | fe/dev.md | CR（设计落地核对） |
+| plan-cap | 方案设计（任务） | executor | plan-template.md（skill 待建） | plan.md | 方案评审（QA 可测性/User 拍板） |
 
-> v0.28 变更：defect-management 并入 acceptance-test（products 第 2 项，模板沿用）；research-cap 模板回填。模板作用机制：① wb_my_task outputs[] 每项带 capability_id → 读 products[].template_path 指向文件；② 角色产出前按模板质量门槛自检，CR/QA 评审按章节结构核对（各审各的）；③ 改 docs/templates/ 对应文件即全局调模板（不碰 persona/代码）；④ 模板管「产出结构/质量门槛」，persona 管「专业能力」，流程路由完全程序化。
+> v0.29 变更（D2/D3/D4，User 拍板）：prd / backend-design / frontend-design 三组模板文件删除（标准已进 skill，brd-template 同）；无 skill 的模板原样保留标「skill 待建」；products 删 template_path。运行机制：① wb_my_task outputs[] 给 doc_path/demo_path，产出标准按能力→skill 约定寻址；② 产出者按 skill 自检节自检，评审者按评审能力 how 的 skill 核对步骤审（各审各的）；③ 改 skill 文件即全局调标准（不碰 persona/代码/DB）；④ skill 管「产出结构/门禁/准出」，persona 管「专业能力」，流程路由完全程序化。
 
-**模板速查（12 模板产出去向）**：prd→`prd/prd.md`、rd-design→`rd/design.md`、fe-design→`fe/design.md`、case-design→`qa/cases.md`、test-result→`qa/test.md`、defect→`qa/defect.md`、research→`research.md`、architecture→`arch_design.md`、alignment→`align.md`、dev-notes(rd/fe)→`rd|fe/dev.md`、plan→`plan.md`。
+**产物速查（13 类产出去向）**：brd→`brd/brd.md`、prd→`prd/prd.md`、rd-design→`rd/design.md`、fe-design→`fe/design.md`、case-design→`qa/cases.md`、test-result→`qa/test.md`、defect→`qa/defect.md`、research→`research.md`、architecture→`arch_design.md`、alignment→`align.md`、dev-notes(rd/fe)→`rd|fe/dev.md`、plan→`plan.md`（权威 skill / 暂承载模板索引见 `docs/templates/README.md`）。
 
-**质量门禁严重度**：**blocker**（阻塞门禁：不满足不可评审通过）/ **major**（评审必查，须在评审内闭环）/ **minor**（建议）。每条 check 的 `ref` 文档必须在产出前可读或在验收时存在。
+**质量门禁严重度**：**blocker**（阻塞门禁：不满足不可评审通过）/ **major**（评审必查，须在评审内闭环）/ **minor**（建议）。skill 自检项引用的 ref 文档必须在产出前可读或在验收时存在。
 
-**模板间依赖链**：AC 链（prd AC→cases 验收用例→test 逐条核对）、契约链（rd 接口→fe 对接）、版本链（align→research→architecture→roadmap→需求）、验收链（test 结论 + defect 归属→返工闭环）。
+**产物依赖链**：AC 链（prd AC→cases 验收用例→test 逐条核对）、契约链（rd 接口→fe 对接）、版本链（align→research→architecture→roadmap→需求）、验收链（test 结论 + defect 归属→返工闭环）。
 
 **产物形态与展示**：doc（文档正文，阅读器+锚点评论）/ link（新窗口跳转）；📄=doc、🔗=link；节点无产物显示「该节点无产物」。
 
@@ -1601,3 +1602,9 @@ wb_my_task.dependencyDocs  ← 与 quality_gates[].ref 同源（同一套路径�
 | 后端 | RD | 2025-01-01 |
 | 前端 | FE | 2025-01-01 |
 | 测试 | QA | 2025-01-01 |
+
+## 需求详情页信息架构（2026-09-10 批注轮修复口径，BUG-012/OPT-001/002/003）
+
+- 头部元信息之下、流程导航之上为**需求说明描述卡**：Markdown 渲染（mini renderer，与产物阅读器同口径不引重库），有描述默认展开；变更历史折叠区随描述卡归位（不再沉底）。
+- flow 页**两栏布局**：左列流程导航常驻（当前节点高亮、点击切换），右列节点详情；≤980px 退化为上下堆叠。节点点色语义=门禁结论优先（绿已通过/琥珀待拍板/红已打回）、相位色兜底。
+- 评审上下文呈现：review 型节点详情将**被评审产物**（直接上游 produce 段，my-task relatedArtifacts 置前序）分组顶前展示；评审表态药丸可点展开该角色意见线程（只读，发言走评论通道并强制锚产物，见 BUG-013）。

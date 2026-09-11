@@ -72,7 +72,7 @@ sequenceDiagram
     H-->>C: {ok, reqList}
 ```
 
-**版本废弃流**：`wb.deprecateVersion` → 先写 `versions.json`（state=已废弃）→ 再写 `requirements.json`（其下需求 status→已取消）→ 返回 `{ok, verList, reqList, depCount}`。
+**版本废弃流**：`wb.deprecateVersion` → 条件校验（其下**全部**需求未开始——任一已进入编排 → 409 blocked）→ 先写 `versions.json`（state=已废弃，终态）→ 再写 `requirements.json`（其下需求 `version_id → NULL` 解绑回待分配池，**不改 status、不写 history**，逐行审计）→ 返回 `{ok, verList, reqList, depCount}`（条件解绑口径：spec §1.2 注记-A）。
 
 ### 3.4 模块与依赖
 
@@ -95,7 +95,7 @@ sequenceDiagram
 | `wb.createVersion` | write | 建版本（待启动） | `{ok, verList}` |
 | `wb.updateVersion` | write | 改名（v-backlog 拒绝） | `{ok, verList}` |
 | `wb.advanceVersion` | write | 按状态机单向推进；发布返回 unfinished | `{ok, verList}` |
-| `wb.deprecateVersion` ⚠️ | write | 废弃 + 联动需求已取消（双写） | `{ok, verList, reqList, depCount}` |
+| `wb.deprecateVersion` ⚠️ | write | 废弃 + 条件解绑（全部未开始 → 解绑回池不取消；任一已开始 → 409 blocked） | `{ok, verList, reqList, depCount}` |
 | `wb.deleteVersion` | write | 有引用→blocked；无引用删除 | `{ok, verList}` |
 
 ```json
@@ -129,10 +129,10 @@ sequenceDiagram
 | advance | 进行中 | 已发布 | 有未完成需求返回 `unfinished: n`，仅提示不阻止 |
 | advance | 已发布/已废弃 | — | 拒绝 |
 | advance | v-backlog | — | 拒绝 |
-| deprecate | 任意非废弃态 | 已废弃 | 终态；联动需求 status→已取消（不写 history）；二次确认 |
+| deprecate | 任意非废弃态 | 已废弃 | 终态；条件解绑（注记-A）：全部未开始 → 解绑回池不取消；任一已开始 → 409 blocked；二次确认 |
 | deprecate | 已废弃 | — | 拒绝（幂等） |
 
-**废弃双写顺序**：先写 versions.json，再写 requirements.json；任一失败返回 error。
+**废弃双写顺序**：条件校验（其下全部需求未开始）通过后，先写 versions.json，再写 requirements.json（解绑回池，逐行审计）；任一失败返回 error。
 
 ## 4. 备选方案与取舍
 
@@ -181,7 +181,7 @@ sequenceDiagram
 - [ ] Given 编辑需求无变化, when 保存, then 不追加 history。
 - [ ] Given 版本进行中, when advance, then 变已发布并返回未完成数。
 - [ ] Given 删除有引用版本, when 操作, then blocked 并返回 refCount。
-- [ ] Given 废弃版本, when 确认, then 其下需求全部已取消且不写 history。
+- [ ] Given 废弃版本且其下需求全部未开始, when 确认, then 版本已废弃且其下需求解绑回待分配池（不取消、逐行审计）；Given 任一需求已进入编排, when 废弃, then 409 blocked。
 
 ## 8. 排期与任务拆分
 
