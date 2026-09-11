@@ -17,7 +17,7 @@
 | 评审人 | Architect / FE / RD |
 | 计划窗口 | v1.0 MVP |
 
-**背景链接**：模块 II 评审/流程事件为收件箱的来源（`02-module-flow-tree/prd/prd.md`）；TASK 唯一待办总线见 `arch_design.md` §2.6。
+**背景链接**：模块 II 评审/流程事件为收件箱的来源（`02-module-flow-tree/prd/prd.md`）；TASK 唯一待办总线见 `arch_design.md` §7.2。
 
 ## 1. 问题陈述（为什么做）
 
@@ -154,7 +154,7 @@
 
 | 依赖项 | 类型 | 状态 | 阻塞说明 |
 |---|---|---|---|
-| Task 实体 / 查询投影 | 系统 | 已确认 | `arch_design.md` §2.6 |
+| Task 实体 / 查询投影 | 系统 | 已确认 | `arch_design.md` §7.2 |
 | 模块 II 事件 | 系统 | 已确认 | `02-module-flow-tree` |
 
 ### 9.2 关键决策记录
@@ -165,7 +165,7 @@
 
 ## 10. 追溯与附录
 
-- **追溯链接**：后端设计 `rd/design.md`；前端设计 `fe/design.md`；`arch_design.md` §2.6/§3.3。
+- **追溯链接**：后端设计 `rd/design.md`；前端设计 `fe/design.md`；`arch_design.md` §7.2/§7.3。
 - **未决问题**：[ ] 多项目聚合（E3 后置）。
 
 | 版本 | 日期 | 修改人 | 修改内容 | 原因 |

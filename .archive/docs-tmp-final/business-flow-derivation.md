@@ -1,5 +1,7 @@
 # 业务需求流程（business）· 节点状态挂载配置 v3.1（逐 state 单列）
 
+> **已归档（2026-09-12 MIG-07）**：本文件为推演底稿，现行设计权威=docs/v1.0/arch_design.md
+
 > **状态**：2026-09-05 v3.1（格式修正：每节点所有 state 单列，逐 state 明确挂载 action——含跳过相位，配置无歧义）。模型权威=`capability-model-final.md` v3；动作→skill=`capability-actions-final.md`。
 > **拓扑**：13 节点。**需求 scope 三值：full（rd+fe）/ rd / fe**（2026-09-07 术语统一：be→rd，与角色名一致）。
 >

@@ -510,5 +510,5 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 
 - **MySQL 8.0 假设**：JSON 类型/CTE 依赖 8.0；部署版本若低于 8.0 需提前确认。
 - **幂等键**：complete 幂等（判据幂等）；派发 `reqId+nodeId+action_id+assignee`；回退 `reqId+nodeId+round`。
-- **设计权威冲突时**：以设计五件套（capability-model-final v3.1 / data-tools-final / ui-interaction-final 等）为准，本 spec 为实现翻译层；翻译发现设计缺口 → 回设计层裁决，不自行发挥。
+- **设计权威冲突时**：以 `docs/v1.0/arch_design.md`（单一设计权威，2026-09-12 MIG-07 五件套并入）为准，本 spec 为实现翻译层；翻译发现设计缺口 → 回设计层裁决，不自行发挥。
 - **DSH 嵌入预留**：API-first 已保证；嵌入期仅新增认证适配器 + conversation.view 挂载，无 API 变更。

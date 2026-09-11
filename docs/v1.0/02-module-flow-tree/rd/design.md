@@ -119,7 +119,7 @@ sequenceDiagram
     comments.json          # 统一评论模型（四级锚点）
 ```
 
-实体字段以 `arch_design.md` §2 为唯一真相源（Version/Requirement/Flow+FlowNode/Issue/Artifact/Task）。关键对齐点：
+实体字段以 `arch_design.md` §7.2 为唯一真相源（Version/Requirement/Flow+FlowNode/Issue/Artifact/Task）。关键对齐点：
 
 - `reviewers[]` 仅静态声明 `[{role, capability_id, scope?}]`，动态「谁过了没」由评审表态 + 评论闭环派生。
 - 评论 = 问题统一模型（不区分评审 Issue 与普通评论）。

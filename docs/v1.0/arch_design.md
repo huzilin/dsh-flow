@@ -1,10 +1,10 @@
 # 版本架构设计文档：v1.0 —— 团队项目工作台平台（总集）
 
-> **⚠️ 定位标注（2026-09-12）**：本文件为 v1 设计基线的历史底稿——§7-§9 沿用 pkg-16 时代词汇（wb_decide/resolve(note)/overridden/pass|block 表态/19 旧能力等），与现行设计（docs-tmp/ 五件套 v5 口径）不一致。现行设计以 docs-tmp 为权威，本文件仅作基线留档；逐节刷新为独立 effort（未排期）。
+> **本文件 = 现行设计单一权威（2026-09-12 MIG-07 合并拍板：「合并吧，保留一份权威的 arch_design」）**。原 docs-tmp 五件套（capability-model / capability-actions / business-flow-derivation / flow-derivation-tech-task-plan / data-tools / ui-interaction-final）已按本文件章节结构并入；历史沿革见 `.plan/timeline/`（decision-timeline.md / terminology-evolution.md）；推演底稿原件归档于 `.archive/docs-tmp-final/`。
+> 词汇基准 = `CONTEXT.md`（现行词汇单点定义）。实现层规格（MySQL DDL / HTTP API）= `.plan/wbflow-impl/spec.md`（本文件不复制其正文，避免第二真相源）。
 
-> **本文档是平台 v1.0 的架构设计总集**：整体架构 + 数据层 + 制度层 + 执行层 + 文档规范 + 里程碑的合并文档。
-> 由原 `arch_design.md`（架构）+ `05-domain-model.md`（数据）+ `06-flows-and-roles.md`（制度）+ `07-tools-and-orchestration.md`（执行）+ `08-doc-standards.md`（规范）+ `09-milestones.md`（进度）合并而成。
-> 定位：描述跑在 DeepSeek Harness（DSH）之上的「项目管理 + OA 流程 + 评审协作」三合一平台的完整设计，并据此把平台自身拆解为可并行实现的需求单元（模块级 prd/rd/fe 见各 module 目录）。
+> **本文档是平台 v1.0 的架构设计总集**：整体架构 + 数据层 + 制度层（含节点编排模型）+ 执行层 + 文档规范 + 里程碑的合并文档。
+> 定位：描述「项目管理 + OA 流程 + 评审协作」三合一平台的完整设计，并据此把平台自身拆解为可并行实现的需求单元（模块级 prd/rd/fe 见各 module 目录）。
 > 交互层四模块的功能级设计见 `01-module-board/`、`02-module-flow-tree/`、`03-module-inbox-todo/` 下各 `prd/prd.md` + `rd/design.md` + `fe/design.md`。
 
 ---
@@ -14,33 +14,33 @@
 | 项 | 值 |
 |---|---|
 | 版本 | v1.0 |
-| 文档版本 / 状态 | v1.0（已批准） |
+| 文档版本 / 状态 | v1.1（2026-09-12 MIG-07 合并五件套，单一设计权威） |
 | 架构师 | Architect |
-| 设计与批准日期 | 2025-01-01 / 2025-01-01 |
 | 关联需求对齐 | 团队项目工作台 v1.0（平台整体立项，范围整体冻结） |
 | 目标读者 | 前端 / 后端 / 测试 / 项目负责人 |
+| 配套 | 词汇基准 `CONTEXT.md`；实现规格 `.plan/wbflow-impl/spec.md`；决策台账 `.plan/timeline/decision-timeline.md` |
 
 ## 1. 执行摘要
 
-**团队项目工作台**是运行在 DeepSeek Harness（DSH）之上的三合一交互系统，将「项目管理 + OA 流程 + 评审协作」收敛进一个 `conversation.view` 工作台界面。核心差异点：每个流程阶段绑定产物、阶段下挂评审沟通记录、阶段由 Agent 角色（PM/RD/FE/QA/Architect）而非仅人类成员负责、门禁 = User 评审决策（双向多轮对话）。
+**团队项目工作台**是「项目管理 + OA 流程 + 评审协作」三合一交互系统，将三类工作收敛进一个工作台界面。核心差异点：每个流程阶段绑定产物、阶段下挂评审沟通记录、阶段由 Agent 角色（PM/RD/FE/QA/Architect）而非仅人类成员负责、门禁 = User 评审决策（双向多轮对话）。
 
-平台采用**四层架构**：制度层（DSH team preset，只读）→ 交互层（wbflow 插件 Host+Client 两半）→ 数据层（`.workbench/` JSON → sqlite 11 表）→ 执行层（Leader + 角色子 agent + 22 个 `wb_*` 领域工具）。四大模块：I 版本看板+需求池+需求管理+版本管理；II 需求 OA 流程树（评审闭环+产物阅读器+锚点评论+门禁）；III 门禁通知收件箱（User 全局）；IV TODO 列表。
+平台采用**四层架构**：制度层（team preset，只读，含节点编排模型）→ 交互层（Web 前端；预留 DSH plugin 嵌入）→ 数据层（**MySQL 8.0，14+1 表**）→ 执行层（后端 Go + Gin，wb_* 语义一份、HTTP 一张皮）。四大模块：I 版本看板+需求池+需求管理+版本管理；II 需求 OA 流程树（评审闭环+产物阅读器+锚点评论+门禁）；III 门禁通知收件箱（User 全局）；IV TODO 列表。
 
-关键技术栈：DSH 插件（Cordis，host+client 必须同时定义）、sqlite（WAL，单写多读）、轻量 Markdown 渲染阅读器、无外部依赖的锚点防漂移（去空白原文指纹）。核心取舍一句话：**流程写死不造引擎、程序做路由 agent 做专业、数据与 UI 解耦、TASK 是唯一待办总线**。
+节点编排 = **两层属性状态机**：`node.state` 可配动作相位（entry/exec/review/respond，done=离场终态）+ `reviewState` per-agent 评审轮（每评审位独立 reviewing→agree/unagree，collect 聚合判定 approved/rejected）。issue 走**五态状态机**（open/pending-confirm/to-fix/fixed/resolved）+ 复核事件（clarified/settle/qualify/reopen/declare-fixed/confirm/revise/override）。核心取舍一句话：**流程写死不造引擎、程序做路由 agent 做专业、数据与 UI 解耦、TASK 是唯一待办总线**。
 
 ## 2. 版本背景与范围
 
 ### 2.1 范围
 
-- In scope（架构需支撑）：四层架构落地、四大模块（看板 / 流程树 / 收件箱 / TODO）、四类流程模板（business/tech/task/plan）、9+1 角色 + 19 能力 + 22 工具、sqlite 领域存储、审计闭环。
-- Out of scope（本版本架构不覆盖）：多项目切换 UI（数据已按 projectId 分桶，仅缺界面）、diff 级行锚点、看板拖拽换列、通用可视化流程编辑。
-- 关键假设 & 约束：平台运行于 DSH 插件体系；项目 = DSH workspace 目录；流程写死为确定节点/门禁；宿主仅提供 `btoa/atob/TextEncoder`（无 crypto）用于指纹；单写入者（Leader 主导）无并发锁。
+- In scope（架构需支撑）：四层架构落地、四大模块（看板 / 流程树 / 收件箱 / TODO）、四类流程定义（business 13 节点 / tech 11 / task 7 / plan 9，共 40 定义节点）、9+1 角色 + 21 活跃能力 + 22 个 wb_* 工具语义、MySQL 领域存储、审计闭环、outbox 通知可靠性。
+- Out of scope（本版本架构不覆盖）：DSH 嵌入适配器（接口已预留）、多项目切换 UI 完整版、diff 级锚点、看板拖拽换列、通用可视化流程编辑、依赖调度器（MVP 人工卡点）。
+- 关键假设 & 约束：一期 = 自包含 Web 应用（MySQL 8.0 / Go + Gin / React+Vite+TS）；最高接缝 = HTTP API（agent 侧 wb_* 工具=HTTP client）；不建物理外键（逻辑引用）；乐观锁 = `updated_at`。
 
 ### 2.2 本次架构要解决的核心问题
 
 - 如何把「制度（Agent 学习）」「界面（User 操作）」「数据（持久化）」「执行（Agent 编排）」四者解耦为可独立演进的层？
-- 如何在不做可视化流程引擎的前提下，把 30+ 节点、5 种交互模式统一为程序可路由、agent 仅做专业判断的确定性模型？
-- 如何保证流程推进、评审、审计的数据一致性（状态机、audit_log、门禁前置校验）？
+- 如何在不做可视化流程引擎的前提下，把 40 个定义节点、5 种交互模式统一为程序可路由、agent 仅做专业判断的确定性模型？
+- 如何保证流程推进、评审、审计的数据一致性（两层状态机、issue 五态、audit_log、门禁前置校验、outbox 无限重试）？
 
 ## 3. 架构设计原则与决策
 
@@ -48,19 +48,19 @@
 
 | 概念 | 含义 | 归属 |
 |---|---|---|
-| 流程 / 角色 / 门禁制度 | 四类流程、9 角色、各阶段与门禁规则 | **制度层**（team preset，只读，供 Agent 学习遵循） |
-| 交互工作台 | 版本看板 / OA 流程树 / 收件箱 / TODO | **交互层**（插件，供 User 操作） |
-| 过程数据 | 版本、需求、流程节点、产物、评论、任务 | **数据层**（持久化存储） |
-| 执行引擎 | 谁推进节点、生成产物、回复评审 | **执行层**（Leader + 角色子 agent + wb_* 工具） |
+| 流程 / 角色 / 门禁制度 | 四类流程、9+1 角色、节点编排模型、门禁规则 | **制度层**（team preset，只读，供 Agent 学习遵循） |
+| 交互工作台 | 版本看板 / OA 流程树 / 收件箱 / TODO | **交互层**（Web 前端，供 User 操作） |
+| 过程数据 | 版本、需求、流程节点、产物、评论、任务 | **数据层**（MySQL 持久化） |
+| 执行引擎 | 谁推进节点、生成产物、回复评审 | **执行层**（后端 service + 角色子 agent + wb_* 工具） |
 
-**一句话**：制度进预设（Agent 学习并遵循），界面进插件（User 操作），数据进存储（持久化），执行靠 Agent 编排。
+**一句话**：制度进预设（Agent 学习并遵循），界面进前端（User 操作），数据进存储（持久化），执行靠 Agent 编排。
 
 ### 3.2 设计原则
 
 1. **流程写死、不造引擎**：四类流程以确定节点/门禁建模，不做可视化流程编辑。
 2. **门禁是人机交互的自然面**：User 确认 = 评审卡点；评审必有产出物 + 可对话 + 可带理由打回 + 可异议多轮 + 可引入新范围反向确认。
 3. **数据与 UI 解耦**：数据层是单一可查询领域模型；UI 只是它的投影。
-4. **渐进落地**：先静态流程骨架 + 交互 demo，再接入真实 Agent 编排。
+4. **渐进落地**：先静态流程骨架 + 交互原型，再接入真实 Agent 编排。
 5. **程序做路由，agent 做专业**：节点/评审/归属/通知的路由由程序从数据推导（`wb_my_task`/默认路由），Agent 只做内容与专业判断。
 6. **文档先行、小步多确认（协作节奏）**：每个里程碑先细化文档 → 产出**产品文档**（页面/交互/数据字段）→ **User 确认**后进入实现；实现中遇新决策点回到 1 补充产品文档再定。**纯数据/后端里程碑无可见页面时**，产品文档以「数据 Schema + 命令/查询接口说明 + 数据样例」呈现，同样需 User 确认。
 
@@ -68,16 +68,17 @@
 
 | # | 决策 | 定稿 |
 |---|---|---|
-| 1 | 领域存储 | 文件存储 `<workspace>/.workbench/` 起步（透明可 diff）；**已演进为 sqlite**（`workbench.db`，11 表，无外键、逻辑引用、审计留痕），JSON 仅作导出格式 |
+| 1 | 领域存储 | 文件存储 `.workbench/` JSON 起步 → sqlite（一版实现）→ **现行：MySQL 8.0**（DM-08，重新实现换栈）；磁盘仅保留产物文档本身（docs/ 仓库） |
 | 2 | 制度只读 | 流程/角色/门禁落在 team preset（只读）；User 明文告知才调整 |
-| 3 | 通知形态 | 经历「IM 收件箱 → 任务总线」演进，**定稿：TASK 是唯一待办总线**；通知/待回复由查询 `tasks`/`issues` 实时推导（通知是视图，不是数据） |
-| 4 | 评论模型 | 统一「评论 = 问题」模型；状态 `open → pending-confirm → resolved`（或 `overridden`）；解决需提评者复核确认 |
-| 5 | 锚点 | 四级：`document / line / range / block` |
+| 3 | 通知形态 | 经历「IM 收件箱 → 任务总线」演进，**定稿：TASK 是唯一待办总线**；通知/待回复由查询 `tasks`/`issues` 实时推导（通知是视图，不是数据）；投递可靠性走 **notify_outbox 消息事务表**（业务事务内 enqueue + 提交后 Flush + scanner 补投；**无 dead 终态、无限重试直至送达**，铁律#6） |
+| 4 | 评论模型 | 统一「评论 = 问题」模型；**issue 五态** `open → pending-confirm →（resolved / to-fix / open）`；修复子机 `to-fix → fixed →（resolved / to-fix）`；复核事件 clarified/settle/qualify/reopen/declare-fixed/confirm/revise；override 是动作、结果置 resolved（**无 overridden 态**，09-12 裁决） |
+| 5 | 锚点 | 两级：`range`（划词）/ `document`（文档级）（OPT-005 按飞书口径收窄；line/block 后端 400 废弃，存量只读兼容，-L3） |
 | 6 | 项目边界 | 项目 = DSH workspace（目录），各一套独立数据；收件箱/TODO 为 User 全局（跨项目聚合，可按项目/任务名筛选） |
-| 7 | 评审职责 | **各审各的**：评审者只对自己职责内维度评审与表态（维度固化在评审能力 how） |
+| 7 | 评审职责 | **各审各的 + 文档不自评（铁律#2）**：评审者只对自己职责内维度评审与表态；评审能力按「对象×角色」对象化（{role}.{object}-review，最小上下文） |
 | 8 | 问题归属 | 三层：L1 锚点产物作者 → L2 节点 owner → L3 QA 跨端根因判定（`domain=rd\|fe`） |
 | 9 | 流程演进 | 流程路由程序化（`wb_my_task` + 默认路由），persona 只留专业能力卡 + 3 行协作协议 |
-| 10 | 进程约定 | 插件 Cordis 定义必须同时带 `host`+`client`；Host 返回恒为纯 JSON（lossless）；写文件显式传 `writePolicy()`（workspaceRoot=PROJECT） |
+| 10 | 进程约定 | 一期 Web 前后端分离（React+Vite+TS / Go+Gin）；未来 DSH 嵌入仅新增认证适配器 + conversation.view 挂载，无 API 变更（API-first） |
+| 11 | 技术规格硬约束 | 可执行完整 DDL、每表 created_at+updated_at 毫秒、主键 BIGINT UNSIGNED AUTO_INCREMENT、不建物理外键、乐观锁=updated_at、JSON 载荷存 TEXT 不用 JSON 类型、proto 为真相源（DM-09） |
 
 ## 4. 整体架构
 
@@ -85,11 +86,11 @@
 
 ```mermaid
 graph LR
-    U[User 人类] --> S[团队项目工作台 wbflow 插件]
+    U[User 人类] --> S[工作台 Web 前端]
     U --> L[Leader 主 agent]
-    S --> D[(.workbench 数据：JSON / sqlite)]
-    S --> G[DSH harness RPC wb.*]
-    L --> A[角色子 agent: RD/FE/QA/CR/Architect...]
+    S --> API[HTTP API（Go + Gin）wb_* 语义一份]
+    L --> A[角色子 agent: RD/FE/QA/CR/Architect...（wb_*=HTTP client）]
+    API --> D[(MySQL 8.0 workbench 14+1 表)]
 ```
 
 ### 4.2 逻辑架构（四层）
@@ -97,67 +98,147 @@ graph LR
 ```mermaid
 graph TD
     subgraph 制度层
-        P[team preset：流程模板/角色/能力/铁律]
+        P[team preset：流程定义/角色/能力/编排模型/铁律]
     end
     subgraph 交互层
-        C[wbflow Client：看板/流程树/收件箱/TODO]
-        H[wbflow Host：harness.handle wb.*]
+        C[Web 前端：看板/流程树/收件箱/TODO]
     end
     subgraph 数据层
-        F[(.workbench JSON)]
-        S[(sqlite workbench.db 11表)]
+        D[(MySQL workbench 14+1 表)]
     end
     subgraph 执行层
+        API[HTTP API service：op* 领域函数]
         L2[Leader 编排]
         AG[角色子 agent + wb_* 工具]
     end
     P -.只读.-> L2
-    C --> H --> F & S
+    C --> API
+    AG --> API
     L2 --> AG
-    AG --> H
+    API --> D
 ```
 
-- **交互层不直接改数据**：所有领域读写经 Host `harness.handle` 的 `wb.*` RPC；模型工具（`wb_*`）与 UI 共用同一套 `op*` 领域函数（同一审计/门禁/状态机）。
+- **交互层不直接改数据**：所有领域读写经 HTTP API 的 `wb.*` 契约；模型工具（`wb_*`）与 UI 共用同一套 `op*` 领域函数（同一审计/门禁/状态机）。
 - **制度只读**：执行角色不得自行改制度；调整仅经「User 明文告知 → 协助调整 preset 文件」通道。
 
-**主路径**：用户 → wbflow Client → Host → op* 领域函数 → 数据层（交互 / 评审 → 流程推进 → 持久化）。
+**主路径**：用户 → Web 前端 → HTTP API → op* 领域函数 → 数据层（交互 / 评审 → 流程推进 → 持久化）。
 
 ### 4.3 部署架构
 
-平台以 DSH 插件形态部署于宿主进程；数据落 DSH workspace 目录（`.workbench/`）。sqlite 采用 WAL（单写多读）。无独立服务端集群，单实例承载。
+一期为自包含 Web 应用：浏览器 + Go 后端（Gin，单实例）+ MySQL 8.0。未来 DSH 嵌入（conversation.view 槽）仅新增认证适配器，API 不变。
 
 ```mermaid
 graph TD
-    B[DSH web GUI] --> Plug[wbflow 插件]
-    Plug --> Host[DSH harness]
-    Host --> DB[(.workbench/workbench.db WAL)]
+    B[浏览器 Web GUI] --> API[Go + Gin HTTP API]
+    API --> DB[(MySQL 8.0 workbench)]
+    API --> OB[(notify_outbox 投递兜底)]
 ```
 
 ## 5. 组件与模块设计（交互层）
 
-### 模块 I：版本看板 / 需求池 / 需求管理 / 版本管理
+> 既有三份 PRD/RD/FE 设计（`01-module-board` / `02-module-flow-tree` / `03-module-inbox-todo`）为基线；本节后部（§5.4 起）为 v3 编排模型下的**交互增补层**（源：ui-interaction-final）——只写「改什么、加什么」，未提及处基线照旧。
+
+### 5.1 模块 I：版本看板 / 需求池 / 需求管理 / 版本管理
 
 - **目的**：外层入口，查看全部需求看板，管理需求与版本。
-- **技术**：wbflow Client（interaction view）+ Host RPC。
-- **接口**：`wb.listRequirements / wb.listVersions / wb.getRequirement / wb.createRequirement / wb.updateRequirement / wb.deleteRequirement / wb.createVersion / wb.updateVersion / wb.advanceVersion / wb.deprecateVersion / wb.deleteVersion`。
-- **数据**：`requirements.json`、`versions.json`；需求 7 字段编辑审计 `history[]`。
-- **状态机**：版本 `待启动→进行中→已发布` 单向，任意阶段可废弃（按注记-A 条件解绑，不取消需求）；需求 `待启动/进行中/已完成/已取消`，与编排推进自动联动（待启动节点通过→进行中；落位尾节点→已完成，§7.3）。
-- 设计细节见 `01-module-board/{prd/prd.md, rd/design.md, fe/design.md}`。
+- **接口**：`wb.listRequirements / wb.listVersions / wb.getRequirement / wb.createRequirement / wb.updateRequirement / wb.deleteRequirement / wb.createVersion / wb.updateVersion / wb.advanceVersion / wb.deprecateVersion / wb.deleteVersion`（HTTP 路由以 spec §1.2 为准）。
+- **数据**：requirements / versions 两表；需求编辑审计 `audit_log`。
+- **状态机**：版本 `待启动→进行中→已发布` 单向，任意阶段可废弃——**条件解绑**（VER-05 裁决 A）：其下全部需求未开始 → 废弃/下掉回待分配池（**不取消需求**）；任一需求已进入编排 → 拦截（spec §1.2 注记-A）。需求 `待启动/进行中/已完成/已取消`，与编排推进自动联动（BUG-001：待启动节点通过→进行中；落位尾节点→已完成，§7.3）。
+- 设计细节见 `01-module-board/{prd/prd.md, rd/design.md, fe/design.md}`；v3 增补见 §5.4。
 
-### 模块 II：需求 OA 流程树（需求详情页）
+### 5.2 模块 II：需求 OA 流程树（需求详情页）
 
 - **目的**：价值核心模块——在详情页评审产物、多轮对话、推进流程。
-- **技术**：流程树视图 + 产物阅读器 + 锚点评论 + 门禁。
-- **接口**：`wb.getRequirement / getArtifactContent / comment / reply / resolve / override / decide / forceRevise / defineScope / review / confirmReview / reopen`。
-- **数据**：`<reqId>/flow.json + artifacts.json + comments.json`；四级锚点；评论=问题统一模型。
-- 设计细节见 `02-module-flow-tree/{prd/prd.md, rd/design.md, fe/design.md}`。
+- **技术**：流程树视图 + 产物阅读器 + 锚点评论 + 门禁拍板卡。
+- **接口**：comment / reply / resolve / reopen / review（表态）/ confirm-review / add-artifact / my-task / assign-task / task-update 等（HTTP 路由以 spec §1.2 为准）；**override / decide 不在 agent 工具清单**——语义保留 service 层（拍板卡/裁决卡由 User UI 触发）。
+- **数据**：flows / flow_nodes / artifacts / issues / review_results（flow_nodes 单 JSON 字段）。
+- 设计细节见 `02-module-flow-tree/{prd/prd.md, rd/design.md, fe/design.md}`；v3 增补（五区分栏/拍板卡/冲突卡/会话通道）见 §5.5。
 
-### 模块 III/IV：门禁通知收件箱 + TODO 列表
+### 5.3 模块 III/IV：门禁通知收件箱 + TODO 列表
 
 - **目的**：任何需 User 回应的沟通进收件箱；TODO 是收件箱的可操作投影。
-- **技术**：`shell.overlay` badge/toast；`conversation.input.dock`。
-- **数据**：查询投影 `tasks`/`issues`，不建通知表；`inbox.json` 快照可选。
-- 设计细节见 `03-module-inbox-todo/{prd/prd.md, rd/design.md, fe/design.md}`。
+- **数据**：查询投影 `tasks`/`issues`，不建通知表；投递触达保障走 notify_outbox。
+- 设计细节见 `03-module-inbox-todo/{prd/prd.md, rd/design.md, fe/design.md}`；v3 七类通知见 §5.6。
+
+### 5.4 模块 I 增补（看板 / 需求池 / 版本管理）
+
+| 增补点 | 规格 |
+|---|---|
+| **scope 徽标** | 需求卡/列表行/详情补 scope 徽标（full / rd / fe，三色区分）——需求 scope 三值 |
+| **dependencies 角标** | 需求卡/详情补依赖数（`依赖 ×N`）；点开显示前置需求名列表（flows.dependencies） |
+| **依赖树视图** | 版本管理弹窗内新增「依赖树」入口：按版本动态加载依赖树（plugin 内置分层派生，不对用户显示层级；**分析师按需拉取，非常驻**） |
+| **并发度配置入口** | 版本管理内「并发调度」区（长期预留展示：并发度=正在工作的需求数、就绪池规则说明）——MVP 人工卡点（节点 0 user_gate=1），调度器为长期 effort |
+| 版本管理基线交互 | 版本状态机 待启动→进行中→已发布（单向）+ 条件解绑废弃 + 发布软约束 + 删除有引用禁止 + 进度四色条 + 行操作（完整吸收基线，零改动） |
+| **类别标签（tag）** | 需求卡/列表/详情的类别徽标（【需求任务】【规划审批任务】【版本规划任务】）——**类别↔流程类型绑定**：需求任务→business/tech/task（scope 三值）、规划审批任务/版本规划任务→plan（无 scope）；scope_options 随类别派生 |
+| **owner 提示规则** | 架构→Architect；纯后端→RD；纯前端→FE——与 scope 三值呼应，新建弹窗按类别/侧提示默认负责人 |
+| **变更历史面板** | 既有 histPanel（自然语句审计）保留，与详情五区分栏并存 |
+
+### 5.5 模块 II 增补（流程树 / 节点详情 / 拍板卡 / 冲突卡）
+
+**流程树 → SVG 横向流程图**：
+
+| 增补点 | 规格 |
+|---|---|
+| **scope 动态渲染重排** | 节点集 = `flow_def_nodes.scope 表达式 ∩ requirement.scope`；过滤后**重新分组排布 + 重编号**（被裁节点不占位）；并行组仅当两侧节点都可见时保留泳道/分叉汇聚，单侧可见并入主链 |
+| **节点行双属性** | 节点方块 = 状态点 + 节点名（渲染序号）+ `↩N` + **相位角标**：exec 期=当前动作名；review 期=collect 聚合快照「表态 N/M · unagree N」（派生自 review_results，非节点级状态） |
+| 交互 | 点击节点 → 右列详情；横向滚动（沿用基线） |
+
+**节点详情：右列五区分栏**：
+
+| 区 | 内容 |
+|---|---|
+| ① 状态卡（双行） | 执行行（node.state 徽标 + 当前挂载动作名）；审批行（collect 聚合快照：agree N · unagree N · reviewing N；无评审位恒 '-'） |
+| ② 评审状态行 | per-agent 表态：各评审位 **reviewing / agree / unagree** 药丸 + open 数；点药丸展开角色对话区（轮内完整时间线视图暂缓） |
+| ③ 产物区 | 文件行 + 评论数 + link 外链（基线不变）——点击 → 产物阅读器（锚点评论，§5.7） |
+| ④ 意见区 | 评论操作矩阵（状态×操作者）+ **escalate 标记** + 冲突卡 |
+| ⑤ 门禁 / 拍板卡 | 三态（见下） |
+| 会话 tab | 节点关联 sessions 列表（历史/进行中 subagent 对话，不经中转；条目=绑定角色+状态+最近消息摘要+时间） |
+| 变更历史 | 底部折叠卡：描述 Markdown（折叠 150px 可展开）+ 元信息行 + 变更历史自然语句 |
+
+**门禁 / 拍板卡三态（user_gate 节点）**：
+
+| 态 | 呈现 | 操作 |
+|---|---|---|
+| 进度态（评审轮进行中） | 只读：表态 N/M + 工单统计（open/pending-confirm/resolved） | 无按钮（拍板置灰） |
+| **门禁待拍板（gate_pending）→ 迎宾呈现态** | 门禁汇总（各评审位结论 + resolved 摘要 + 产物链接 + 建议）——owner 报送 | 通过 / 打回（必填理由，走 reject 结论协议）/ 会话找 owner / 跳节点详情 |
+| 收件箱联动 | 「待你拍板」通知，双通道：收件箱=系统投递（plugin）、迎宾=owner 呈现（agent 层） | 点此跳节点详情 |
+
+**冲突卡与上升（取代 override 强权入口）**：
+
+- 澄清/复核循环不收敛 → 任一方 `escalate` 标记 → 评论区聚合**冲突卡**：分歧点 + **正反双方结论汇总两栏对照** + issue 线程引用 + 「上升裁决」按钮。
+- 上升裁决 session：reviewer 主持（开场白=分歧点+双方立场）→ 用户结论 → **回填冲突 issue**（数据层留痕）→ reviewer 重新表态（回 reviewing）→ 正常判据链恢复。
+- **override 强权入口移除**（wb_override 移出 agent 清单；冲突走上升仲裁；override 动作语义保留 service 层且只开两格，§7.3）。
+- 死循环兜底：轮内不收敛走 escalate；User 与评审者反复分歧走线下（流程内不建模）。
+
+**对齐节点详情（交互型）**：右列以**会话为主体**——顶部状态条（entry · 等待你的输入 + 响应者）+ 会话视图；底部单按钮「**完成对齐**」（User 确认 → to-brd 生成落盘 → 迁移下一节点）——无 BRD 预览审批步（brd 在下一节点产物区可见）。用户确认 = 唯一完成信号；程序兜底 = 周期提醒（扫描器）。
+
+**按需会话通道按钮**：节点详情/门禁卡常驻「会话找 X」（X=绑定角色，**按 scope 动态：full=qa / 单侧=开发执行者**）——用户验收报障直连开发方；点击 → plugin 泛用接口拉起该角色会话（开场白模板随绑定配置）→ 结论回填 issue。
+
+### 5.6 模块 III/IV 增补（收件箱七类 / TODO 五分类）
+
+**收件箱条目类型（七类）**：
+
+| 类型 | 触发 | 报送责任人 | 用户动作/跳转 |
+|---|---|---|---|
+| **待你拍板** | 门禁 agreed + user_gate | owner（迎宾呈现+收件箱双通道） | 迎宾拍板卡 |
+| **澄清任务** | collect 判 unagree | owner（澄清 issue 清单） | 节点详情意见区 |
+| **重新表态请求** | 澄清回填**或修复提交（to-fix→fixed）**后请 reviewer/提评者回到评审循环（含 retest 复验） | reviewer/提评者（followup/复用通道） | 节点详情 |
+| **悬置催办** | 已结束 5min 未表态 | reviewer（followup 文案：遇卡点上报） | reviewer followup（不进 User 列表） |
+| **需你介入** | 10min 仍未推进 | plugin → User | 节点详情 |
+| **冲突上升裁决** | escalate 标记 | reviewer 主持 | 冲突卡 |
+| **会话消息** | 按需通道/对齐未读 | 绑定角色 | 对应会话视图 |
+
+收件箱按接收人投递，User 列表=报送对象含 User 的子集。
+
+**TODO 五分类（收件箱操作投影，同源同筛选）**：待拍板←待你拍板；待澄清←澄清任务；待重表态←重新表态请求（澄清子型）；待复验←重新表态请求（retest 子型）；冲突待裁决←冲突上升裁决。悬置催办/需你介入为提醒类，不产生 TODO。点击跳对应节点详情（scope 过滤后定位）。
+
+### 5.7 产物阅读器（基线吸收 · 零改动）
+
+- 弹窗飞书式 ~72vw×85vh；轻量 Markdown 渲染 + 行号（1-based）；底部固定输入框（文案随选中态变化）。
+- **锚两级展示**：range=划词（末行一次展示）；document=正文末尾（line/block 后端 400 废弃，存量只读兼容，-L3）。
+- **划词锚防漂移**：按去空白原文指纹（lineText 同法）反查内容相同位置重锚定；未命中就近展示标注，用户确认时更新。
+- 评论操作矩阵（状态×操作者）与「不可编辑/删除、误发 reply 标注作废」规则全部沿用。
+- 评审上下文 issue 类评论必须携带 anchorArtifactId（BUG-013「所有的评审都是挂在文档上的」）。
 
 ## 6. 需求拆解（架构驱动拆分）
 
@@ -169,7 +250,7 @@ graph TD
 |---|---|
 | 以组件/模块边界为拆分单位 | 模块 I/II/III-IV 各归一个需求单元，职责无歧义 |
 | 接口契约先行 | 各模块 walk 同一套 `wb.*` RPC 契约，冻结后并行 |
-| 数据/存储依赖按序 | 共享 `.workbench/` 实体模型（§7），先立数据层 |
+| 数据/存储依赖按序 | 共享领域实体模型（§7），先立数据层 |
 | 依赖图 + 拓扑排序 | 数据层 → 模块 II（核心）→ 模块 I → 模块 III/IV |
 | 粒度标准 | 每单元可独立开发、独立集成、有验收标准 |
 
@@ -193,1107 +274,474 @@ graph TD
 
 ## 7. 数据层（领域模型与存储）
 
-> 数据层唯一真相源：实体字段、状态机、存储形态。交互层状态机行为见各模块文档；本节约给出精确转移定义。
+> 数据层唯一真相源：实体字段、状态机、存储形态。**表结构完整 DDL 真相源 = spec §0（MySQL 14 表）+ 迁移链 `rd/migration/sql/0001-0004`**（0004 增 notify_outbox，共 15 表）；本节只写设计口径与语义，不复制 DDL——避免第二真相源。
+> 交互层状态机行为见各模块文档；本节约给出精确转移定义。
 
 ### 7.1 存储形态与演进
 
 | 阶段 | 载体 | 状态 |
 |---|---|---|
-| 起步（M1~） | `<workspace>/.workbench/*.json` 文件存储，透明可 diff | ✅ 插件当前运行载体 |
-| 目标（已建库） | `<workspace>/.workbench/workbench.db`（sqlite，11 表，schema_version=28） | ✅ 定义层已 seed；实例层迁移进行中 |
+| 起步（推演期） | `.workbench/*.json` 文件存储，透明可 diff | 已废弃（JSON 载体退役） |
+| 一版实现 | `.workbench/workbench.db`（sqlite 11 表，WAL） | 已冻结（workbench-sql/ 设计期底稿，不再演进） |
+| **现行（重新实现）** | **MySQL 8.0**：spec §0 全量 14 表 + `notify_outbox`（迁移链 0001-0004，已建库 seed） | ✅ 运行时真相 |
 
-- **多项目**：项目 = DSH workspace 目录；所有实体以 `requirement_id` 归属流程实例，`versions.json`/`requirements.json` 为项目级全局文件（每 workspace 一套）。
-- **JSON 载体文件映射**：`requirements.json`、`versions.json`、`inbox.json`（项目级）；`<reqId>/flow.json`、`artifacts.json`、`comments.json`（需求级）。
-- **迁移方向**：JSON → sqlite（WAL，单写多读）；审计靠 `audit_log` 表，不依赖 git diff；JSON 保留为导出格式。
+- **表数口径**：定义层 4（roles / capabilities / flow_defs / flow_def_nodes）+ 实例层 7（flows / flow_nodes / tasks / artifacts / issues / sessions / requirements、versions 收编）+ 支撑层 3（audit_log / meta / notify_outbox）。
+- **需求/版本本体**：原 `.workbench/requirements.json + versions.json` 已 MySQL 收编（spec §0.3 requirements/versions 两表），JSON 载体废弃，磁盘仅保留产物文档本身（docs/ 仓库）。
+- **工程约定（普适，逐表适用）**：主键 BIGINT UNSIGNED AUTO_INCREMENT；不建物理外键（`xx_id` 列+索引，逻辑引用同名同值，完整性 service 层保证）；乐观锁=`updated_at`；JSON 载荷统一 TEXT 列（不用 MySQL JSON 类型）；默认 NOT NULL、字符串缺省空串，仅数值/时间/整型引用列按 NULL 清单保留（spec §0.2）；每表 created_at+updated_at（unix 毫秒，append-only 表两者恒同值）。
 
-**无外键约定（v0.10）**：所有表**不使用 FOREIGN KEY 约束**——结构演进（加表/改列/拆表）无需先解除外键，迁移成本低。关联通过**逻辑引用**表达：子表关联列与父表业务主键**同名同值**（如 `capabilities.role_id → roles.role_id`、`flow_template_nodes.flow_templates_id → flow_templates.flow_templates_id`、`issues.requirement_id → flows.requirement_id`），应用层（wb_* 工具）负责校验引用存在性。关联列建普通索引加速 JOIN/查询。演进流程：改结构 → 递增 `meta.schema_version` → 迁移脚本（`ALTER`/数据搬运/校验）。
+### 7.2 实体定义（语义要点）
 
-**类型约定（v0.12/v0.16，用户纠正）**：
+> 逐列定义见 spec §0；此处只列设计语义与易错点。
 
-| 类别 | 约定 |
-|---|---|
-| ID | 纯内部行 id 用 `INTEGER PRIMARY KEY AUTOINCREMENT`；业务主键（requirement_id/node_id/task_id/issue_id 等）保留 **TEXT UNIQUE**——跨系统引用（文档路径/锚点/git 可读）需要可读性 |
-| 时间 | INTEGER（unix 毫秒时间戳，与 Node `Date.now()` 一致；原 TEXT(ISO8601) 已废弃） |
-| 状态/枚举 | TEXT（值可读，应用层校验白名单） |
-| 布尔/标志 | INTEGER (0/1) |
-| 计数/序号/行号/轮数 | INTEGER |
-| JSON 结构（how/context/reviews…） | TEXT（sqlite 无 jsonb，存 JSON 文本；必要时 JSON1 扩展查询） |
+**Version（版本）**：`version_id`（`v-<n>`；`v-backlog` 固定待分配保留项）+ `name` + `state`（待启动/进行中/已发布/已废弃）+ `is_backlog`。状态机：单向推进；废弃=终态，**条件解绑**（VER-05：已开始需求禁止废弃；未开始直接下掉回待分配池，不取消需求）。
 
-**NULL 策略（v0.21，User 拍板）**：**非必要不使用 NULL**——仅当「空字符串有歧义」（模板缺省 doc_path/structure/quality_gates/version、审计 action 不适用）或「字段'无值'≠'空串'」（未发生时间/未指派引用/锚点类型不适用）时保留 NULL；其余一律 NOT NULL + DEFAULT（branch/parallel_group 非泳道=`''`、note=`''`、JSON=`'[]'`/`'{}'`、计数/布尔=0）。
+**Requirement（需求）**：`requirement_id`（req-<序号>）、title、description（Markdown）、category（类别标签→流程类型绑定）、`flow_defs_id`（由 category 派生）、version_id（NULL=待分配池）、priority（P0-P3）、status（待启动/进行中/已完成/已取消）、owner（负责人角色；规则见 §8.1）。编辑审计走 audit_log（原 history[] 已收编）。
 
-**全表时间戳（v0.22，User 拍板）**：每张表都有 `created_at`/`updated_at`（INTEGER unix ms；定义层 DEFAULT=当前时间毫秒自动填充）。旧等价字段改名——`artifacts.added_at→created_at`、`issues.at→created_at`、`audit_log.at→created_at`（audit_log 也加 updated_at，恒=created_at）；`flow_nodes.entered_at` 保留（业务语义=节点进入时间，≠行创建）。
+**FlowDef / FlowDefNode（流程定义，原 flow_templates / flow_template_nodes）**：`flow_defs_id`（business/tech/task/plan）+ `scope_options`（business/tech={full,rd,fe}、task={rd,fe}、plan=[]）。定义节点：`template_node_id`（稳定 id 如 bus-03）、node_order、node_key、**node_type**（produce/review/align/gate 四类）、gate（准出判定，与 node_type 正交）、**user_gate**（User 终审拍板位）、**scope_expr**（渲染集合表达式，§8.4）、reviewers[]（静态评审位声明 `[{role, capability_id, scope?}]`）、**node_actions**（动作激活清单两类条目：capability 激活 + node action）、expected_outputs。
 
-### 7.2 实体定义
+**Flow / FlowNode（流程/节点实例）**：flows 含 `dependencies`（同版本前置需求 JSON 数组；plan D7 create_reqs 从 architecture 需求拆解节写入）+ `scope`（生效范围）+ current_node_id（NULL=未进入编排）。flow_nodes：`def_node_id`（引用定义节点）、**state**（`''`=未进入编排 / entry / exec / review / respond；done=离场终态语义见 §7.3）、**review_results**（单 JSON 字段承载全部评审位轮转 `[{role, capabilityId, state: reviewing|agree|unagree, round, at}]`——collect 反复更新与读取）、`reopen_source`（''/upstream-reject/downstream-reject/rework-return——plugin 回退时写入）、rolled_back_count（0=首次，≥1=重入）、reviewers[]（scope 过滤后实例声明）、feature_branch、entered_at、pending_scope、last_decision（门禁裁决 approved/rejected 由其承载，JSON 含 reject 结论协议 branches/confirmed_issues/context）。
 
-**Version（版本）**
+**Task（任务，唯一待办总线）**：task_id、requirement_id、node_id、**action_id**（能力×动作定位）、branch、role_id、task_type（produce/dev/review/respond/accept/create_reqs）、goal、context（确定性上下文 JSON）、status（todo/in-progress/awaiting-reply/**completed（仅判据校验通过后置，agent 不可直置）**/rejected/closed）、root_issue_id（锚定线程）、派发/断点四件套（dispatch_at/last_ack/last_progress/resume_hint）、done_at/closed_at。派发幂等键 `reqId+nodeId+action_id+assignee`。
 
-| 字段 | 说明 |
-|---|---|
-| `id` | 稳定短码 `v-<n>`；`v-backlog` 固定为「待分配」保留项（不可删/不可改/无状态操作） |
-| `name` | 展示名，自由文本（`v1.0`、`2.0 迭代`…） |
-| `state` | `待启动 / 进行中 / 已发布 / 已废弃` |
-| `isBacklog` | 是否待分配池（仅 `v-backlog` 为 true） |
+**Artifact（产物）**：artifact_id（art-<ts>）、requirement_id、node_id、**product_type**（受控枚举：brd/product_doc/rd_design/fe_design/architecture/research/plan/alignment/dev_notes/code_mr/test_result/defect/discussion；无 case_design）、label、href（相对 docs root 或外链）、kind（document|link）、note、added_by。**产物入库约束（注记-K，铁律#4）**：expected_outputs 期望产物必须 kind=document 且 href 相对 docs root 真实存在；link 仅期望外补充外链。
 
-**状态机**：`待启动 → 进行中 → 已发布` 单向推进；任意阶段可「废弃」（state=已废弃，终态）——**条件解绑**（spec §1.2 注记-A，2026-09-09 拍板）：其下全部需求未开始 → 废弃成功并解绑回待分配池（**不取消需求**）；任一需求已进入编排 → 409 blocked（详见 `01-module-board/rd/design.md` §3.6）。
+**Issue（评论/问题，五态状态机 v2）**：issue_id（cm-<ts>）、anchor（anchor_kind + anchor_artifact_id + 位置列）、author/role_id/reviewer_role、issue_type（issue/notification/discussion）、assignee、text、replies（JSON 不可变追加，含裁决结论回填）、**state（open/pending-confirm/to-fix/fixed/resolved；无 overridden 态）**、**escalate**（冲突上升标记）、**loop_count**（回退计数：澄清期读=reopen 次数、修复期读=revise 次数）、resolve 族（resolve_by/at/note/`resolve_path（fix|agree|override）`/resolve_reviewer_confirmed）、resolved 族。转移精确定义见 §7.3。
 
-**Requirement（需求）**
+**Session（会话绑定，#10）**：session_id、requirement_id、node_id、role_id（绑定角色，**支持按 scope 动态**：full=qa / 单侧=开发执行者）、dsh_ref（DSH 会话句柄）、status（active/ended/disposed）。用途：flow↔session 绑定注册表 + 按需会话通道共用；UI 经插件页面查看 subagent 对话不经 Leader 中转。
 
-| 字段 | 说明 |
-|---|---|
-| `id` | `req-<序号>`（递增补零，如 `req-007`） |
-| `title` | 标题（必填） |
-| `description` | 需求描述（Markdown，可含代码块/链接） |
-| `category` | `需求任务 / 任务 / 版本规划任务`（决定流程模板） |
-| `reqType` | `业务需求 / 技术需求`（仅需求任务） |
-| `scope` | `仅前端 / 仅后端 / 前后端都含`（裁剪 FE/RD 侧节点，见 §8.4） |
-| `versionId` | 归属版本 `id` 或 `v-backlog` |
-| `priority` | `P0 / P1 / P2 / P3` |
-| `status` | `待启动 / 进行中 / 已完成 / 已取消` |
-| `owner` | 负责人（角色）；owner 规则见 §8.2 |
-| `history[]` | 编辑审计（JSON 载体）；`{at, by, changes:[{field, from, to}]}`，仅字段级变化时追加 |
-| `createdAt / updatedAt` | 创建/更新时间 |
+**NotifyOutbox（通知事务表，0004 增）**：业务事务内 enqueue + 提交后 FlushPending + scanner SweepOutbox 补投；**无 dead 终态、无限重试直至送达**（NTF-04/05）。
 
-**Flow（流程实例）与 FlowNode（节点实例）**
+**支撑表**：audit_log（append-only，`{table_name, row_id, action, field, old_value, new_value, by_who, created_at}`——agent 每步改库留痕，精确到字段）；meta（schema_version 等）。
+
+### 7.3 状态机（精确转移，v5 口径）
+
+**节点相位（flow_nodes.state）**
+
+- `''`（未进入编排，无占位）→ 激活后进入可配动作相位：**entry / exec / review / respond**（可配动作相位 4 值，每相位按 node_actions 激活清单挂动作，**一个 state 只挂一个动作**，铁律#1）。
+- **done = 离场业务终态**：节点通过迁移下一节点时前置相位统一置 done；done 禁挂载；被打回复位重入（BUG-016/CMT-05）。
+- exec 支持首/重入双配置，按 `rolled_back_count`（0=首次，≥1=重入）选择；`reopen_source` 记录重开来源（upstream-reject/downstream-reject/rework-return）。
+
+**评审轮（reviewState，per-agent 三态）**
+
+- 每一个评审位（agent）各自独立轮转：**reviewing（评审+表态中）→ agree / unagree（已表态）**；数据在 `flow_nodes.review_results[]`。
+- agent 自判上报（**知道自己有 open 工单 → 报 unagree；没有 → 报 agree**；plugin 不判 open 工单，wb_review 落库）。
+- **collect 聚合（plugin 内置，无状态机）**：①收票——实时查询全部评审位是否已上报；②判定——**全 agree → agreed（collect 层专用词，达成一致的判定输出）→ 门禁 approved；有 unagree → 触发 owner 澄清 → 回①重新收集循环**；③再收票——澄清后重新等待表态。
+- **澄清后重新表态（内置机制，不设专门 state）**：owner 澄清后 plugin 将澄清 issue 发给对应 reviewer（followup）→ 该 reviewer **回 reviewing 重新表态** → collect 重新收集。等待重新表态阶段不挂载任何 action、不暴露。
+- **approved / rejected 是门禁裁决结果**（汇总级，由 `last_decision` 承载）——reviewState 不包含它们；reviewState 亦无 collecting/clarifying/confirming/agreed 存储态（REV-07/08）。
+- **门禁**：user_gate=1 → agreed 后唤醒 User 终审（拍板：通过 → 迁移下一节点；不通过 → 问题记 issue 回澄清循环）；user_gate=0 → 机械 approved。
+- 拦截最小原则（铁律#5）：应有产物未提交不允许过 exec——**在最初的地方拦截**，approve 不判投票/澄清遗漏。
+
+**正交关系**：state 与 reviewState 两列独立——exec 期 reviewState 恒 '-'（无评审位节点亦然）；review 期间各评审位各自轮转。UI 分开显示「当前执行动作」与「各评审位表态」。
+
+**Issue 五态 + 复核事件（澄清/修复双子机，逐 issue）**
 
 ```
-Flow:   requirement_id, flow_templates_id(business|tech|task|plan),
-        current_node_id（当前指针；并行组内指向进行中分支）, created_at, updated_at
+澄清子机（owner respond 相位）：
+open（待澄清）
+  └─ owner 申报 clarified（澄清完成，API 通道回复/解决）→ pending-confirm（已澄清待复核）
+pending-confirm 复核位三出口（评审者/提评者裁定）：
+  ① settle（协商一致）→ resolved（门禁放行）
+  ② qualify（定性真问题）→ to-fix（触发打回）
+  ③ reopen（未解释清楚）→ open（loop_count+1，通知 owner）
 
-FlowNode: node_id(n-00…), node_order, key, role_id（执行者角色）,
-          gate(0/1), branch(''|rd|fe), parallel_group(''|dev-1), feature_branch,
-          state, entered_at, rolled_back_count, last_decision,
-          pending_scope, reviewers[]（静态评审声明 JSON）
+修复子机（产出节点 exec 重入相位）：
+to-fix（待修复）→ owner 申报 declare-fixed（修复完成）→ fixed（已修复待复核）
+fixed 复核位两出口：
+  ① confirm（修复成功）→ resolved
+  ② revise（修复失败）→ to-fix（loop_count+1）
+
+override（User 仲裁动作，只开两格）：
+  pending-confirm → resolved（澄清期上升，issue 先回待复核等仲裁）
+  fixed → resolved（修复期反复修复不成功上升；判定主体=产出节点 re-exec 按 revise 计数，判定时点 issue=fixed）
+  open / to-fix 不接受 override。override 是动作、结果置 resolved——无 overridden 态（09-12 裁决）。
 ```
 
-- **节点独立**：一条流程标签一个节点，可独立回退重入；通过 → 前进下一节点；打回 → 回退上一节点。
-- **reviewers[]**：`[{role, capability_id, scope?}]`（定稿：leader 不在 reviewers 中，决策者 ≠ 评审表态者）；动态「谁过了没」由评审表态 + 评论闭环推导。
-- **并行组**：同 `parallel_group` 的节点并行；join = 组内全部 `state=已通过` 才放行组后节点（详见 §8.4）。
-
-**Issue（评论 / 问题 / 线程）**
-
-```
-id(id 自增) / issue_id(cm-<ts> 业务可读), requirement_id, node_id（挂载节点）,
-anchor_kind(document|line|range|block), anchor_artifact_id（锚定产物，NULL=未锚定）,
-anchor_line（仅 line）, anchor_start_line/anchor_end_line（仅 range）,
-anchor_block_start/anchor_block_end/anchor_lang（仅 block）,
-author, role_id, reviewer_role（L3 跨端根因推导后写）, issue_type(issue|notification|discussion),
-assignee（解决责任人 L1/L2/L3）, text, replies[]（不可变回复数组 JSON，v0.20 并入 issue_replies）,
-state, round_count, last_reply_at,
-resolve 族：resolve_by/resolve_at/resolve_note/resolve_path(fix|agree)/resolve_reviewer_confirmed(0/1),
-resolved 族：resolved_by/resolved_at（最终闭环确认）, created_at, updated_at
-```
-
-- **统一模型**：任何评论 = 一个待解决问题（不区分「评审 Issue」与「普通评论」）。
-- **锚点四级**：`document` / `line` / `range` / `block`（`heading` 章节级已废弃，diff 级后置）。
-- **replies 内嵌**（v0.20，User 拍板线程合并）：`issue_replies` 表并入 `issues.replies` JSON——无按回复行查询需求，消费场景都是「读整个线程」，JSON 一次读更快；audit_log 对 replies 整段 diff 粒度可接受。
-- 评论**不可编辑/删除**（保留审计）；误发用 reply 标注「作废」。
-
-**Artifact（产物）**
-
-```
-id(art-<ts>), requirement_id, node_id, label, href, kind(document|link),
-note, added_by（登记人）, created_at, updated_at
-```
-
-- 产物即「文件行」：文件名 + href + note；文档正文由作者用文件工具写入项目目录，登记只写元数据。
-- **产物入库约束（spec 注记-K，BUG-015 拍板 2026-09-10）**：expected_outputs 期望的产物必须 kind=document 且 href 为相对 docs root 路径、文件真实存在；登记口期望 document 而以 link 登记 → 400 blocked，判据口仅 kind 合规计入；link 仅用于期望外补充外链（如 code_mr）。
-- 一节点可多产物（QA 验收 = test.md + defect.md；并行开发 = rd/fe 各一份）。
-
-**Task（任务，唯一待办总线）**
-
-```
-task_id(t-<ts>-<seq>), requirement_id, node_id, branch, role_id（执行者）,
-task_type(produce|review|accept|decide), goal, context（确定性上下文 JSON）,
-status, root_issue_id（锚定线程）, reply_count, last_reply_at,
-dispatch_at, last_ack, last_progress, resume_hint, done_at, closed_at
-```
-
-- **TASK 是唯一待办总线**：取代收件箱待办载体；通知是视图不是数据——任何通知/待回复由查询 `tasks`（awaiting-reply/未 ack/进度陈旧）+ `issues`（pending-confirm）实时推导，不预存通知表。
-- **派发/断点交接**：`dispatch_at`（证明已派出）/ `last_ack`（心跳，NULL=未送达需重发）/ `last_progress`（执行到哪一步）/ `resume_hint`（从哪续做）——重启后扫描「已派未确认」「进度陈旧」即可断点续接：*派发阶段挂断*（task 已写 dispatch_at 但 last_ack NULL）→ 重新通知；*执行中中断*（in-progress 但进度陈旧）→ 从 last_progress/resume_hint 续做不重来。`done_at`/`closed_at` 记录完成/关闭时刻。
-- **wb_my_task 与 TASK 互补**：TASK 是**派发记录**（谁何时被派了什么：goal/context/状态/线程锚点）；wb_my_task 是**「此刻我该做什么」的确定性视图**——按 reqId+nodeId+role **即时推导**（无论任务是否显式登记过都能推导）。
-
-**支撑表**
-
-| 表 | 说明 |
-|---|---|
-| `audit_log` | 变更审计：`{table_name, row_id, action, field, old_value, new_value, by_who, at}`，agent 每步改库留痕 |
-| `meta` | 元信息：`schema_version` 等 |
-
-### 7.3 状态机（精确转移）
-
-**节点状态（FlowNode.state）**
-
-| 当前 | 事件 | 下一态 | 副作用 |
-|---|---|---|---|
-| 未开始 | 进入 | 进行中 | 记 `entered_at` |
-| 进行中 | 产出完成（gate 节点） | 待评审 | 评审者初始化待表态 |
-| 待评审 | 全部问题闭环 + User 通过 | 已通过 | `current_node_id` 前移下一节点 |
-| 待评审 | 打回（reason 必填） | 进行中 | `rolled_back_count++`；上一节点回退为进行中；可产生 `pending_scope` |
-| 已通过 | 被下一节点打回 | 进行中 | `rolled_back_count++` |
-
-> 打回语义：回退到**上一个节点**重新产出（非当前节点内打转）。部分回滚（并行组）：`targetBranch` 指定分支，仅该分支回滚，另一分支保持已通过。
-
-**评论状态（Issue.state）**
-
-```
-open ──提评后讨论──▶ open（thread 回复、round_count++）
-  ├─ A 修复关闭：assignee resolve(note=修复说明) ──▶ pending-confirm（待提评者复核）
-  │     ├─ 提评者 confirm ──▶ resolved（reviewer_confirmed=true，门禁放行）
-  │     └─ 提评者 reopen ──▶ open（round_count++，通知 assignee）
-  ├─ B 协商一致关闭：提评者 resolve(note=一致结论, path=agree) ──▶ resolved
-  ├─ round_count > 5 ──▶ 通知 Leader/User 介入（拉锯升级）
-  └─ 强权 override（User 明确指令）──▶ overridden（绕过门禁）
-```
-
-- **谁 resolve**：A 路径 = assignee（解决责任人）；B 路径 = 提评者；resolve 必须带 note。
-- **谁 confirm/reopen**：仅提评者（不能自确认）。
-- **assignee 规则**：普通评审意见 → 锚定产物作者（谁的产物谁改）；QA 验收缺陷 → 显式指派 RD|FE（配合 `targetBranch` 部分回滚）。
-- **门禁判定**：`wb_decide pass` 前置 = 无 open + 无 pending-confirm + 全部 resolved 且 `reviewer_confirmed=true`（或 overridden）。
-- **待复核超时提醒**：pending-confirm 挂起超时 → 提醒提评者复核（提评者 = User 阈值 1 小时；agent 5 分钟；轮询每 5 分钟）。
-
-**QA 缺陷特殊化（验收缺陷的裁决链，m7 §3）**：
-
-- QA 建缺陷（提评者=QA，`assignee=RD|FE` 按缺陷归属端显式指派）→ RD/FE 处理：真缺陷修复 `resolve(note=修复说明)`；认为误判/非缺陷 → **直接 `resolve(note=理由)`**——**不存在"RD 打回 QA"**，带理由解决即异议表达 → QA 复核（最终裁定）：认可（修复 OK / 理由成立）→ `confirm` 缺陷关闭；不认可修复结果 → `reopen`（即"QA 打回对方解决"），RD/FE 继续。
-- **与流程级 reject 区分**：`wb_decide reject(targetBranch)` 是 QA 验收**整体打回开发阶段**（批量退回）；评论 `reopen` 是**单条缺陷**不认可修复——两级裁决语义不同。
-
-**通知链路（动作 → 通知谁 → 内容，m7 §5）**：
-
-| 动作 | 通知（to=） | 内容 |
-|---|---|---|
-| 作者提评（交付） | 当前节点评审归属角色 | 请评审 |
-| 评审者提评审意见 | 作者（RD/FE） | 问题列表，请修复 |
-| 作者回复/修复 | 提评者 | 已修复，请复核 |
-| **assignee resolve（A）** | 提评者（reviewer） | 已修复，请复核 |
-| **提评者 confirm** | （无，门禁放行） | — |
-| **提评者 reopen** | assignee | 复核不通过，请继续 |
-| **协商一致关闭（B）** | （无） | 讨论达成一致，直接关闭 |
-| QA 缺陷建立 | 缺陷负责人 RD/FE | 缺陷指派，请修复 |
-| QA 缺陷打回 | 对应分支 owner（RD/FE） | 部分回滚 + 缺陷详情 |
+- **事件名（领域词，权威=CONTEXT.md）**：`clarified`（owner 澄清完成申报）/ `settle`（协商一致→resolved）/ `qualify`（定性→to-fix）/ `reopen`（复核不通过→open）/ `declare-fixed`（owner 修复完成申报）/ `confirm`（修复成功→resolved）/ `revise`（修复失败→to-fix）/ `override`（User 仲裁→resolved）。open×settle 开格限场景=提评者撤回（OVR-06③）。
+- **API 工具词映射**：现行 API（wb_reply / wb_resolve / wb_confirm_review / wb_reopen 等）与领域事件名存在 gap，映射修复已立项（NAM-09 todo：先文档映射 → 代码契约修复 → 替换）；本文以领域事件名为准。
+- **agent 只在被调用时响应（铁律#3）**：待复核态无自主追加；补充信息合法路径=复核者 reopen；pending-confirm×clarified、fixed×declare-fixed 自循环=非法。
+- **assignee 规则**：普通评审意见 → 锚定产物作者（谁的产物谁改）；QA 验收缺陷 → 显式指派 RD|FE（配合 targetBranch 部分回滚）。
+- **QA 缺陷特殊化**：QA 建缺陷（assignee=RD|FE）→ RD/FE 处理：真缺陷修复（declare-fixed）；认为误判/非缺陷 → **直接带理由解决**——**不存在「RD 打回 QA」**，带理由解决即异议表达 → QA 复核（最终裁定）：认可 → confirm 关闭；不认可 → reopen，RD/FE 继续。**与流程级打回区分**：打回裁决（reject + targetBranch）是验收**整体打回开发阶段**（批量退回）；issue reopen 是**单条缺陷**不认可修复——两级裁决语义不同。
+- **拉锯升级**：澄清期 loop_count≥5 自动上升（会话通道 User 仲裁）；修复期反复修复不成功由 re-exec 按 revise 计数判上升（issue 时点=fixed）。
 
 **任务状态（Task.status）**
 
 ```
-todo → in-progress（执行者开始）→ done（产物登记/评审表态）→ closed（终态）
-     ↘ awaiting-reply（等回复/表态）→ done | rejected
-rejected → in-progress（返工重做）
+todo → in-progress（执行者 ack）→ awaiting-reply（等回复/表态）→ completed（仅 plugin 判据校验通过后置）→ closed
+     ↘ rejected → in-progress（返工重做）
 ```
 
-**需求状态与版本状态**
+**需求/版本状态**
 
-- 需求 `status`：`待启动 / 进行中 / 已完成 / 已取消`；废弃版本按注记-A 条件解绑（不取消需求）；与编排推进自动联动（2026-09-10 BUG-001 拍板，spec §1.2 注记-J1）：**待启动节点通过（流程首次进入编排，`flows.current_node_id` 空变非空）→ `进行中`；落位尾节点（流程定义最后一个节点被激活/驻留）→ `已完成`**。联动在推进核内同事务落值 + 审计（by_who=plugin/system），值不变不写（幂等），已取消为终态不覆盖；手动 `wb_update_requirement` 仍可显式改状态（空串=不修改，注记-J2）。
-- 版本状态机见 §8（`01-module-board/rd/design.md` §3.6）。
+- 需求 `status`：`待启动 / 进行中 / 已完成 / 已取消`；与编排推进自动联动（BUG-001，同事务落值+审计，幂等，已取消为终态不覆盖；手动更新仍可显式改）：**待启动节点通过（flows.current_node_id 空变非空）→ 进行中；落位尾节点 → 已完成**。
+- 版本状态机：`待启动 → 进行中 → 已发布` 单向 + 条件解绑废弃（§7.2）。
 
 ### 7.4 审计与一致性
 
-- **审计即证据（audit_log，替代 JSON 的 git diff）**：每次写操作记录 `{table_name, row_id（业务主键）, action(INSERT|UPDATE|DELETE), field, old_value, new_value, by_who, created_at}`——**精确到字段的变更历史**（替代 `requirements.history`/手写字段 diff，迁移时 `requirements.history → audit_log`）。
-- **snapshots 已删除（v0.18）**：曾按需把全库 JSON 序列化存一份作人工对比，判定无需——agent 交互项目管理 source of truth 已唯一、无防篡改需求；audit_log 作每步改库留痕已足够。
-- **审查一致性**：节点执行者必须拥有节点绑定的能力（`role_id` 匹配 `capabilities.role_id`）；唯一例外 task 流程 `executor` 动态占位。
-- **写策略**：所有 `wb.*` 写操作返回最新快照（纯 JSON、lossless）；单写入者（Leader 主导），无并发锁；sqlite WAL 单写多读。
+- **审计即证据（audit_log）**：每次写操作记录 `{table_name, row_id（业务主键）, action(INSERT|UPDATE|DELETE), field, old_value, new_value, by_who, created_at}`——精确到字段的变更历史；历史轮评审表态由 audit_log 回放（不加新表）。
+- **乐观锁**：UPDATE 带 `updated_at` 读取时值，0 行命中 → 版本冲突（上层重试或报错）。
+- **一致性校验**：节点执行者必须拥有节点绑定的能力（role_id 匹配 capabilities.role_id）；唯一例外 task 流程执行者动态占位。
+- **写策略**：所有 `wb.*` 写操作返回最新快照（纯 JSON、lossless——无 undefined 字段）；单写入者（Leader 主导）无并发锁。
 
-### 7.5 sqlite 表结构（设计定稿，11 表）
+### 7.5 表结构真相源声明
 
-> 设计阶段完整 DDL 如下（机器可执行版见 `workbench-sql/schema.sql`，本处为设计真源；实现阶段以 schema.sql 为基线）。
-> 定义层 4 + 实例层 5 + 支撑层 2 = 11 表。**无外键（v0.10）**；每表 `created_at`/`updated_at`（定义层 DEFAULT=当前时间毫秒，v0.22）。
-**定义层（4）**
-
-**capabilities（能力注册表）**
-
-```sql
--- 能力注册表（v0.28 products 单列：产出型 11 项有 products、评审/决策 8 项 '[]'；示例未固化项 demo_path = JSON null；v0.29 起 products 项无 template_path）
-CREATE TABLE capabilities (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  capability_id TEXT NOT NULL UNIQUE,   -- 'backend-design' | 'backend-dev' | …（唯一标识）
-  name          TEXT NOT NULL,          -- 能力显示名
-  role_id       TEXT NOT NULL,          -- 归属角色（逻辑引用 roles.role_id，1 对多）
-  how           TEXT NOT NULL DEFAULT '[]',   -- JSON:[行为步骤]（能力本体；评审维度内聚在评审能力 how）
-  products      TEXT NOT NULL DEFAULT '[]',   -- JSON:[{doc_path, demo_path}]（v0.29 删 template_path，标准指针不入 DB）
-  created_at    INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
-  updated_at    INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)
-);
-```
-
-```jsonc
-{
-  "id": 1,
-  "capability_id": "backend-design",                  // 能力唯一标识
-  "name": "后端技术设计",                              // 能力显示名
-  "role_id": "rd",                                    // 归属角色（1 对多：rd 拥有多个能力）
-  "how": [                                            // JSON: 行为步骤（能力本体，v0.23 强化）
-    "对照 prd.md 逐条核对功能点：接口设计覆盖前端全部页面交互，无遗漏",
-    "按 prd 前端页面需求设计接口契约：方法/路径/入参/出参/错误码，FE 可据此直接对接",
-    "技术与版本架构文档 arch_design.md 保持大方向一致",
-    "数据设计保证可测性：字段/约束清晰、测试构造容易、QA 可按口径验收",
-    "登记产物 → 提评"
-  ],
-  "products": [                                       // JSON: 产出物清单（v0.28 合并三列，v0.29 删 template_path）
-    {
-      "doc_path": "docs/v2.0/req-019/rd/design.md",   // 产出文档存放路径
-      "demo_path": "docs/templates/backend-design-doc-demo.md"
-    }
-  ],
-  "created_at": 1786000000000,
-  "updated_at": 1786000500000
-}
-```
-
-**roles（角色注册表）**
-
-```sql
--- 角色注册表（note=角色工作内容注释，非子 agent persona；完整 persona 落 team preset）
-CREATE TABLE roles (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  role_id    TEXT NOT NULL UNIQUE,   -- 'rd'|'fe'|'cr'|'arch'|'pm'|'qa'|'inv'|'leader'|'user'|'executor'
-  name       TEXT NOT NULL,
-  note       TEXT NOT NULL,          -- 角色工作内容注释（人读）
-  created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
-  updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)
-);
-```
-
-```jsonc
-{
-  "id": 2,
-  "role_id": "rd",                                    // 角色唯一标识
-  "name": "后端开发",                                  // 角色显示名
-  "note": "负责技术设计与后端实现：领域建模、接口契约、数据一致性；对设计完整性与自测负责。",  // 角色工作内容注释（非子 agent persona）
-  "created_at": 1786000000000,
-  "updated_at": 1786000000000
-}
-```
-
-**flow_templates（流程模板）**
-
-```sql
--- 流程模板（静态定义，4 种）
-CREATE TABLE flow_templates (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  flow_templates_id TEXT NOT NULL UNIQUE, -- 'business'|'tech'|'task'|'plan'
-  scope_options   TEXT NOT NULL DEFAULT '[]',   -- JSON:['full','fe-only','be-only']
-  created_at      INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
-  updated_at      INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)
-);
-```
-
-```jsonc
-{
-  "id": 1,
-  "flow_templates_id": "business",                    // 模板唯一标识
-  "scope_options": ["full", "fe-only", "be-only"],    // JSON: 可选实施范围
-  "created_at": 1786000000000,
-  "updated_at": 1786000000000
-}
-```
-
-**flow_template_nodes（模板节点定义）**
-
-```sql
--- 模板节点定义（节点骨架：用什么能力/期望产物/评审人/并行编排）
-CREATE TABLE flow_template_nodes (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
-  flow_templates_id TEXT NOT NULL,      -- 逻辑引用 flow_templates
-  node_order       INTEGER NOT NULL,    -- 节点序号（编排顺序，1 起）
-  key              TEXT NOT NULL,       -- 节点名
-  role_id          TEXT NOT NULL,       -- 执行者角色
-  capability_id    TEXT,                -- 用什么能力执行（NULL=mode='align' 无产出节点）
-  mode             TEXT NOT NULL DEFAULT 'produce',  -- 'produce'|'align'
-  gate             INTEGER NOT NULL DEFAULT 0,
-  branch           TEXT NOT NULL DEFAULT '',     -- 'rd'|'fe'（并行泳道；''=非并行）
-  parallel_group   TEXT NOT NULL DEFAULT '',     -- 'dev-1'（并行标记；''=非并行）
-  scope            TEXT NOT NULL DEFAULT '',     -- 裁剪：''=全量｜'be'=仅后端｜'fe'=仅前端
-  reviewers        TEXT NOT NULL DEFAULT '[]',   -- JSON:[{role,capability_id,scope?}]
-  expected_outputs TEXT NOT NULL DEFAULT '[]',   -- JSON:[{capability_id,label,kind}]
-  created_at       INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
-  updated_at       INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
-  UNIQUE (flow_templates_id, node_order)
-);
-```
-
-```jsonc
-{
-  "id": 5,
-  "flow_templates_id": "business",                    // 逻辑引用 flow_templates
-  "node_order": 3,                                    // 节点序号
-  "key": "RD 技术设计",                                // 节点名
-  "role_id": "rd",                                    // 执行者角色
-  "capability_id": "backend-design",                  // 用什么能力执行（align 节点为 null）
-  "mode": "produce",                                  // produce｜align（v0.28）
-  "gate": 0,                                          // 0/1 是否门禁
-  "branch": "",                                       // 泳道（''=非并行；rd/fe=并行泳道）
-  "parallel_group": "",                               // 并行组标记（''=非并行）
-  "scope": "be",                                      // 裁剪：''=全量｜be=仅后端｜fe=仅前端
-  "reviewers": [                                      // JSON: 静态评审声明（v0.28：[{role,capability_id,scope?}]）
-    { "role": "rd",   "capability_id": "rd-tech-review",   "scope": "be" },
-    { "role": "arch", "capability_id": "arch-tech-review", "scope": "be" },
-    { "role": "fe",   "capability_id": "fe-tech-review",   "scope": "fe" },
-    { "role": "qa",   "capability_id": "qa-tech-review" },
-    { "role": "pm",   "capability_id": "pm-review" }
-  ],
-  "expected_outputs": [                               // JSON: 期望产物（引用能力）
-    { "capability_id": "backend-design", "label": "《RD 技术设计》", "kind": "document" }
-  ],
-  "created_at": 1786000000000,
-  "updated_at": 1786000000000
-}
-```
-**实例层（5）**
-
-**flows（流程实例）**
-
-```sql
--- 流程实例（每个需求/任务一份）
-CREATE TABLE flows (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  requirement_id  TEXT NOT NULL UNIQUE,  -- 业务主键（req-001）
-  flow_templates_id TEXT NOT NULL,       -- 逻辑引用 flow_templates
-  current_node_id TEXT,                  -- 当前指针（n-00…；NULL=未启动）
-  created_at      INTEGER NOT NULL,
-  updated_at      INTEGER NOT NULL
-);
-```
-
-```jsonc
-{
-  "id": 12,
-  "requirement_id": "req-019",                        // 业务主键（每个需求一份）
-  "flow_templates_id": "business",                    // 实例→模板
-  "current_node_id": "n-04",                          // 当前指针（null=未启动）
-  "created_at": 1786000000000,
-  "updated_at": 1786001000000                         // 每次节点推进都刷新
-}
-```
-
-**flow_nodes（节点实例）**
-
-```sql
--- 节点实例（独立 id，运行时状态；reviewers JSON 取代独立 flow_node_reviewers 表 v0.18）
-CREATE TABLE flow_nodes (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  requirement_id  TEXT NOT NULL,        -- 逻辑引用 flows.requirement_id
-  node_id         TEXT NOT NULL,        -- n-00…（实例化生成）
-  node_order      INTEGER NOT NULL,
-  key             TEXT NOT NULL,
-  role_id         TEXT NOT NULL,
-  gate            INTEGER NOT NULL DEFAULT 0,
-  branch          TEXT NOT NULL DEFAULT '',
-  parallel_group  TEXT NOT NULL DEFAULT '',
-  reviewers       TEXT NOT NULL DEFAULT '[]',  -- JSON:[{role,capability_id,scope?}]
-  feature_branch  TEXT,                 -- 评审敲定后写入的落点约定：feature 集成线名（工单分支自其切出合回；NULL=未敲定）
-  state           TEXT NOT NULL DEFAULT '未开始',  -- 未开始/进行中/待评审/已通过
-  entered_at      INTEGER,              -- 节点进入执行时间（NULL=未进入；业务语义≠行创建）
-  rolled_back_count INTEGER NOT NULL DEFAULT 0,
-  last_decision   TEXT,                 -- JSON:{verdict,reason,at,branch?}（NULL=未决策）
-  pending_scope   TEXT,                 -- 打回时待重定范围（NULL=无）
-  created_at      INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
-  updated_at      INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)
-);
-```
-
-```jsonc
-{
-  "id": 34,
-  "requirement_id": "req-019",
-  "node_id": "n-04",                                  // 实例化时生成，独立可读 id
-  "node_order": 4,
-  "key": "RD 技术评审",                                // 节点名（从模板复制）
-  "role_id": "arch",                                  // 执行者角色
-  "gate": 1,                                          // 门禁节点
-  "branch": "",                                       // ''=非并行
-  "parallel_group": "",
-  "reviewers": [                                      // JSON: 静态评审声明
-    { "role": "arch", "capability_id": "arch-tech-review", "focus": "技术路线/架构一致性" },
-    { "role": "fe",   "capability_id": "fe-tech-review",   "focus": "接口契约" },
-    { "role": "qa",   "capability_id": "qa-tech-review",   "focus": "可测性" }
-  ],
-  "feature_branch": null,                             // 评审敲定集成线后写入（null=未敲定）
-  "state": "待评审",                                  // 未开始/进行中/待评审/已通过
-  "entered_at": 1786000800000,                        // 节点进入时间（null=未进入）
-  "rolled_back_count": 0,                             // 回滚次数
-  "last_decision": null,                              // JSON:{verdict,reason,at,branch?}（null=未决策）
-  "pending_scope": null,                              // 打回待重定范围（null=无）
-  "created_at": 1786000000000,
-  "updated_at": 1786000800000
-}
-```
-
-**tasks（任务，唯一待办总线）**
-
-```sql
--- 任务（唯一待办总线 v0.18，取代 inbox；推模式派发）
-CREATE TABLE tasks (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  task_id    TEXT NOT NULL UNIQUE,      -- t-<ts>-<seq>
-  requirement_id TEXT NOT NULL,
-  node_id    TEXT NOT NULL,
-  branch     TEXT NOT NULL DEFAULT '',
-  role_id    TEXT NOT NULL,
-  task_type  TEXT NOT NULL,             -- produce|review|accept|decide
-  goal       TEXT NOT NULL,
-  context    TEXT NOT NULL,             -- JSON:确定性上下文（nodeKey/branch/artifacts/dependencyDocs）
-  status     TEXT NOT NULL DEFAULT 'todo',   -- todo|in-progress|awaiting-reply|done|rejected|closed
-  root_issue_id TEXT,                   -- 锚定根 issue（NULL=纯执行任务）
-  reply_count  INTEGER NOT NULL DEFAULT 0,
-  last_reply_at INTEGER,
-  -- 派发/断点交接（v0.19）
-  dispatch_at  INTEGER,                 -- 派发时间（NULL=未派发）
-  last_ack     INTEGER,                 -- 确认收到心跳（NULL=未送达需重发）
-  last_progress TEXT,                   -- 执行到哪一步（断点续接锚点）
-  resume_hint  TEXT,                    -- 断点续接提示
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  done_at    INTEGER,                   -- NULL=未完成
-  closed_at  INTEGER                    -- NULL=未关闭
-);
-```
-
-```jsonc
-{
-  "id": 42,
-  "task_id": "t-20260815-002",                        // 业务可读 id
-  "requirement_id": "req-019",
-  "node_id": "n-04",                                  // 绑定节点
-  "branch": "",                                       // 泳道（''=无）
-  "role_id": "arch",                                  // 负责角色
-  "task_type": "review",                              // produce | review | accept | decide
-  "goal": "评审 RD 技术设计（n-04，架构视角）",
-  "context": {                                        // JSON: 主 agent 组装的确定性上下文
-    "nodeKey": "RD 技术评审",
-    "branch": "",
-    "artifacts": [{ "id": "art-101", "label": "《RD 技术设计》", "href": "docs/v2.0/req-019/rd/design.md" }],
-    "dependencyDocs": ["prd.md", "rd/design.md"]
-  },
-  "status": "awaiting-reply",                         // todo|in-progress|awaiting-reply|done|rejected|closed
-  "root_issue_id": "cm-1002",                         // 锚定根 issue 线程（null=纯执行任务）
-  "reply_count": 2,                                   // 线程回复数
-  "last_reply_at": 1786001200000,
-  "dispatch_at": 1786000950000,                       // 派发时间（证明已派出）
-  "last_ack": 1786000960000,                          // 确认收到时刻（null=未送达需重发）
-  "last_progress": "已读 design.md，提出意见 cm-1002", // 断点续接锚点
-  "resume_hint": "等待 arch 对 cm-1002 的最终确认",
-  "created_at": 1786000950000,
-  "updated_at": 1786001200000,
-  "done_at": null,                                    // null=未完成
-  "closed_at": null                                   // null=未关闭
-}
-```
-
-**artifacts（产物）**
-
-```sql
--- 产物
-CREATE TABLE artifacts (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  artifact_id TEXT NOT NULL UNIQUE,     -- art-<ts>
-  requirement_id TEXT NOT NULL,
-  node_id     TEXT NOT NULL,
-  label       TEXT NOT NULL,
-  href        TEXT NOT NULL,            -- 文档路径 / 链接 URL
-  kind        TEXT NOT NULL DEFAULT 'document',  -- document|link
-  note        TEXT NOT NULL DEFAULT '',
-  added_by    TEXT NOT NULL,            -- 登记人（role_id）
-  created_at  INTEGER NOT NULL,         -- 登记（创建）时间（原 added_at）
-  updated_at  INTEGER NOT NULL
-);
-```
-
-```jsonc
-{
-  "id": 101,
-  "artifact_id": "art-101",
-  "requirement_id": "req-019",
-  "node_id": "n-03",                                  // 挂到产出节点
-  "label": "《RD 技术设计》",                          // 显示名
-  "href": "v2.0/req-019/rd/design.md",                // 相对 docs root 路径（kind=link 时为外链 URL；spec 注记-K）
-  "kind": "document",                                 // document | link
-  "note": "含接口契约 v2 修订",                        // 可选备注（''=无）
-  "added_by": "rd",                                   // 登记人
-  "created_at": 1786000800000,                        // 登记（创建）时间
-  "updated_at": 1786000800000
-}
-```
-
-**issues（评论/问题/线程）**
-
-```sql
--- 评论/问题/线程（单表 v0.20：根评论 + replies JSON 内嵌；issue_replies 已并入）
-CREATE TABLE issues (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  issue_id     TEXT NOT NULL UNIQUE,     -- cm-<ts>
-  requirement_id TEXT NOT NULL,
-  node_id      TEXT NOT NULL,
-  anchor_kind  TEXT NOT NULL DEFAULT 'document',  -- document|line|range|block
-  anchor_artifact_id TEXT,               -- 锚定产物（NULL=未锚定）
-  anchor_line       INTEGER,             -- 仅 kind=line
-  anchor_start_line INTEGER,             -- 仅 kind=range
-  anchor_end_line   INTEGER,             -- 仅 kind=range
-  anchor_block_start INTEGER,            -- 仅 kind=block
-  anchor_block_end  INTEGER,             -- 仅 kind=block
-  anchor_lang  TEXT,                     -- 仅 kind=block
-  author       TEXT NOT NULL,
-  role_id      TEXT NOT NULL,
-  reviewer_role TEXT,                    -- 评审归属（L3 domain 推导后；NULL=未推导）
-  issue_type   TEXT NOT NULL DEFAULT 'issue',  -- issue|notification|discussion
-  assignee     TEXT,                     -- 解决责任人（L1/L2/L3；NULL=未指派）
-  text         TEXT NOT NULL,
-  replies      TEXT NOT NULL DEFAULT '[]',   -- JSON:[{reply_id,by,role_id,text,at}]（不可变追加）
-  state        TEXT NOT NULL DEFAULT 'open',  -- open|pending-confirm|resolved|overridden
-  created_at   INTEGER NOT NULL,         -- 根评论创建时间（原 at）
-  round_count  INTEGER NOT NULL DEFAULT 0,
-  last_reply_at INTEGER,
-  resolve_by   TEXT,                     -- 解决责任人（NULL=未解决）
-  resolve_at   INTEGER,
-  resolve_note TEXT,
-  resolve_path TEXT,                     -- fix|agree
-  resolve_reviewer_confirmed INTEGER NOT NULL DEFAULT 0,  -- 0/1 评审者确认
-  resolved_by  TEXT,                     -- 最终确认人（NULL=未闭环）
-  resolved_at  INTEGER,
-  updated_at   INTEGER NOT NULL
-);
-```
-
-```jsonc
-{
-  "id": 1002,
-  "issue_id": "cm-1002",
-  "requirement_id": "req-019",
-  "node_id": "n-04",                                  // 评论所属节点
-  "anchor_kind": "block",                             // document|line|range|block
-  "anchor_artifact_id": "art-101",                    // 锚定产物（null=未锚定）
-  "anchor_line": null,                                // 仅 kind=line
-  "anchor_start_line": null,                          // 仅 kind=range
-  "anchor_end_line": null,                            // 仅 kind=range
-  "anchor_block_start": 42,                           // 代码块起行（仅 kind=block）
-  "anchor_block_end": 58,                             // 代码块终行（仅 kind=block）
-  "anchor_lang": "sql",                               // 代码块语言（仅 kind=block）
-  "author": "arch",                                   // 作者
-  "role_id": "arch",                                  // 作者角色
-  "reviewer_role": null,                              // L3 归属（null=非跨端）
-  "issue_type": "issue",                              // issue|notification|discussion
-  "assignee": "rd",                                   // 解决责任人（L1/L2/L3）
-  "text": "数据模型表 user_order 缺唯一约束，并发下单会重复。",
-  "replies": [                                        // JSON: 不可变回复数组
-    { "reply_id": "r-1", "by": "rd",   "role_id": "rd",   "text": "已补 UNIQUE，见 §3", "at": 1786001100000 },
-    { "reply_id": "r-2", "by": "arch", "role_id": "arch", "text": "确认，可关闭。",      "at": 1786001200000 }
-  ],
-  "state": "pending-confirm",                         // open|pending-confirm|resolved|overridden
-  "created_at": 1786001000000,                        // 根评论创建时间
-  "round_count": 2,                                   // 回复轮数
-  "last_reply_at": 1786001200000,
-  "resolve_by": "rd",                                 // 解决责任人（null=未解决）
-  "resolve_at": 1786001100000,                        // 解决时间（null=未解决）
-  "resolve_note": "已补唯一约束",
-  "resolve_path": "fix",                              // fix|agree
-  "resolve_reviewer_confirmed": 1,                    // 评审者是否确认
-  "resolved_by": null,                                // 最终确认人（null=未闭环）
-  "resolved_at": null,                                // 最终确认时间（null=未闭环）
-  "updated_at": 1786001200000
-}
-```
-**支撑层（2）**
-
-**audit_log（审计）**
-
-```sql
--- 审计（agent 每步改库留痕；snapshots 已删）
-CREATE TABLE audit_log (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  table_name TEXT NOT NULL,
-  row_id     TEXT NOT NULL,             -- 业务主键值（req-001 / n-09 / cm-xxx / t-xxx）
-  action     TEXT NOT NULL,             -- INSERT|UPDATE|DELETE
-  field      TEXT,                      -- 变更字段（UPDATE；INSERT/DELETE NULL）
-  old_value  TEXT,                      -- 旧值（NULL=无旧值）
-  new_value  TEXT,                      -- 新值（NULL=无新值）
-  by_who     TEXT NOT NULL,             -- 操作者（role_id/'user'/'system'）
-  created_at INTEGER NOT NULL,          -- 审计事件时间（原 at）
-  updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)  -- 恒=created_at
-);
-```
-
-```jsonc
-{
-  "id": 5201,
-  "table_name": "tasks",                              // 被变更的表
-  "row_id": "t-20260815-001",                         // 业务主键值
-  "action": "UPDATE",                                 // INSERT | UPDATE | DELETE
-  "field": "status",                                  // 变更字段（INSERT/DELETE null）
-  "old_value": "in-progress",                         // 旧值（null=无旧值）
-  "new_value": "done",                                // 新值（null=无新值）
-  "by_who": "rd",                                     // 操作者
-  "created_at": 1786000900000,                        // 审计事件时间
-  "updated_at": 1786000900000                         // 恒=created_at（审计行不可变）
-}
-```
-
-**meta（元信息）**
-
-```sql
--- 元信息（schema 版本/迁移）
-CREATE TABLE meta (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  meta_key   TEXT NOT NULL UNIQUE,      -- 如 schema_version
-  meta_value TEXT NOT NULL,
-  created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
-  updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)
-);
-```
-
-```jsonc
-{
-  "id": 1,
-  "meta_key": "schema_version",                       // 元信息键
-  "meta_value": "6",                                  // 元信息值（迁移版本）
-  "created_at": 1786000000000,
-  "updated_at": 1786000000000
-}
-```
-
-**表-实体-能力落点（m8 §3.6.5 衔接）**
-
-| 数据模型需求 | sqlite 落点 |
-|---|---|
-| 流程模板/实例分离 | flow_templates / flow_template_nodes + flows / flow_nodes |
-| 节点独立 id + 并行编排 | flow_nodes(node_id, parallel_group, reviewers JSON) |
-| 任务实体 + 确定性上下文 | tasks（goal/context JSON；唯一待办总线，取代 inbox） |
-| 待回复场景（多轮线程） | tasks(root_issue_id) 锚定 issues（replies JSON 内嵌，v0.20） |
-| IM/通知（视图非数据） | 查询 tasks + issues 实时推导，不建通知表（v0.19） |
-| 角色同一性 | roles 注册表 + capabilities.role_id（1 对多） |
-| 节点用什么能力 | flow_template_nodes.capability_id → capabilities（how/products，v0.28） |
-| 问题归属 L1/L2/L3 | issues(assignee) + reviewer_role；L3 domain 工具写 assignee |
-| 审计留痕 | audit_log（v0.18；snapshots 已删） |
-| 产出标准权威 | v0.23 模板外置 docs/templates/ → v0.29 收敛进产出 skill（docs/templates/skills/，有 skill 的 4 类；无 skill 模板暂承载待建）；products=[{doc_path, demo_path}]（D4 拍板 47c53ed9） |
+- **完整 DDL 唯一真相源 = `.plan/wbflow-impl/spec.md` §0（MySQL 14 表）+ `rd/migration/sql/0001-0004` 迁移链**（0004 增 notify_outbox）。本文件与任何其他文档不得复制完整 DDL（避免第二真相源）。
+- 一版 sqlite 设计稿（11 表，v0.15~v0.29 时代）冻结于 `workbench-sql/`（仅作参考，表名/列名以 MySQL 迁移链为准：flow_defs / flow_def_nodes 更名已落）。
+- schema 演进纪律：改结构 → 迁移链追加版本化脚本（禁止自动 DROP；重复应用零效应）。
 
 ### 7.6 迁移与并发
 
-**迁移（JSON → sqlite）**：
-1. 一次性导入脚本：requirements/versions/inbox/各 req 的 flow/artifacts/comments → sqlite（inbox 并入 tasks，以 task 形式导入，root_issue_id 关联原评论线程）；
-2. 历史字段映射：`requirements.history → audit_log`、`comments.resolve → issues 列`；
-3. `meta` 表记录 schema 版本；后续演进走 `ALTER` + 迁移脚本（版本化）。
+- **迁移链**：`rd/migration/sql/` 版本化——0001 全量 schema（14 表）+ 0002 seed + 0003 flows.scope/flow_nodes.last_decision 补列 + 0004 notify_outbox。
+- **并发**：MySQL InnoDB；乐观锁 updated_at；应用层单写入者（Leader 主导）。
+- **幂等声明（全局）**：`event:'complete'` 幂等（判据为数据状态，重复上报无害）；回退动作按 `requirement_id+node_id+round` 幂等；task 派发按 `reqId+nodeId+action_id+assignee` 幂等。
 
-**并发**：sqlite WAL 模式——单写多读，工作台单 Leader 写主导，无写冲突；所有 wb_* 工具改走 sqlite（事务包裹），JSON 读写层废弃。
+### 7.7 表清单与关联（概念模型）
 
-**访问路径**：保留 `.workbench/` 目录但改为 `workbench.db`（JSON 只作导出格式）；db 是否入 git 由仓库政策决定（sqlite WAL 二进制；留痕靠 audit_log，不依赖 git diff）。
+> 完整字段与索引见 spec §0；此处列 15 表分组与关键逻辑引用（子表关联列与父表业务主键同名同值，无物理外键）。
 
-### 7.7 数据模型 ER 图（可视化）
+| 分组 | 表 | 关键逻辑引用 |
+|---|---|---|
+| 定义层（4） | roles / capabilities / flow_defs / flow_def_nodes | capabilities.role_id→roles；flow_def_nodes.flow_defs_id→flow_defs；flow_def_nodes.capability_id（reviewers/node_actions/expected_outputs JSON 内）→capabilities |
+| 实例层（7） | flows / flow_nodes / tasks / artifacts / issues / sessions / requirements·versions | flows.requirement_id→requirements；flow_nodes.def_node_id→flow_def_nodes.template_node_id；tasks/artifacts/issues.requirement_id+node_id；tasks.root_issue_id→issues；issues.anchor_artifact_id→artifacts；flows.current_node_id→flow_nodes |
+| 支撑层（3） | audit_log / meta / notify_outbox | audit_log.row_id=各表业务主键值 |
 
-> 与 §7.5 DDL 一一对应（11 张表）。依据 `.workbench/workbench.db` 实际 schema + README 注记 8 关联矩阵。关联约定（v0.16）：子表关联列与父表业务主键**同名同值（TEXT）**；`id`（INTEGER）仅作内部主键，不做跨表关联；无外键约束（逻辑引用）。基数标记：`||--o{` = 1 对多；`||--||` = 1 对 1（可空用 `o|`）。
+**需求依赖树（plugin 层内置）**：plugin 依据 flows.dependencies 构建版本内需求依赖树——需求实例按依赖自动注册在各自父节点下；分层由依赖图派生（拓扑分层），不对用户显示层级；树视图分析师动态加载（非常驻）。调度器（长期）：就绪池=依赖全部 approved 的节点，按高优 priority 拉取（business/tech/task 适用，plan 除外）；MVP 人工卡点（节点 0 user_gate=1）。
 
-```mermaid
-erDiagram
-    %% ================= 角色 / 能力 / 模板（定义层） =================
-    ROLES {
-        INTEGER id PK
-        TEXT role_id UK "业务主键 rd/fe/cr/arch/pm/qa/inv/leader/user"
-        TEXT name
-        TEXT note "角色工作内容注释（非子 agent persona；完整 persona 见 team preset）"
-        INTEGER created_at "unix ms"
-        INTEGER updated_at "unix ms"
-    }
-    CAPABILITIES {
-        INTEGER id PK
-        TEXT capability_id UK "backend-design / rd-tech-review ..."
-        TEXT name
-        TEXT role_id FK "引用 ROLES.role_id（1对多，角色拥有能力）"
-        TEXT how "JSON 行为步骤（能力本体，v0.23）"
-        TEXT products "JSON [{doc_path,demo_path}] 产出物清单（v0.28 合并；v0.29 删 template_path；评审/决策类 '[]'）"
-        INTEGER created_at "unix ms"
-        INTEGER updated_at "unix ms"
-    }
-    FLOW_TEMPLATES {
-        INTEGER id PK
-        TEXT flow_templates_id UK "business / tech / task / plan"
-        TEXT scope_options "JSON scope 选项"
-        INTEGER created_at "unix ms"
-        INTEGER updated_at "unix ms"
-    }
-    FLOW_TEMPLATE_NODES {
-        INTEGER id PK
-        TEXT flow_templates_id FK "引用 FLOW_TEMPLATES.flow_templates_id（1对多）"
-        INTEGER node_order "编排顺序"
-        TEXT key "节点名 产品设计/需求评审/..."
-        TEXT role_id FK "执行者（引用 ROLES.role_id）"
-        TEXT capability_id FK "引用 CAPABILITIES.capability_id（可空=NULL=align 无产物节点）"
-        TEXT mode "produce=有产物常规节点｜align=无产物自主对齐（v0.28）"
-        INTEGER gate "0/1 是否门禁"
-        TEXT branch "rd/fe 泳道（''=非并行）"
-        TEXT parallel_group "dev-1 并行标记（''=非并行）"
-        TEXT scope "裁剪条件 ''=全量｜be=仅后端｜fe=仅前端"
-        TEXT reviewers "JSON [{role,capability_id,scope?}] 评审者集合（v0.28 移除 focus）"
-        TEXT expected_outputs "JSON 期望产物（capability_id 引用）"
-        INTEGER created_at "unix ms"
-        INTEGER updated_at "unix ms"
-    }
+## 8. 制度层（角色 · 编排模型 · 流程定义 · 能力 · 评审分工）
 
-    %% ================= 实例层 =================
-    FLOWS {
-        INTEGER id PK
-        TEXT requirement_id UK "req-001"
-        TEXT flow_templates_id FK "引用 FLOW_TEMPLATES.flow_templates_id"
-        TEXT current_node_id FK "当前指针（引用 FLOW_NODES.node_id，可空）"
-        INTEGER created_at "unix ms"
-        INTEGER updated_at "unix ms"
-    }
-    FLOW_NODES {
-        INTEGER id PK
-        TEXT requirement_id FK "引用 FLOWS.requirement_id（1对多）"
-        TEXT node_id UK "n-00..."
-        INTEGER node_order
-        TEXT key
-        TEXT role_id FK "执行者（引用 ROLES.role_id）"
-        INTEGER gate
-        TEXT branch "''=非并行"
-        TEXT parallel_group "''=非并行"
-        TEXT reviewers "JSON [{role,capability_id,scope?}] 静态评审声明（v0.28；v0.18 取代 FLOW_NODE_REVIEWERS）"
-        TEXT feature_branch "feature 集成线名（落点约定，BUG-014 口径）；NULL=未敲定"
-        TEXT state "未开始/进行中/待评审/已通过"
-        INTEGER entered_at "节点进入时间（NULL=未进入）"
-        INTEGER rolled_back_count
-        TEXT last_decision "JSON {verdict,reason,at,branch?}"
-        TEXT pending_scope
-        INTEGER created_at "实例化时间"
-        INTEGER updated_at "unix ms"
-    }
-    TASKS {
-        INTEGER id PK
-        TEXT task_id UK "t-<ts>-<seq>"
-        TEXT requirement_id FK "引用 FLOWS.requirement_id"
-        TEXT node_id FK "引用 FLOW_NODES.node_id"
-        TEXT branch "泳道 rd/fe（记录位置，不承担隔离；''=无）"
-        TEXT role_id FK "执行者（引用 ROLES.role_id）"
-        TEXT task_type "produce/review/accept/decide"
-        TEXT goal
-        TEXT context "JSON 确定性上下文"
-        TEXT status "todo/in-progress/awaiting-reply/done/rejected/closed"
-        TEXT root_issue_id FK "锚定根 issue（线程入口，可空）"
-        INTEGER reply_count "线程回复数"
-        INTEGER last_reply_at "线程最新回复时间"
-        INTEGER dispatch_at "派发时间（证明已派出，v0.19）"
-        INTEGER last_ack "subagent 最近确认时刻（NULL=未送达，v0.19）"
-        TEXT last_progress "执行到哪一步（断点续接锚点，v0.19）"
-        TEXT resume_hint "断点续接提示（v0.19）"
-        INTEGER created_at
-        INTEGER updated_at
-        INTEGER done_at
-        INTEGER closed_at
-    }
-    ARTIFACTS {
-        INTEGER id PK
-        TEXT artifact_id UK "art-<ts>"
-        TEXT requirement_id FK "引用 FLOWS.requirement_id"
-        TEXT node_id FK "引用 FLOW_NODES.node_id"
-        TEXT label
-        TEXT href
-        TEXT kind "document/link"
-        TEXT note "''=无备注"
-        TEXT added_by "登记人"
-        INTEGER created_at "登记（创建）时间（原 added_at）"
-        INTEGER updated_at "unix ms"
-    }
-    ISSUES {
-        INTEGER id PK
-        TEXT issue_id UK "cm-<ts>"
-        TEXT requirement_id FK "引用 FLOWS.requirement_id"
-        TEXT node_id FK "引用 FLOW_NODES.node_id"
-        TEXT anchor_kind "document/line/range/block"
-        TEXT anchor_artifact_id FK "锚点（引用 ARTIFACTS.artifact_id，可空）"
-        INTEGER anchor_line
-        INTEGER anchor_start_line
-        INTEGER anchor_end_line
-        INTEGER anchor_block_start
-        INTEGER anchor_block_end
-        TEXT anchor_lang
-        TEXT author
-        TEXT role_id FK "作者角色（引用 ROLES.role_id）"
-        TEXT reviewer_role
-        TEXT issue_type "issue/notification/discussion"
-        TEXT assignee
-        TEXT text "根评论内容"
-        TEXT replies "JSON [{reply_id,by,role_id,text,at}] 不可变回复（v0.20 并入 ISSUE_REPLIES）"
-        TEXT state "open/pending-confirm/resolved/overridden"
-        INTEGER created_at "根评论创建时间（原 at）"
-        INTEGER round_count
-        INTEGER last_reply_at
-        TEXT resolve_by
-        INTEGER resolve_at
-        TEXT resolve_note
-        TEXT resolve_path "fix/agree"
-        INTEGER resolve_reviewer_confirmed
-        TEXT resolved_by
-        INTEGER resolved_at
-        INTEGER updated_at "unix ms"
-    }
-
-    %% ================= 支撑表 =================
-    AUDIT_LOG {
-        INTEGER id PK
-        TEXT table_name
-        TEXT row_id "业务主键值"
-        TEXT action "INSERT/UPDATE/DELETE"
-        TEXT field "UPDATE 时；INSERT/DELETE NULL"
-        TEXT old_value
-        TEXT new_value
-        TEXT by_who
-        INTEGER created_at "审计事件时间（原 at）"
-        INTEGER updated_at "恒=created_at（审计行不可变）"
-    }
-    META {
-        INTEGER id PK
-        TEXT meta_key UK
-        TEXT meta_value
-        INTEGER created_at "unix ms"
-        INTEGER updated_at "unix ms"
-    }
-
-    %% ================= 关联（子表列 = 父表业务主键，同名） =================
-    ROLES ||--o{ CAPABILITIES : "role_id（角色拥有能力 1:n）"
-    ROLES ||--o{ FLOW_TEMPLATE_NODES : "role_id（节点执行者 1:n）"
-    ROLES ||--o{ FLOW_NODES : "role_id（实例执行者 1:n）"
-    ROLES ||--o{ TASKS : "role_id（任务执行者 1:n）"
-    ROLES ||--o{ ISSUES : "role_id（评论作者/回复者 1:n，回复在 replies JSON）"
-
-    CAPABILITIES ||--o{ FLOW_TEMPLATE_NODES : "capability_id（节点用什么能力 1:n）"
-
-    FLOW_TEMPLATES ||--o{ FLOW_TEMPLATE_NODES : "flow_templates_id（模板→节点 1:n）"
-    FLOW_TEMPLATES ||--o{ FLOWS : "flow_templates_id（模板→实例 1:n）"
-
-    FLOWS ||--o{ FLOW_NODES : "requirement_id（流程→节点 1:n）"
-    FLOWS ||--o{ TASKS : "requirement_id（流程→任务 1:n）"
-    FLOWS ||--o{ ARTIFACTS : "requirement_id（流程→产物 1:n）"
-    FLOWS ||--o{ ISSUES : "requirement_id（流程→评论 1:n）"
-    FLOWS o|--o| FLOW_NODES : "current_node_id（当前指针 1:1，可空）"
-
-    FLOW_NODES ||--o{ TASKS : "node_id（节点→任务 1:n）"
-    FLOW_NODES ||--o{ ARTIFACTS : "node_id（节点→产物 1:n）"
-    FLOW_NODES ||--o{ ISSUES : "node_id（节点→评论 1:n）"
-
-    TASKS o|--o{ ISSUES : "root_issue_id（待办→锚定线程，可空）"
-    ARTIFACTS o|--o{ ISSUES : "anchor_artifact_id（评论锚点→产物，可空）"
-```
-
-**图例说明**：
-
-| 符号 | 含义 |
-|---|---|
-| `||--o{` | 父表 1 → 子表 n |
-| `||--o|` | 父表 1 → 子表 1（子侧可空） |
-| `o|--o|` | 双向可空 1:1（如 current_node_id 指针） |
-| PK | 内部主键（INTEGER AUTOINCREMENT） |
-| UK | 业务主键（TEXT UNIQUE，可读/跨系统引用） |
-| FK | 逻辑引用（无外键约束；关联列与父表业务主键同名） |
-
-**三类分组**：
-
-1. **定义层**（模板/注册表）：ROLES、CAPABILITIES、FLOW_TEMPLATES、FLOW_TEMPLATE_NODES
-2. **实例层**（运行时状态）：FLOWS、FLOW_NODES、TASKS、ARTIFACTS、ISSUES
-3. **支撑层**（审计/元信息）：AUDIT_LOG、META
-
-> ER 演进注记与 §7.1 的时间戳/NULL/字段收缩约定一致（v0.17 模板内联→v0.23 外置、v0.18 inbox/reviewers 并入、v0.19 conversations 删除+派发字段、v0.20 replies 并入、v0.21 NULL 收紧、v0.22 全表时间戳、v0.28 products 单列+QA 合并+align 节点）。
-
-## 8. 制度层（流程模板 · 角色 · 能力 · 评审分工）
-
-> 制度层以 **DSH team preset** 落地：从 standard preset 复制，叠加团队制度（角色/流程/门禁/协作铁律/skill 指南）；团队内任何 agent 会话（主会话 + 子 agent）加载同一份制度。
-> preset 决定：该会话挂哪些工具、系统提示中的制度内容、可加载哪些 skill。skill：`wb-agent-guide`（工作台工具组合流程）、`team-conventions`（角色/流程/门禁/评审分工速查）。
+> 制度层以 **DSH team preset** 落地：团队内任何 agent 会话（主会话 + 子 agent）加载同一份制度。preset 决定：该会话挂哪些工具、系统提示中的制度内容、可加载哪些 skill（`wb-agent-guide` 工具组合流程 / `team-conventions` 速查）。
 
 ### 8.1 团队角色（9+1）
 
 | 角色 | 职责（一句话） |
 |---|---|
 | User | 需求提出方 / 最终决策者，制度唯一修改入口（确认范围、拍板发布） |
-| Leader | 团队负责人：拆解任务、分派 owner、门禁决策（wb_decide）推进 |
+| Leader | 团队负责人：拆解任务、分派 owner、门禁裁决（service 层）与 create_reqs 直执行 |
 | Investigator | 调研 / 澄清需求，输出调研结论（竞品/开源：引入 or 重写，为什么） |
 | Architect | 技术方案设计与评审：产品设计、技术路线、架构规划、版本规划 |
 | RD | 后端研发：技术设计、开发与自测 |
 | PM | 项目管理 / 范围管控：需求价值、优先级、排期与依赖 |
 | FE | 前端研发：技术设计、开发与自测 |
-| QA | 测试与验收：用例设计、验收、缺陷闭环（含跨端根因判定） |
+| QA | 测试与验收：验收执行、缺陷闭环（含跨端根因判定；用例设计合并入验收，QA-02） |
 | Code Reviewer | 代码评审：代码质量、设计落地、回归风险 |
-| executor（动态占位） | 任务流程（task）的动态执行者：由 User/Leader 指定，实例化时按实际执行者解析（模板默认绑 backend-dev） |
+| executor（动态占位） | 任务流程（task）的动态执行者：由 User/Leader 指定，实例化时按实际执行者解析 |
 
-**owner 规则**：需求任务 `scope=仅前端` → **FE**；其余（仅后端、前后端都含）→ **RD**；任务流程执行者由 User/Leader 指定。
+**owner 规则**：需求任务 `scope=fe` → FE；`rd`/含 rd → RD；架构规划类→Architect；任务流程执行者由 User/Leader 指定。
 
-### 8.2 流程模板（4 类）
+### 8.2 节点编排模型（两层属性状态机 · 定稿）
 
-按需求 `category`/`reqType` 选择模板（business / tech / task / plan）。**通用首阶段「待启动」**：需求已创建但尚未投入资源；当团队开始投入时推进到下一阶段。owner=Leader，无门禁。
+> 源：capability-model-final v3（2026-09-05 定稿，09-08 v5 评审轮重构，09-11/09-12 批注定稿）。历史演进与作废裁决见附录 A。
 
-**业务需求（business）：12 节点 + 待启动**
+#### 8.2.1 可配动作相位（node.state）
 
-> ①产品设计 → ②需求评审 → ③RD 技术设计 → ④RD 技术评审 → ⑤FE 技术设计 → ⑥FE 设计评审 → ⑦用例设计 → ⑧用例设计评审 → ⑨.1 RD 开发 ∥ ⑨.2 FE 开发（并行）→ ⑩QA 验收 → ⑪用户验收。**无产品设计评审独立节点**（并入②）；**设计阶段串行；仅开发阶段并行**。
-
-| 阶段 | 负责人 | 做什么 | 输入 | 产物 | 门禁 / 审核维度 |
-|---|---|---|---|---|---|
-| ① 产品设计 | Architect | 产品方案 | 需求描述 + 架构文档 | 《产品设计文档》 | —（产出后由②把关） |
-| ② 需求评审 | PM | 评审合理性 + 产品方案 | 产品设计文档 | 评审结论 | PM 价值/优先级/范围 + Architect 技术可行性 + **User 拍板** |
-| ③ RD 技术设计 | RD | 后端技术方案 | 产品设计文档 | 《RD 技术设计》 | — |
-| ④ RD 技术评审 | RD 发起 | 评审 RD 方案；敲定 feature 集成线与分支拆合约定 | RD 技术设计 | 评审意见 | Architect 路线一致 + RD 完整性/自测 + FE 接口可对接 + QA 可测性 + PM 工期依赖 + **User 拍板** |
-| ⑤ FE 技术设计 | FE | 前端技术方案 | 产品设计 + RD 设计 | 《FE 技术设计》 | — |
-| ⑥ FE 设计评审 | FE 发起 | 评审 FE 方案 | FE 技术设计 | 评审意见 | QA 交互可测性/关键路径可验证 |
-| ⑦ 用例设计 | QA | 明确前后端各自自测、如何联调 | RD/FE 设计文档 | 《用例/联调设计》 | — |
-| ⑧ 用例设计评审 | QA 发起 | 评审用例覆盖与口径 | 用例设计 | 评审意见 | RD 后端口径 + FE 前端口径（按需） |
-| ⑨.1 RD 开发 | RD | 开发、自测、feature branch + MR | 用例设计 | 代码 MR（RD）（link） | Code Reviewer：代码质量/设计落地/回归风险（并行组） |
-| ⑨.2 FE 开发 | FE | 开发、自测、feature branch + MR | 用例设计 | 代码 MR（FE）（link） | Code Reviewer：代码质量/设计落地/回归风险（并行组） |
-| ⑩ QA 验收 | QA | 读 prd(AC)+用例+接口协议+代码；按 AC 建测试资产（`qa/data/`+`qa/code/` 落代码供回测）并按用例验收；缺陷打回对应方 | MR 合并产物 + rd/fe 设计文档 | 《测试用例与验收记录》（含 §测试资产）+《缺陷文档》 | QA 用例执行/自动化通过率/缺陷闭环/联调通过 |
-| ⑪ 用户验收 | User | 最终验收 | 验收记录 | — | User 目标达成/可交付 |
-
-**技术需求（tech）：8 节点 + 待启动**
-
-> ①需求对齐（align）→ ②RD 技术设计 → ③RD 技术评审（按需）→ ④FE 技术设计（按需）→ ⑤用例设计 → ⑥并行开发 → ⑦QA 验收 → ⑧用户验收。owner=RD。
-
-| 阶段 | 负责人 | 做什么 | 输入 | 产物 | 门禁 / 审核维度 |
-|---|---|---|---|---|---|
-| ① 需求对齐 | RD | 对齐目标；无产物；疑问与架构师/User 澄清拍板 | 需求描述 | —（结论落 issues） | User 拍板确认对齐结论 |
-| ② RD 技术设计 | RD | 后端技术方案 | 需求描述 + 架构文档 | 《RD 技术设计》 | — |
-| ③ RD 技术评审 | RD 发起 | 评审；敲定 feature 集成线与分支拆合约定 | RD 技术设计 | 评审意见 | Architect 路线 + FE 接口（按需）+ QA 可测性 + User 拍板 |
-| ④ FE 技术设计 | FE | 前端技术方案 | 产品设计 + RD 设计 | 《FE 技术设计》 | — |
-| ⑤ 用例设计 | QA | 自测/回归/联调口径 | RD/FE 设计文档 | 《用例设计》 | RD、FE（按需）口径 |
-| ⑥ 并行开发 | RD + FE | 开发+自测+MR | 用例设计 | 代码 MR(link) | Code Reviewer（分别 CR） |
-| ⑦ QA 验收 | QA | 按用例验收；缺陷打回 | MR + rd/fe 设计 | 《测试用例与验收记录》+《缺陷文档》 | QA 用例执行/缺陷闭环 |
-| ⑧ 用户验收 | User | 验收通过 | 验收记录 | — | User 目标达成 |
-
-**分支约定（2026-09-10 BUG-014 口径修订）**：feature **集成线**在 ③ 敲定（`feature/<需求id>-<主题>`）；各执行任务从集成线切出工单分支（`<集成线>-t<N>-<slug>`）在独立 worktree 干活，完成后合回集成线；后续开发/CR/QA 验收**全程看同一集成线**。原「同一分支」口径在 worktree 并行下物理不成立（git 一个分支仅允许一个 worktree checkout），收敛点由集成线承接、隔离由工单分支+worktree 承接（铁律⑦⑧配套）。
-
-**任务（task）：5 节点 + 待启动**
-
-> ①需求对齐（align）→ ②方案评审 → ③开发 → ④QA 验收 → ⑤用户验收。owner=执行者（User/Leader 指定）。
-
-| 阶段 | 负责人 | 做什么 | 输入 | 产物 | 门禁 / 审核维度 |
-|---|---|---|---|---|---|
-| ① 需求对齐 | 执行者 | 明确目标/范围/验收口径，指定执行者 | 任务说明 + 架构文档 | —（最多沟通记录） | — |
-| ② 方案评审 | 执行者 | 产出《方案文档》；约定 fix 分支名 | 任务说明/缺陷报告 | 《方案文档》 | QA 可执行性/可测性 + User 拍板 |
-| ③ 开发 | 执行者 | 编码+自测+MR | 方案文档 | 代码 MR(link) | Code Reviewer 代码质量/设计落地 |
-| ④ QA 验收 | QA | 测试验证+回归 | MR + 方案文档 | 《测试用例与验收记录》+《缺陷文档》 | QA 目标验证/回归 |
-| ⑤ 用户验收 | User | 确认关闭 | 验收记录 | — | User 确认 |
-
-**版本规划（plan）：4 节点 + 待启动**
-
-> ①立项（需求对齐）→ ②调研 → ③架构规划 → ④创建需求·启动版本。owner=**Architect**。
-
-| 阶段 | 负责人 | 做什么 | 输入 | 产物 | 门禁 / 审核维度 |
-|---|---|---|---|---|---|
-| ① 立项 | Architect | 对齐需求，产出《需求对齐文档》 | 需求池 + 上版本路线 | 《需求对齐文档》 | PM 产品评审 + User 拍板 |
-| ② 调研 | Investigator | 调研竞品（GitHub 等）：引入 or 重写 | 对齐文档（范围） | 《调研文档》 | Architect 覆盖度/建议合理性 |
-| ③ 架构规划 | Architect | 定版本目标、定能力引入、拆解需求 | 调研文档 + 对齐文档 | 《架构规划》 | Leader 资源 + PM 排期 + User 拍板 |
-| ④ 创建需求·启动版本 | Leader | 按拆解建需求；创建前查重 | 架构规划（拆解清单） | 需求清单(doc) + 版本推进 | —（版本状态机单向推进） |
-
-### 8.3 scope 裁剪与并行（数据模型直接表达，机器可读）
-
-> 目的：把"scope 裁剪"从 prose 规则变成**数据模型可直接表达**的机制——定义类表声明每行/每个评审位在哪些 scope 下存在；实例表由**确定性构建流程**生成，不靠任何 persona/人工判断。
-
-**A. 定义层：可裁剪性写在哪（三处，均机器可读）**
-
-1. **`flow_templates.scope_options`**（模板级声明）：business=`["full","fe-only","be-only"]`，tech=`["be-only","full"]`，task/plan=`[]`；
-2. **`flow_template_nodes.scope`**（每行自带裁剪条件，取代"按 key 硬编码跳过"的隐式规则）：
-
-   | scope 值 | 含义 | business 模板中的应用 |
-   |---|---|---|
-   | `''`（全量） | 任何 scope 下都存在 | 待启动、产品设计、需求评审、用例设计、用例设计评审、QA 验收、用户验收 |
-   | `'be'` | 仅当需求含后端侧时存在 | RD 技术设计③、RD 技术评审④、RD 开发⑨.1（dev-1 rd 分支） |
-   | `'fe'` | 仅当需求含前端侧时存在 | FE 技术设计⑤、FE 设计评审⑥、FE 开发⑨.2（dev-1 fe 分支） |
-
-   保留判定：`节点保留 ⇔ scope='' 或 requirement.scope 覆盖该侧`（前后端都含=两侧都覆盖）。
-3. **`flow_template_nodes.reviewers[]` 条目级 `scope` 条件**（可选字段）：评审者只在其声明侧存在时进入该节点的评审。**缺省语义**：节点 scope 非空时评审位缺省随节点侧；节点 scope=''（全量）时侧特定的评审位必须显式声明 `scope`，全量评审位（QA/PM/User/Architect-产品层）缺省即两侧都参与。示例（RD 技术评审，节点 scope='be'）：
-
-   ```jsonc
-   { "key": "RD 技术评审",
-     "reviewers": [
-       { "role": "arch", "capability_id": "arch-tech-review" },              // 随节点侧（be）
-       { "role": "rd",   "capability_id": "rd-tech-review" },                // 随节点侧（be）
-       { "role": "fe",   "capability_id": "fe-tech-review", "scope": "fe" }, // ★ 仅前端侧存在时参与
-       { "role": "qa",   "capability_id": "qa-tech-review" },
-       { "role": "pm",   "capability_id": "pm-review" },
-       { "role": "user", "capability_id": "final-approve" }
-     ] }
-   ```
-
-**B. 实例构建流程（模板 → `flow_nodes` 的确定性步骤）**
-
-1. **输入**：`requirement.scope` + `flow_templates_id`（创建需求时确定；打回重定范围走 A-C 组）；
-2. **取模板**：`SELECT * FROM flow_template_nodes WHERE flow_templates_id=? ORDER BY node_order`；
-3. **过滤节点**：按 A2 保留判定逐行过滤（scope 不覆盖的行不实例化）；
-4. **过滤评审位**：每个保留节点的 `reviewers[]` 按条目 scope 过滤（A3）；`expected_outputs` 不变；
-5. **生成实例行**：每个保留节点写一条 `flow_nodes`（`node_id=n-00…` 连续编号；复制 key/role_id/capability_id/gate/branch/parallel_group）；`flows.current_node_id=n-00`（待启动）；
-6. **并行组退化**：实例化后若 `dev-1` 组只剩单分支（be-only 仅 RD / fe-only 仅 FE）→ 组内按串行推进，join 恒成立，状态机/回滚逻辑不受影响；
-7. **此后一切按实例走**：wb_my_task 只派实例 `flow_nodes` 里的任务；join/部分回滚只统计实例行。
-
-**C. 评审参与规则（明确化 + 设计遗漏修复）**
-
-| requirement.scope | 每个评审节点的评审者（按 A3 过滤后） | 说明 |
+| state | 语义 | 典型挂载 |
 |---|---|---|
-| `前后端都含` | ② PM+Architect+User；④ Architect/RD/FE/QA/PM/User；⑥ QA；⑧ RD+FE | 全量 |
-| `仅后端`（be-only） | ④ 剔 **fe** 位；⑧ 剔 **fe** 位；⑥ 节点整体不存在 | **FE 不参与任何评审**（无前端改动无需审） |
-| `仅前端`（fe-only） | ⑥ FE 设计评审仍仅 QA；⑧ 剔 **rd** 位；④ 节点整体不存在 | **Architect/RD 不参加前端侧评审**；② 需求评审 Architect 仍参与（产品可行性属产品层） |
+| **entry** | 进入节点：首次=开场迎宾；重入=重迎宾（多配置按 rolled_back_count 选） | 开场白 action（内置强制等待指令）——交互型专属 |
+| **exec** | 执行：**首次=主产出**（produce/dev/accept→skill）；**重入=域分立**（文档域 revise / 代码域 diagnosing-bugs / QA 域 retest，rolled_back_count≥1 触发） | skill/inline |
+| **review** | 评审相位：评审位按审批 skills map 各自评审表态；无内嵌评审的节点跳过；**审批类节点以 review 为产出动作位（exec 不配置）** | review→skill（各评审位对象化） |
+| **respond** | owner 响应期：跨节点评审=澄清（clarify 单挂）；节点内 CR=只修复（fix_on_review 单挂，CR 异化裁决） | clarify / fix_on_review（按节点激活清单） |
+| **done** | 离场业务终态：节点通过迁移下一节点时前置相位统一置 done；**禁挂载**；打回复位 | ——（无挂载） |
 
-> 遗漏修复点：此前只写了「be-only 时 FE 不参与评审」，**对称的 fe-only 规则**（⑧ 剔 rd 位、⑥ 保持仅 QA、④ 不存在）一并在此定死；实现时评审位过滤与节点过滤用**同一套 scope 判定函数**。
+节点未进入编排 = 无 state（不设占位，`''`）。**空转规则**：相位无挂载 → plugin 直接轮转（视为通过）。
 
-**示例：业务需求 `scope=仅后端`（be-only），13 模板行 → 10 实例行（fe 位全部剔除）**
+#### 8.2.2 评审轮（reviewState，per-agent 三态）与 collect
 
-> 实例 node_id 按 §B 步骤 5 连续重编（n-00…n-09），不保留被裁剪行的序号空洞。
+见 §7.3「评审轮」——数据模型与转移的权威定义在彼处；此处补编排语义：
 
-| node | 节点 | role | gate | 并行 | 保留的 reviewers（fe 位全部剔除） |
-|---|---|---|---|---|---|
-| n-00 | 待启动 | leader | 0 | — | — |
-| n-01 | 产品设计 | arch | 0 | — | — |
-| n-02 | 需求评审 | pm | 1 | — | pm、arch、user（产品层 Architect 照常） |
-| n-03 | RD 技术设计 | rd | 0 | — | — |
-| n-04 | RD 技术评审 | rd | 1 | — | arch、rd、qa、pm、user（fe 位剔除） |
-| n-05 | 用例设计 | qa | 0 | — | — |
-| n-06 | 用例设计评审 | qa | 1 | — | rd（fe 位剔除） |
-| n-07 | RD 开发 | rd | 1 | dev-1（仅剩 rd 单分支，串行） | cr（Code Reviewer 全量） |
-| n-08 | QA 验收 | qa | 1 | — | qa |
-| n-09 | 用户验收 | user | 1 | — | user |
+- reviewState 是**每个评审位各自**的轮转状态（1/N），非节点整体状态；节点级聚合由 collect 内置逻辑完成（不暴露、无专门 state）。
+- collect 完整动作三段：**收票**（实时查询各 reviewer verdict）→ **判定**（全 agree → agreed → 门禁；有 unagree → owner 澄清循环）→ **再收票**（澄清后重新等待）。
+- 确认真问题（qualify → to-fix）→ rejected 回上一节点（沿既有裁决打回）。
 
-> 不实例化：FE 技术设计、FE 设计评审、FE 开发 三行；**FE 角色在该需求上零节点、零任务、零评审位**。节点裁剪与评审位裁剪由同一套 scope 判定函数给出。
+#### 8.2.3 裁决规则（collect 输出，plugin 内置）
 
-**并行判定（怎么确定一行节点是并行的）**：看 `parallel_group` + `branch` 两字段。
+```
+collect 收集全部评审位上报（agree / unagree）：
+  ├─ 全 agree → agreed → 门禁（user_gate=1 唤醒 User 终审：通过 → 迁移下一节点；
+  │         不通过 → 问题记 issue 回澄清循环）（user_gate=0 → 机械 approved）
+  └─ 有 unagree → owner 澄清（plugin 派发澄清任务）→ 澄清后 plugin 将 issue 发回对应
+                    reviewer 重新表态（回 reviewing）→ 重新收集循环
+                       └─ 确认真问题（qualify→to-fix）→ 打回：rejected → 上一节点 exec 重入
+```
+
+- 节点内评审（CR 异化）**永不产生 rejected**——unagree 循环（respond 修复→重表态）至全 agree。
+- 上升（escalate）：循环不收敛 → 会话通道 User 仲裁 → 结论回填 issue → reviewer 重新表态（§5.5 冲突卡）。
+
+#### 8.2.4 回退与重入
+
+- **reject（裁决事件）→ plugin 回退被重做节点**（数据路由：targetBranch / 缺陷 assignee 映射，非节点写死逻辑）→ 目标节点 exec 重入（域分立动作）→ 完成上报 → 重新提评 → 评审相位重开（reviewing）。
+- **重入识别**：rolled_back_count（0=首次，≥1=重入）——entry/exec 的多配置按计数选择；reopen_source 记录重开来源。
+- 并行组 2 对 1：只回滚被重做分支（targetBranch），其余分支维持 approved，join 重算。
+
+#### 8.2.5 评审轮内部小状态机（澄清/修复双子机）
+
+见 §7.3「Issue 五态 + 复核事件」——issue 逐条走澄清子机（open→pending-confirm→resolved/to-fix/open）与修复子机（to-fix→fixed→resolved/to-fix），loop_count 单计数器承载拉锯。**UI 视角规则**：reviewing 看表态标签矩阵（各评审位 × 三态）；澄清/修复看 **issue 视角**（每条工单的子状态+计数），非角色状态栏。
+
+#### 8.2.6 节点类型实例化（四类）
+
+| 节点类型 | 可配相位 | reviewState | 例 |
+|---|---|---|---|
+| **产出类（有内审）** | exec（首/重入）→ review → respond → review… | per-agent 三态（CR 异化：respond=fix_on_review，无 rejected 出口） | RD/FE 开发 |
+| **产出类（无内审）** | exec（首/重入） | 恒 '-'（评审在下游审批类节点；**编写文档节点没有 review**——共识） | 产品设计 / RD·FE 技术设计 |
+| **审批类** | **review（产出动作位，exec 不配置）** | per-agent 三态（collect 判定→门禁 approved/rejected） | 产品设计评审 / RD·FE 技术评审 / 调研评审 / 架构规划评审 |
+| **交互类** | entry → exec（to-brd / to-alignment） | 恒 '-' | 需求对齐 |
+| **门禁类** | entry（迎宾呈现+会话通道） | 恒 '-' | 待启动 / 用户验收 / 立项评审（D2 门禁型） |
+
+交互/门禁类无 collect/review（空转规则：无挂载相位直过）。
+
+#### 8.2.7 评审双轨制
+
+| | 节点内评审（CR 异化） | 跨节点评审 |
+|---|---|---|
+| 评审对象 | **本节点产物**（代码/MR） | **上一个节点的产物** |
+| 适用 | **仅开发节点**（编写文档节点没有 review） | 独立评审节点承载 |
+| 相位 | dev 节点 review 相位（CR agent 轮转） | 评审节点同一套 per-agent 轮转 |
+| 不通过 | **回 respond 直接修复（fix_on_review，不做澄清）——永不输出 rejected** | agreed 判定输出 rejected → 回退上一节点 exec 重入（域分立 revise/diagnosing-bugs） |
+| User 终审 | 无（机械收口） | 按节点 user_gate 配置位 |
+
+机制差异仅三处：**评审位配置位置** + **reject 权** + **respond 挂载**；其余全同一套相位与 reviewState 词汇。
+
+#### 8.2.8 轮转图
+
+**dev 节点（内嵌 CR，全生命周期）**：
+
+```
+exec（首次 → implement-techdesign）→ 完成上报+校验
+   → review（CR：reviewing → 上报 agree/unagree）
+      → collect：全 agree → 门禁 approved（join）→ QA 验收
+      → 有 unagree → respond（fix_on_review 修复，不做澄清）→ CR 回 reviewing 重表态 → 循环至全 agree
+QA 打回 → plugin 回退 → exec 重入（diagnosing-bugs）→ 重新提评 → review 重开 → … → approved → QA 复验（retest）
+```
+
+**跨节点评审节点（如 RD 技术评审）**：
+
+```
+[上游 exec 完成提评迁移激活]
+   → review（arch/fe/qa/pm 对象化评审 skill；各 agent reviewing → 上报 agree/unagree）
+      → collect：全 agree → 门禁 approved（user_gate=1 唤醒 User 终审 → 上游节点完成，流转）
+      → 有 unagree → respond（owner clarify 单动作，跨节点路由）→ 重表态（回 reviewing）→ 循环
+      → 确认真问题（qualify→to-fix）→ 门禁 rejected → 上游 exec 重入 revise → 重新提评 → review 重开
+```
+
+#### 8.2.9 动作 schema 与推进契约（agent ↔ plugin）
+
+```
+action = { action_id, name, on(相位), skill?, inline?, outputProductTypes }
+capability = { capability_id, role_id, inputs[], actions[] }
+```
+
+- **skill 挂载制**：复杂动作挂 skill（内部按需编排其他 skill、自带目标/自检/门禁）；短动作一句话内联；**how 四要素退出框架**（how-spec-v2 降级为 skill 写作参考）。
+- **依赖注入**：my_task 上下文（{action_id, skill, nodeId, reqId, inputs 引用}）；inputs[]=跨流程可见性上限，按流程可用产物动态注入（skill 内写明来源，实现阶段校验）。
+- **issue 即产物**：评审类动作产出=issue（一等数据），outputProductTypes 空=正确语义。
+- **完成上报双通道**：短动作（表态/澄清/复核）=数据写入即完成（plugin 判据推导）；长任务/交互等待=响应者调标准完成接口（`event:'complete'`，上报即数据写入，plugin 校验判据防谎报，遗漏→扫描器兜底）。
+- **响应者规则**：有挂载动作的相位必有响应者（谁等结果谁负责推进）；executor≠响应者。
+- **reject/escalation 结论协议**：branches（单节点留空/并发明确）+ confirmed_issues（从 open issues）+ branch 上下文注入 + escalate 标记；producer 双通道（响应者提交/User 拍板自动装配）。
+- **三重匹配派发**：判据成立+节点声明相位挂载+存在匹配数据；缺一环空转降级。
+- **冲突响应机制**：clarify/confirm 循环不收敛 → escalate 标记 → plugin 拉起按需会话通道裁决 session → 用户裁决 → 结论追加到冲突 issue → reviewer 重新表态落库 → 正常判据链恢复。
+- **按需会话通道**：plugin 泛用接口（拉起角色会话+开场白模板随绑定配置）；实例：对齐=PM、拍板呈现=owner、冲突上升=reviewer、用户验收报障=qa（单侧=开发执行者）——不占相位词汇。
+- **用户门禁与上升通知规程**（通用能力——门禁汇总结果与待评审内容报送用户，由责任人发出）：
+
+| 阶段 | 报送责任人 | 通知内容 | 渠道 |
+|---|---|---|---|
+| 用户拍板（user_gate 节点） | **owner（被评审方）** | 门禁汇总：表态结果 + 各评审位 verdict + 已 resolved 意见摘要 + 待拍板产物链接 + 建议 | 会话通道（owner 迎宾呈现）+ 收件箱通知 |
+| 冲突上升（escalate） | **reviewer** | 分歧点 + **正反双方结论汇总** + issue 线程引用 | 裁决 session（reviewer 迎宾等待） |
+| 用户验收 | **qa（full）/ 单侧开发执行者** | 验收材料呈现（test_result/defect）+ 报障收集 | 会话通道（绑定角色开场白） |
+
+- **外部兜底扫描器**（宿主侧）：绑定 subagent 执行中（status=running）→ 等待；已结束 **5min** 未表态 → followup 催办（「继续当前工作，遇卡点直接上报 user」）；**10min** 仍未推进 → 通知 User 介入。参数化配置。
+- **边界**：轮转内置逻辑（collect/澄清派发/重新收票/approved-rejected 输出）全部 plugin 驱动不可配，可配的只有动作相位上的 action；project 维度=工作区隔离（per-project workbench + plugin 全局注册表）；MVP 无 agent 跨项目操作。
+
+### 8.3 流程定义（4 类 · 40 定义节点 · 逐节点配置）
+
+> 源：business-flow-derivation / flow-derivation-tech-task-plan v3.1（逐 state 单列）。本节压缩为逐节点配置表；**跳过相位不列出 = 该相位无挂载直过（空转）**。通用约定（全节点适用）：两层属性（§8.2）；rolled_back_count 计数位；回退路由=rejected → plugin 回退被重做节点 → 目标节点 exec 重入；幂等声明；**自审禁令（铁律#2：reviewers[] 不得含本节点产物 owner）**；escalate 全局规则；gate=1 ⟺ 节点有准出判定；单评审位=机械判定、多评审位含方向确认=User 拍板（user_gate=1）。
+> 需求 scope 三值：full（rd+fe）/ rd / fe（be→rd 术语统一）。
+
+**business 业务需求流程（13 节点）**
+
+```
+0 待启动 → 1 需求对齐 → 2 产品设计 → 3 产品设计评审 → 4 RD技术设计 → 5 RD技术评审
+→ 6 FE技术设计 → 7 FE设计评审 → 8 RD开发 ∥ 9 FE开发 → 10 QA验收 → 11 用户验收 → 12 完成
+```
+
+| # | 节点 | type | gate/user_gate | scope | 评审位（自审禁令已落实） | exec 首次 | exec 重入 | respond | 回退进入 |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 待启动 | gate | 0/1 | '' | — | ——（门禁直判：User 确认投入资源） | | | |
+| 1 | 需求对齐 | align | 0/1 | '' | — | entry=align.opening（program 迎宾）+ exec=**to-brd**（node action 公共 skill，pm 直启）；产物 brd | — | — | — |
+| 2 | 产品设计 | produce | 0/0 | '' | — | product-design.produce（to-prd） | revise | — | ←3 rejected |
+| 3 | 产品设计评审 | review | 1/1 | '' | arch/rd/fe .prd-review（位级 scope：rd|full、fe|full）；**无 pm 位（产出者不自审）** | ——（审批类 exec 不配置） | — | product-design.clarify（pm 跨节点） | to-fix → 2 exec |
+| 4 | RD 技术设计 | produce | 0/0 | rd\|full | — | backend-design.produce（to-rd-techdesign，接口面原则进门禁） | revise | — | ←5 rejected |
+| 5 | RD 技术评审 | review | 1/1 | rd\|full | arch/qa/pm .rd-design-review + fe 位（full 时）；**无 rd 位** | —— | — | backend-design.clarify（rd） | to-fix → 4 exec |
+| 6 | FE 技术设计 | produce | 0/0 | fe\|full | — | frontend-design.produce（to-fe-techdesign，页面对照 rd 接口契约） | revise | — | ←7 rejected |
+| 7 | FE 设计评审 | review | 1/0 | fe\|full | qa.fe-design-review（单评位机械） | —— | — | frontend-design.clarify（fe） | to-fix → 6 exec |
+| 8 | RD 开发 | produce | 1/0 | rd\|full · branch=rd · dev | cr.code-review（**节点内 CR 异化**） | backend-dev.dev（implement-techdesign） | diagnosing-bugs | **fix_on_review**（只响应 CR，不做澄清；无 rejected 出口） | ←10 rejected(targetBranch=rd) |
+| 9 | FE 开发 | produce | 1/0 | fe\|full · branch=fe · dev | cr.code-review | frontend-dev.dev | diagnosing-bugs | fix_on_review | ←10 rejected(targetBranch=fe) |
+| 10 | QA 验收（含联调） | produce | 1/0 | **full**（仅 full 渲染——联调职责，单侧无联调） | —（**qa 不自审**，验收结论=exec 产出本身） | acceptance-test.accept（qa-acceptance） | **retest**（复验重测：针对重新提测代码重测→核对修复→更新 defect） | backend-dev/frontend-dev.clarify（rd/fe 缺陷确认/归属争议，跨节点；修复在 8/9 exec 重入） | ←11 报障(full) |
+| 11 | 用户验收 | gate | 1/1 | '' | —（会话通道绑定按 scope 动态：full=qa / fe-only=fe / rd-only=rd） | entry=迎宾呈现 | — | — | full → 10 exec（retest）；单侧 → 8/9 exec（diagnosing-bugs，报障不经 QA 中转） |
+| 12 | 完成 | gate | 0/0 | '' | — | ——（DONE 占位，程序确认收尾；流程终态） | | | |
+
+注记：① brd 无评审回路（已知取舍：质量由对齐期 User 确认背书；修正=评审异议上升 User → leader 同步 brd）。② 节点 5 fe 位按需（需求含 fe 才参与——rd-only 无接口消费方，位级 scope）。③ 单侧需求节点 6/7/9 或 4/5/8 不渲染（scope 表达式过滤）；节点 10 仅 full 渲染——用户验收直接对接开发节点。④ 死循环兜底：反复分歧走线下。
+
+**tech 技术需求流程（11 节点）**
+
+```
+B0 待启动 → B1 需求对齐 → B2 RD技术设计 → B3 RD技术评审(按需) → B4 FE技术设计(按需)
+→ B5 FE技术评审(按需) → B8a RD开发 ∥ B8b FE开发 → B9 QA验收 → B10 用户验收 → B11 完成
+```
+
+| 节点 | type | gate/user_gate | scope | 评审位 | exec 首次 | exec 重入 | respond | 回退进入 |
+|---|---|---|---|---|---|---|---|---|
+| B0 待启动 | gate | 0/1 | '' | — | 门禁直判（User 确认） | | | |
+| B1 需求对齐 | align | 0/1 | '' | — | entry=align.opening + exec=**to-brd**（公共 skill，pm 直启；产物 brd——✅D1 统一产 brd 喂 rd_design） | — | — | — |
+| B2 RD 技术设计 | produce | 0/0 | rd\|full | — | backend-design.produce | revise | — | ←B3 rejected |
+| B3 RD 技术评审(按需) | review | 1/1 | rd\|full | arch/qa .rd-design-review + fe 位(full)；**无 rd、无 pm 位**（技术需求无产品视角评审） | —— | — | backend-design.clarify | to-fix → B2 exec |
+| B4 FE 技术设计(按需) | produce | 0/0 | fe\|full | — | frontend-design.produce | revise | — | ←B5 rejected |
+| B5 FE 技术评审(按需) | review | 1/0 | fe\|full | qa.fe-design-review（单评位机械） | —— | — | frontend-design.clarify | to-fix → B4 exec |
+| B8a RD 开发 | produce | 1/0 | rd\|full · rd · dev | cr.code-review | backend-dev.dev | diagnosing-bugs | fix_on_review | ←B9 rejected(rd) |
+| B8b FE 开发 | produce | 1/0 | fe\|full · fe · dev | cr.code-review | frontend-dev.dev | diagnosing-bugs | fix_on_review | ←B9 rejected(fe) |
+| B9 QA 验收(含联调) | produce | 1/0 | **full** | —（qa 不自审） | acceptance-test.accept | retest | backend/frontend-dev.clarify | ←B10 报障(full) |
+| B10 用户验收 | gate | 1/1 | '' | —（绑定按 scope 动态） | entry=迎宾 | — | — | full → B9（retest）；单侧 → B8a/B8b |
+| B11 完成 | gate | 0/0 | '' | — | DONE 占位 | | | |
+
+注记：tech scope 三值 {full, rd, fe}——**fe-only 纯前端技术需求合法**（B2/B3 不渲染、B4 起步）；B2 inputs 动态注入（tech=brd / business=product_doc，✅D5）。
+
+**task 任务流程（7 节点，无 QA 验收）**
+
+```
+C0 待启动 → C1 需求对齐 → C2 技术设计 → C3 技术评审 → C4 开发 → C6 用户验收 → C7 完成
+```
+
+| 节点 | type | gate/user_gate | scope | 评审位 | exec 首次 | exec 重入 | respond | 回退进入 |
+|---|---|---|---|---|---|---|---|---|
+| C0 待启动 | gate | 0/1 | '' | — | 门禁直判 | | | |
+| C1 需求对齐 | align | 0/1 | '' | — | entry=align.opening（执行者响应）；**exec 跳过——✅D2 维持无产物**（对齐结论=C2 基础，my_task 注入） | — | — | — |
+| C2 技术设计 | produce | 0/0 | rd\|fe | — | backend-design.produce（scope=rd）/ frontend-design.produce（scope=fe）——**按场景选 techdesign 能力**（plan-cap 退役） | revise | — | ←C3 rejected |
+| C3 技术评审 | review | 1/1 | rd\|fe | arch.rd-design-review（rd）/ arch.fe-design-review（fe）——单评位 by scope | —— | — | backend/frontend-design.clarify | to-fix → C2 exec |
+| C4 开发 | produce | 1/0 | rd\|fe · dev | cr.code-review | backend/frontend-dev.dev（by scope） | diagnosing-bugs | fix_on_review | ←C6 rejected（报障） |
+| C6 用户验收 | gate | 1/1 | '' | —（会话通道绑定=**开发执行者**，报障直连无 QA 中转） | entry=迎宾 | — | — | C4 exec（diagnosing-bugs） |
+| C7 完成 | gate | 0/0 | '' | — | DONE 占位 | | | |
+
+历史留痕：task scope 三值化（+full+C5 联调）同日回滚（SCP-03）——**保持指定单个开发者、无联调、去掉测试节点**（8→7 节点）。task scope 二值 {rd, fe}（无 full）。
+
+**plan 版本规划流程（9 节点）**
+
+```
+D0 待启动 → D1 立项需求对齐 → D2 立项评审 → D3 调研 → D4 调研评审 → D5 架构规划 → D6 架构规划评审 → D7 创建需求·启动版本 → D8 完成
+```
+
+| 节点 | type | gate/user_gate | 评审位 | exec 首次 | exec 重入 | respond | 回退进入 |
+|---|---|---|---|---|---|---|---|
+| D0 待启动 | gate 0/1 | — | 门禁直判 | | | |
+| D1 立项需求对齐 | align 0/1 | — | entry=align.opening（arch 响应）+ exec=**to-alignment**（node action 公共 skill；✅D3 交互对齐+固化：wayfinder/改进项/遗留 TODO/使用发现汇总）；产物 alignment（版本级 align.md） | — | — | — |
+| D2 立项评审 | **gate** 1/1 | —（**暂不评审，用户结论=最终结论**——门禁型；后期恢复评审再重建） | entry=迎宾呈现（alignment 材料） | — | — | rejected → D1 exec（to-alignment 重写） |
+| D3 调研 | produce 0/0 | — | research-cap.produce（research skill 已有） | revise | — | ←D4 rejected |
+| D4 调研评审 | review 1/0 | arch.research-review（单评位机械；✅D4 用户不参与） | —— | — | research-cap.clarify（inv） | to-fix → D3 exec |
+| D5 架构规划 | produce 0/0 | — | arch-cap.produce（to-arch）；产物 architecture（含需求拆解节——D7 依赖边来源） | revise | — | ←D6 rejected |
+| D6 架构规划评审 | review 1/1 | pm.architecture-review | —— | — | arch-cap.clarify（arch） | to-fix → D5 exec |
+| D7 创建需求·启动版本 | produce 0/0 | — | **decide-cap.create_reqs → to-tickets**（**leader 直执行，不起 subagent**）；产物 requirements[]（逐需求创建+写入 dependencies 依赖边+priority）+ 版本推进 | — | —（机械执行，D6 已拍板） | — |
+| D8 完成 | gate 0/0 | — | DONE 占位 | | | |
+
+### 8.4 scope 渲染集合表达式与并行
+
+> 目的：把 scope 裁剪从 prose 规则变成**数据模型直接表达**的机制——定义层声明每行/每个评审位在哪些 scope 下存在；实例由确定性构建流程生成（SCP-05 表达式制定稿）。
+
+**A. 表达式语义（scope_expr，取代单值枚举）**
+
+| 表达式 | 渲染条件 | 应用 |
+|---|---|---|
+| `''` | any（任何 scope 渲染） | 中性节点（待启动/对齐/产品设计/评审/用户验收/完成） |
+| `rd\|full` | 需求 scope ∈ {rd, full} | RD 侧节点 |
+| `fe\|full` | 需求 scope ∈ {fe, full} | FE 侧节点 |
+| `full` | 仅 full | QA 验收（联调职责，单侧无联调） |
+| `rd\|fe` | 需求 scope ∈ {rd, fe} | task 全渲染（task 无 full） |
+
+scope_options：business/tech={full, rd, fe}、task={rd, fe}、plan=无 scope。实例化判定：**表达式 ∩ requirement.scope 非空 → 渲染**。
+
+**B. 实例构建流程（模板 → flow_nodes 确定性步骤）**
+
+1. 输入：requirement.scope + flow_defs_id（创建需求时确定；打回重定范围走重实例化）；
+2. 取定义节点（按 node_order）；
+3. 过滤节点（表达式 ∩ scope 判定）；
+4. 过滤评审位（位级 scope：按需评审位仅在其声明侧存在时实例化——如 B3 fe 位=需求含 fe 才参与）；
+5. 生成实例行（node_id 连续重编，**被裁节点不占位**；复制 type/gate/user_gate/reviewers/node_actions）；
+6. 并行组退化：单分支 → 串行推进，join 恒成立；
+7. 此后一切按实例走（my_task 只派实例任务；join/部分回滚只统计实例行）。
+
+**C. 并行判定与 join**
 
 ```mermaid
 flowchart TD
-    A["flow_template_nodes 中的一行"] --> B{"parallel_group 为空？"}
-    B -- "是（''）" --> S["串行节点：branch=''，按 node_order 依次推进"]
-    B -- "否（如 dev-1）" --> C{"同 parallel_group 是否存在多行？"}
-    C -- "否：组内仅一行" --> P1["并行组但单分支（如 tech dev-1 仅 rd）<br/>实际按串行推进"]
-    C -- "是：各行 branch 不同" --> P2["并行组：RD 开发(rd) ∥ FE 开发(fe)<br/>两分支独立推进、各自 CR 评审"]
+    A["flow_def_nodes 中的一行"] --> B{"parallel_group 为空？"}
+    B -- "是" --> S["串行节点：按 node_order 依次推进"]
+    B -- "否（dev）" --> C{"组内是否多分支？"}
+    C -- "单分支" --> P1["并行组但单分支——实际串行"]
+    C -- "多分支（rd ∥ fe）" --> P2["并行：两分支独立推进、各自 CR 评审"]
     S --> J
     P1 --> J
-    P2 --> J{"组内各分支评审（gate）都通过？"}
-    J -- "否" --> W["等待未过分支 / 部分回滚：<br/>wb_decide reject + targetBranch=rd|fe<br/>只回滚指定分支，join 重算"]
-    J -- "是" --> N["join：放行下一节点（QA 验收进入进行中）"]
+    P2 --> J{"组内各分支 gate 都通过？"}
+    J -- "否" --> W["打回裁决（service 层 reject + targetBranch=rd|fe）<br/>只回滚指定分支，join 重算"]
+    J -- "是" --> N["join：放行下一节点"]
 ```
 
-> **join 与部分回滚**：两分支各自 CR 评审（gate=1）都通过后，QA 验收才从待启动进入进行中（join）；QA 打回 `wb_decide reject + targetBranch=fe` 只回滚 FE 分支（node 10），RD 分支（node 9）保持已通过；回滚后 join 重算再放行。
+**事后改范围**：评审/验收打回需重定范围 → flow_nodes.pending_scope 记录 → 改 requirements.scope → 重跑实例化（新增缺失节点、移除多余节点；已通过节点状态保留）。
 
-**事后改范围**：评审/验收打回需重定范围 → `flow_nodes.pending_scope` 记录待定范围 → Leader 改 `requirements.scope` → **重跑 B 节实例化**（新增缺失节点、移除多余节点；已通过节点状态保留）。
+### 8.5 能力模型（21 活跃能力 · 动作挂载）
 
-### 8.4 能力模型（19 能力）
+- **role → capability 1 对多**，能力唯一归属角色；能力一次定义跨流程复用（inputs[]=可见性上限，实际按流程可用产物动态注入 my_task——✅D5：每个 skill 必须写明上下文依赖来源，实现阶段逐个校验）。
+- **评审能力对象化（最小上下文准则）**：评审能力按「对象×角色」切分（`{role}.{object}-review`，如 arch.prd-review），inputs 仅含评审对象、skill 仅含该对象维度——不共享、不全局 review-protocol（ACT-03 两步裁决：①否决全局协议；②对象化）。
+- **评审位条目** `{role, capability_id, scope?}`；**产出者不自审（铁律#2）**：产品评审无 pm 位、RD 技术评审无 rd 位、QA 验收无 qa 位。
+- **node_type**：produce（有产物）/ review（审批类）/ align（无产物自主对齐）/ gate（门禁）——与 gate 正交（开发节点 produce+gate=1 内嵌 CR）。
+- **node_actions 激活清单**：能力动作=通用词表，**节点决定激活子集**（`flow_template_nodes.node_actions=[{kind:'capability',…},{kind:'node',…}]`，与 reviewers[] 同模式）。
+- **products JSON**：`[{doc_path, demo_path}]`（D4 拍板：v0.29 起 DB 不存标准指针 template_path，产出标准按产出 skill 寻址）。
+- **动作 schema 与 skill 挂载制**见 §8.2.9。
 
-- **role → capability 1 对多**，能力唯一归属角色（`capabilities.role_id` 引用 roles）；角色 = 其拥有的能力集合；能力一次定义跨流程复用（RD 在业务/技术/任务中同一能力集合）。
-- **评审能力按角色拆分不共享**：arch/rd/fe/qa 各自 tech-review（视角不同），另有 pm-review / code-review / decide-cap / final-approve。
-- **reviewers 条目** `{role, capability_id, scope?}`；**leader 不在 reviewers**（决策者 ≠ 评审表态者）。
-- **mode**：`produce`（有产物，默认）｜`align`（无产物自主对齐，结论落 issues；capability_id=NULL）。
-- **products 单列 JSON**（v0.28 合并；v0.29 删 template_path）：`[{doc_path, demo_path}]`；一能力可多产物（acceptance-test 挂 qa/test.md + qa/defect.md）；demo 为 null = 填充示例未固化。产出标准不入 DB：按产出 skill 寻址（docs/templates/skills/）。
-- **字段收缩轨迹（v0.23，User 拍板）**：曾内联 `structure/version/quality_gates/reviewer_focus/inputs`，v0.23 删除——`reviewer_focus` 职责错位（评审维度应写在**评审能力自身**的 how，而非被评审能力）；`inputs` 冗余（依赖已在派发时 task.context 给出）；`quality_gates/structure/version` 由**模板文件**承载（DB 不再内联）；v0.28 三列合并为单列 products；v0.29 删 template_path（标准权威迁产出 skill，D4 拍板）。
-- **how = 能力本体**：行为步骤（"对照 prd 核对功能点→接口契约 FE 可对接→与架构一致→数据可测性→登记提评"）——评审类能力在 how 里写明评审维度与表态流程。
-- **1 对多一致性规则**（wb_my_task 校验）：节点 `role_id` 必须等于其 `capability_id` 能力的 `role_id`（执行者拥有该能力）；唯一例外 task 流程「开发」节点 owner=executor（动态角色，模板默认 backend-dev）。
+**域分立轴（exec 重入与 respond 按域/轨道分立，2026-09-05 用户纠错定稿）**：
 
-| capability_id | name | role_id | 类型 | 产出去向 |
-|---|---|---|---|---|
-| product-design | 产品设计 | arch | 产出 | `<需求名>/prd/prd.md` |
-| backend-design | 后端技术设计 | rd | 产出 | `<需求名>/rd/design.md` |
-| frontend-design | 前端技术设计 | fe | 产出 | `<需求名>/fe/design.md` |
-| case-design-cap | 用例/联调设计 | qa | 产出 | `<需求名>/qa/cases.md` |
-| backend-dev | 后端开发 | rd | 产出 | `<需求名>/rd/dev.md` |
-| frontend-dev | 前端开发 | fe | 产出 | `<需求名>/fe/dev.md` |
-| acceptance-test | 验收与缺陷管理 | qa | 产出 | 2 产物：`qa/test.md` + `qa/defect.md` |
-| research-cap | 竞品调研 | inv | 产出 | `<版本号>/research.md` |
-| arch-cap | 架构规划 | arch | 产出 | `<版本号>/arch_design.md` |
-| alignment-cap | 需求对齐 | arch | 产出 | `<版本号>/align.md` |
-| plan-cap | 方案设计（任务） | executor | 产出 | `<需求名>/plan.md` |
-| code-review | 代码评审 | cr | 评审 | — |
-| arch/rd/fe/qa-tech-review | 技术方案评审 | arch/rd/fe/qa | 评审 | — |
-| pm-review | 价值/排期评审 | pm | 评审 | — |
-| decide-cap | 门禁决策 | leader | 决策 | — |
-| final-approve | 最终拍板 | user | 决策 | — |
+| 轴 | 文档域 | 代码域 | QA 域 |
+|---|---|---|---|
+| exec 重入（响应打回） | **revise**（inline：基于评审结论逐条修订→模板自检→重新提评） | **diagnosing-bugs**（复现→一次一变量定位→修在正确接缝→补回归→重新提评） | **retest**（复验重测：重新提测代码重测→核对修复→更新 defect） |
+| respond（评审轮内响应） | 跨节点评审=**clarify**（只澄清不修复；修复=rejected → 产出节点 exec 重入 revise） | 节点内 CR=**fix_on_review**（唯一存活处，只修复不澄清；轮内闭环不打回） | ——（qa 不自审） |
 
-### 8.5 评审职责分工（各审各的）
+**轨道规则（普适约束：一个 state 只挂一个动作，铁律#1）**：开发节点激活 [dev, diagnosing-bugs, fix_on_review]，无 clarify；文档产出节点激活 [produce, revise, clarify]，无 diagnosing-bugs；backend-dev/frontend-dev.clarify 仅 QA 验收节点激活（缺陷确认/归属争议）。rework-return 仅作 reopen_source 预留值，不作现行为。
 
-**铁律**：每个评审节点，各评审者只审职责内维度；职责外异议仅供参考。职责内问题未解决则该评审者不 pass。
+**动作 → skill 挂载表**：
+
+| 动作（on） | skill | 状态 |
+|---|---|---|
+| produce ×5（exec） | to-prd / to-rd-techdesign / to-fe-techdesign / research（已有）/ to-arch | 4 待建 |
+| 对齐 exec（entry 后） | **to-brd / to-alignment**（node action 公共 skill，business/tech/plan 复用） | 待建 |
+| dev（exec） | **implement-techdesign**（内部编排 to-techdesign 校验 + tdd/implement 工人；并发度可配） | 待建 |
+| submit（exec 闭环内联） | 不挂——「产物登记（wb_add_artifact）→ 请评」登记齐、请评已发即完成 | inline |
+| clarify（respond） | 不挂——读 assignee=本角色且 open 意见/缺陷 → 逐条说明意图/权衡/依据或确认/争议归属；缺陷性意见修订产物 → resolve；由节点激活清单声明服务场景 | inline |
+| confirm（respond 复核环节，plugin 轮转触发） | 不挂——读本人 pending-confirm 意见 → 核对 → 复核事件 | inline |
+| fix_on_review（respond） | 不挂——CR 异化轨道专用（§8.5 域分立轴） | inline |
+| diagnosing-bugs（exec 重入） | **diagnosing-bugs**（已有） | 已有 |
+| review（各评审能力·对象化） | **{role}.{object}-review 各自独立 skill** ×13 | 待建 |
+| accept（exec） | **qa-acceptance**（内含 triage + diagnosing-bugs 判定步） | 待建 |
+| create_reqs（exec@plan D7） | **to-tickets**（triage 纪律内部调用） | 已有 |
+| decide | ——**退役**（join 裁决=plugin 内置轮转吸收；User 拍板=UI→service 层） | —— |
+
+**21 活跃能力清单**：
+
+| 能力 | role | 动作（on） | 产物 |
+|---|---|---|---|
+| product-design | pm | produce(to-prd) / revise / clarify / submit | product_doc |
+| backend-design | rd | produce(to-rd-techdesign) / revise / clarify / submit | rd_design |
+| frontend-design | fe | produce(to-fe-techdesign) / revise / clarify / submit | fe_design |
+| research-cap | inv | produce(research) / revise / clarify / submit | research |
+| arch-cap | arch | produce(to-arch) / revise / clarify / submit | architecture |
+| backend-dev | rd | dev(implement-techdesign) / submit / fix_on_review / diagnosing-bugs / clarify(仅 QA 验收节点) | dev_notes, code_mr |
+| frontend-dev | fe | 同上（fe 侧） | dev_notes, code_mr |
+| arch/rd/fe.prd-review ×3 | arch/rd/fe | review / confirm | —（issue 即产物） |
+| arch/fe/qa/pm.rd-design-review ×4 | arch/fe/qa/pm | review / confirm | — |
+| qa.fe-design-review / arch.fe-design-review ×2 | qa/arch | review / confirm | — |
+| arch.research-review | arch | review / confirm | — |
+| pm.architecture-review | pm | review / confirm | — |
+| code-review | cr | review（Standards→Spec 两子步，worktree 读代码）/ confirm | — |
+| acceptance-test | qa | accept(qa-acceptance)；exec 重入=retest | test_result, defect |
+| decide-cap | leader | create_reqs(to-tickets，leader 直执行) | —（requirements[]） |
+
+退役留痕（勿再引用）：plan-cap（C2 按场景用 backend/frontend-design）、alignment-cap（D2 门禁型）、arch.plan-review、pm.alignment-review、final-approve（User 终审=user_gate 配置位）、case-design-cap（用例合并入验收，QA-02）、respond_to_cr / respond_to_qa（并入 clarify 来源无关）、decide 动作（plugin 内置）——见附录 A。
+
+### 8.6 评审职责分工（各审各的）
+
+**铁律**：每个评审节点，各评审者只审职责内维度；职责外异议仅供参考。职责内问题未解决则该评审者不表态 agree。
 
 | 评审者 | 主要审什么 |
 |---|---|
@@ -1302,125 +750,97 @@ flowchart TD
 | Architect | 技术路线、方案可行性、与总体架构一致性 |
 | RD（设计方） | 设计完整性、接口/数据、自测方案 |
 | FE（设计方） | 接口契约、可测性、交互可实现性 |
-| QA | 可测性、用例覆盖、验收口径、缺陷闭环 |
+| QA | 可测性、验收口径、缺陷闭环（用例设计已并入验收，QA-02） |
 | Code Reviewer | 代码质量、设计落地、回归风险 |
 
-### 8.6 行为协议与协作铁律
+（对象化后各维度固化在对应 `{role}.{object}-review` skill 内。）
 
-- **评审者 5 步**：读产物 → 按 focus 审 → 评论（wb_comment 锚到产物）→ 表态（wb_review pass/block）→ 复核（confirm/reopen）。
-- **被评审者 5 步**：读全部意见 → 澄清分歧（wb_reply）→ 修订 resolve → 复核 → 等推进。
-- **persona 只留**：专业能力卡 + 产物规范 + 3 行协作协议（① 被分配任务先调 wb_my_task；② 评论/缺陷只传 reqId+nodeId+内容(+domain)；③ 不越权：流程推进归 Leader wb_decide）。
-- **协作铁律**：① 文档先行 ② 小步多确认 ③ feature branch + MR ④ 审计即证据 ⑤ 破坏性操作确认 ⑥ 验收闭环 ⑦ 同一 feature 集成线（工单分支切出合回，评审/QA/CR 看集成线） ⑧ 多任务并行用 worktree。
+### 8.7 行为协议与协作铁律
 
-**角色卡（已实现 4 张：RD/FE/CR/QA；Architect/PM/Investigator 待落地，按同风格定义）**：
-
-| 角色 | 职责 | 输入 | 产物 | 输出格式 | 协作 |
-|---|---|---|---|---|---|
-| **RD** ✅ | 后端设计（业务③/技术②）、开发（⑨.1）、自测 | 需求描述、产品设计/RD 设计文档 | 《RD 技术设计》/《RD 开发说明》（`rd/design.md`/`rd/dev.md`） | 报告 artifactId/commentId/自测结论/阻塞问题 | 登记产物 by=RD；评论 author=RD reviewerRole=Code Reviewer |
-| **FE** ✅ | 前端设计（⑤）、开发（⑨.2）、自测 | 产品设计 + RD 设计（接口契约） | 《FE 技术设计》/《FE 开发说明》（`fe/design.md`/`fe/dev.md`） | 同 RD | 同 RD（author=FE） |
-| **Code Reviewer** ✅ | 评审开发产物（质量/设计落地/边界与回归风险，各审各的） | 开发说明文档（+ 真实代码，若可用） | 评审结论评论（author=Code Reviewer，open；通过/阻塞） | pass/block + 结论摘要 + 非阻塞建议 | — |
-| **QA** ✅ | 用例设计（⑦）、验收（⑩ 按用例+缺陷闭环） | 需求描述（验收点）、设计文档、开发说明 | 《用例/联调设计》《测试用例与结果》《缺陷文档》《验收记录》 | AC 逐条核对结论 + 用例结果表 + 通过/遗留 | 建缺陷当 assignee=RD/FE |
-| **Architect** ⏳ | 产品设计（①）、RD 技术评审把关、版本规划 | 需求描述、架构文档 | 《产品设计文档》/《架构规划》/《需求对齐文档》 | 待定（按 RD 风格） | — |
-| **PM** ⏳ | 需求评审（② 价值/优先级/范围）、排期与依赖把关 | 需求描述、产品设计、RD 设计（工期/依赖） | 评审结论评论 | 待定 | — |
-| **Investigator** ⏳ | 版本规划 ② 竞品调研（引入 or 重写、为什么） | 《需求对齐文档》 | 《调研文档》 | 待定 | — |
+- **评审者**：读产物 → 按对象化 skill 维度审 → 评论（wb_comment 锚到产物，评审上下文必须带 anchorArtifactId）→ 表态（wb_review：verdict=agree|unagree，自判 open 工单）→ 复核（澄清侧 settle/qualify/reopen；修复侧 confirm/revise）。
+- **被评审者（owner）**：读全部意见 → 澄清分歧（clarify：逐条说明意图/权衡/依据）→ 修复（fix_on_review 或 exec 重入域分立动作）→ 申报（clarified/declare-fixed）→ 等复核。
+- **persona 只留**：专业能力卡 + 产物规范 + 3 行协作协议（① 被分配任务先调 wb_my_task；② 评论/缺陷只传 reqId+nodeId+内容(+domain)；③ 不越权：流程推进归 plugin/User 拍板）。
+- **协作铁律**：① 文档先行 ② 小步多确认 ③ feature 集成线 + 工单分支（集成线在技术评审敲定 `feature/<需求id>-<主题>`；工单分支 `<集成线>-t<N>-<slug>` 独立 worktree 干活合回集成线；BUG-014 口径）④ 审计即证据 ⑤ 破坏性操作确认 ⑥ 验收闭环 ⑦ 全程看同一集成线 ⑧ 多任务并行用 worktree。
+- **铁律级普适约束**（全文见 decision-timeline 附二）：#1 一个 state 只挂一个动作；#2 文档不自评；#3 除 user 外皆 agent 只在被调用时响应；#4 产物必须系统内入库、禁止外链+飞书式评论；#5 在最初的地方拦截（最小原则）；#6 outbox 无 dead、无限重试；#7 术语退役词 grep 清零；#8 约束级变更全文件 sweep。
 
 ## 9. 执行层（wb_* 工具 + Agent 编排协议 + 程序路由）
 
-> 执行层 = **Leader（主 agent）+ 角色子 agent**，通过 22 个 `wb_*` 模型工具直接驱动工作台；与 UI 走同一套 `op*` 领域函数（同一审计/门禁/状态机）。
+> 执行层 = **Leader（主 agent）+ 角色子 agent + HTTP API service**；agent 侧 wb_* 工具=HTTP client，与 UI 走同一套 `op*` 领域函数（同一审计/门禁/状态机）。
 > 一句话：**程序做路由，agent 做专业**——「你在哪、看什么、产什么、通知谁」由程序从数据推导，Agent 只做内容与专业判断。
 
-### 9.1 工具清单（22 个 wb_*）
+### 9.1 工具清单（22 个 wb_* 语义）
 
-> ⚠️ = 破坏性/强权操作，需 User 明确指令。失败统一 `{ok:false, error, ...}`；门禁拦截带 `blocked:true`；成功返回纯 JSON（lossless）。
+> ⚠️ = 破坏性操作，需 User 明确指令。失败统一 `{ok:false, error, ...}`；门禁拦截带 `blocked:true`；成功返回纯 JSON（lossless）。HTTP 路由以 spec §1.2 为准（本表为语义清单）。
 
-**读（5）**：
+**变更总览（相对一版）**：+wb_assign_task、+wb_task_update；**wb_decide / wb_override 移出 agent 清单**（裁决=plugin 内置轮转 + User 拍板 UI→service 层；pass/reject/targetBranch/override 语义保留 service 层）；升级 wb_my_task；参数扩展 wb_add_artifact / wb_resolve / wb_reopen。
 
-| 工具 | 入参 | 出参 | 语义 |
-|---|---|---|---|
-| `wb_list_requirements` | — | 需求池数组 | 全量需求 |
-| `wb_list_versions` | — | 版本数组 | 确认目标版本 |
-| `wb_get_requirement` | `{reqId}` | 聚合快照或 null | 需求+流程+产物+评论 |
-| `wb_get_artifact_content` | `{reqId, artifactId}` | `{art, content}` | 读产物正文 |
-| `wb_my_task` | `{reqId, role, nodeId?}` | 确定性任务上下文 | **任务确定性来源** |
+| 组 | 工具 | 语义 |
+|---|---|---|
+| 读（5） | wb_list_requirements / wb_list_versions / wb_get_requirement / wb_get_artifact_content / **wb_my_task** | my_task=任务确定性来源（§9.2） |
+| 需求（3） | wb_create_requirement / wb_update_requirement / wb_delete_requirement⚠️ | create_reqs 由 leader 直执行逐条调用 |
+| 版本（4） | wb_create_version / wb_update_version / wb_advance_version / wb_deprecate_version⚠️ | 条件解绑（§7.2） |
+| 评论/评审（3） | wb_comment / wb_reply / **wb_resolve(+escalate?)** | comment 默认路由（§9.3）；escalate 标记拉起裁决 session |
+| 评审表态（3） | **wb_review / wb_confirm_review / wb_reopen(+escalate?)** | wb_review 落 review_results（§9.2） |
+| 产物（1） | **wb_add_artifact(+product_type)** | 枚举校验 + 注记-K 入库约束 |
+| 任务（2，新增） | **wb_assign_task / wb_task_update** | 派发 + 心跳/完成上报（§9.2） |
+| 收件箱（1） | wb_list_inbox | tasks/issues 投影 |
 
-**需求（3）**：`wb_create_requirement` / `wb_update_requirement` / `wb_delete_requirement`⚠️
+### 9.2 关键工具契约
 
-**版本（4）**：`wb_create_version` / `wb_update_version` / `wb_advance_version` / `wb_deprecate_version`⚠️
+**wb_my_task（任务确定性来源）**：入参 `{reqId, role, nodeId?}`（nodeId 缺省=当前节点）。返回：requirement 摘要 / node（state、review_results 摘要）/ currentPhase / **activeActions**（按节点激活清单+当前相位过滤，含上下文注入：产物引用、意见清单、打回清单）/ relatedNodes（最小返回集）/ reviewers（审批 skills map 派生）/ inputs 可用产物引用。身份 three-way 校验（reqId+nodeId+role 与派发记录一致）。
 
-**评论/评审（5）**：`wb_comment`（默认路由）/ `wb_reply` / `wb_resolve` / `wb_override`⚠️ / `wb_decide`
+**wb_assign_task（派发）**：`{reqId, nodeId, action_id, assignee_role, goal?, context?}` → 创建 task + 唤醒/启动 assignee subagent；幂等键 `reqId+nodeId+action_id+assignee`。
 
-**其他（5）**：`wb_add_artifact` / `wb_review` / `wb_confirm_review` / `wb_reopen` / `wb_list_inbox`
+**wb_task_update（心跳+完成上报）**：`{task_id, event: 'ack'|'progress'|'complete', progress?, 结论引用?}`；ack/progress=断点续接信号；**complete=相位收口信号**（长任务/交互等待动作专属）→ plugin 校验该相位判据 → 通过置 completed 并轮转；不通过 `{ok:false, blocked:true, missing:[…]}`。重复 complete 无害（判据幂等）。
 
-### 9.2 确定性任务（wb_my_task）
+**wb_review（表态落库）**：`{reqId, nodeId, verdict: 'agree'|'unagree'}` → 写 flow_nodes.review_results；同轮同角色覆写取最后；collect 实时判据：全部评审位 state≠reviewing 且 round==rolled_back_count → 判定。**表态与意见分离**：意见=issues 线程（wb_comment）；表态=review_results 结构化判定。
 
-`wb_my_task` 是「程序做路由」的核心：程序从 flow.json / artifacts.json / comments.json 推导并返回**确定性任务上下文**，subagent 被派活后先调本工具拿全部上下文，无需自行检索。
-
-- 入参 `{reqId, role, nodeId?}`；nodeId 缺省 = 当前节点。
-- 返回：requirement / node / mode(produce|align) / gate / task / roleObjective / behaviors / onFeedback / reviewers / artifactsToReview / dependencyDocs / outputs / `sessionsByNode`。
-- **被评审产物（2026-09-10 BUG-011 拍板，spec 注记-J5）**：评审节点的 relatedArtifacts/artifactsToReview 注入**直接上游 produce 节点已登记产物**（提评来源，多上游取全部直接上游——实例链线性即紧邻前驱起的连续 produce 段），置前于本节点产物；评审者零跳转读被评审文档。
-- **sessionsByNode**：全需求每个 node 的全部会话（issue/discussion/notification 全含），按 node 分组、双重复位（nodeId+nodeKey）；对话本体唯一载体 = issues。
-- **任务派生规则**：对每个「进行中或待评审」节点，ownerRole===role → 产出任务；gate 且 reviewers 含 role 且未表态 → 评审任务。
-- **并行编排 vs 确定性任务**：org 层并行组是流程结构；`wb_my_task` 返回扁平化具体任务列表，不做推断。
-
-**四者联通组装链（节点 → 能力 → 产出 skill → 角色 → 讨论 → 上下文，m8 §3.4.4；v0.29 模板层改 skill 层）**：
+**四者联通组装链（节点 → 能力 → 产出 skill → 角色 → 讨论 → 上下文）**：
 
 ```
 wb_my_task(reqId, nodeId, role) 组装：
-  1. 节点：flow_template_nodes[key] → capability_id + roleId + mode + scope + expectedOutputs（引用 capability_id）
-  2. 能力：capabilities[capability_id] → how（行为步骤=能力本体）+ products（doc_path + demo_path，v0.29 无 template_path）
-  3. 产出 skill：按能力→skill 约定寻址（docs/templates/skills/，frontmatter 声明动作绑定）——章节骨架/门禁/准出权威；demo 由 products[].demo_path 指向
-  4. 角色：roles[role] + capabilities 校验「该角色是否拥有该能力」（roleId 匹配）
-  5. 讨论：该需求全流程 issues（含 align 阶段 discussion 澄清结论）打包进上下文，subagent 无需自行检索
-  6. 输出：{ nodeKey, mode, capability:{name, how[]}, products[], reviewers[]（capability_id→各自评审能力.how 取维度）, discussions, dependencyDocs（来自 task.context） }
-  —— 角色拿到「做什么(how) + 产出 skill + 示例(demo_path) + 讨论(discussions) + 依赖(dependencyDocs)」完整上下文，persona 零流程逻辑
+  1. 节点：flow_def_nodes → node_type + gate/user_gate + scope + node_actions 激活清单
+  2. 能力：capabilities[capability_id] → inputs + actions（含 on/skill）
+  3. 产出 skill：按能力→skill 约定寻址（docs/templates/skills/，frontmatter 声明动作绑定）
+  4. 角色：roles + capabilities 校验「该角色拥有该能力」
+  5. 讨论：该需求全流程 issues（含 align 澄清结论）打包进上下文，subagent 无需自行检索
+  6. 输出：{ nodeKey, node_type, activeActions, reviewers（各评审能力 skill 取维度）, discussions, dependencyDocs }
 ```
 
-**示例（RD 技术设计节点，role=RD）**：nodeKey=`RD 技术设计`、mode=produce；capability.how=`["读输入…","按产出 skill（to-rd-techdesign）标准逐节撰写…","按 skill 自检节自检…","登记+提评"]`；products=`[{doc_path:"docs/<版本>/<需求>/rd/design.md", demo_path:"…/backend-design-doc-demo.md"}]`；reviewers=`[{role:"arch",capability_id:"arch-tech-review"},…]`（维度从各评审能力.how 取）；dependencyDocs 来自 task.context（QA 验收额外含 rd/design.md+fe/design.md「接口协议」+MR/featureBranch「代码」）。
+**被评审产物注入（BUG-011）**：评审节点的 artifactsToReview 注入**直接上游 produce 节点已登记产物**（提评来源，多上游取全部直接上游），置前于本节点产物——评审者零跳转读被评审文档。
 
 ### 9.3 默认路由与问题归属
 
 - **wb_comment 全切默认路由**：agent 只传 `reqId+nodeId+text+anchor(+type?+domain?)`；`reviewerRole/to/assignee` 程序推导。
-- **评审评论必须锚产物（2026-09-10 BUG-013 拍板「所有的评审都是挂在文档上的」，spec 注记-J6）**：评审上下文（节点 state ∈ {review, respond}，或 author 角色 ∈ 节点评审位）的 issue 类评论，document 级锚点必须携带 `anchorArtifactId`（指向被评审产物），否则 400 invalidArg 引导挂锚；notification/discussion 类不受限；存量数据不回溯。无产物节点（纯对齐/门禁）document 锚保持合法。
+- **评审评论必须锚产物（BUG-013）**：评审上下文的 issue 类评论，document 级锚点必须携带 anchorArtifactId，否则 400 invalidArg 引导挂锚；notification/discussion 类不受限；存量数据不回溯。无产物节点（纯对齐/门禁）document 锚保持合法。
 - **问题归属三层**：L1 锚点产物作者 → L2 节点 owner → L3 QA 跨端根因判定（`domain=rd|fe`）；domain 是 L3 的根因输出，不是「打回谁」标签。
 
 ### 9.4 交互模式（5 种可复用模式）
 
 | 模式 | 出现的节点 | 程序统一处理 |
 |---|---|---|
-| P1 产出→提评 | 产品设计/RD·FE设计/用例/方案/调研/架构/需求对齐 | wb_my_task 给产出清单；wb_comment 自动 to=评审归属 |
-| P2 多评审者表态 | 各评审节点 | wb_my_task 给评审任务；reviewerRole 按节点推导 |
-| P3 开发→CR 并行评审 | 开发节点 | wb_my_task 返回多任务（扁平化）；domain 自动指派 |
+| P1 产出→提评 | 设计/调研/架构/对齐类 | wb_my_task 给产出清单；wb_comment 自动 to=评审归属 |
+| P2 多评审者表态 | 各评审节点 | wb_my_task 给评审任务；reviewers 按节点+位级 scope 推导 |
+| P3 开发→CR 内嵌评审 | 开发节点 | wb_my_task 返回多任务（扁平化）；domain 自动指派 |
 | P4 验收→缺陷闭环 | QA 验收 | wb_comment(domain) 全自动；reopen 拉锯升级 |
-| P5 拍板推进 | 各 gate 节点末 | wb_decide 状态机（join/部分回滚） |
+| P5 拍板推进 | 各 gate 节点末 | collect 聚合 agreed → user_gate 唤醒 User 拍板（通过/打回，reject 结论协议；join/部分回滚） |
 
 **结论**：四流程 = 5 种交互模式 × 参数化。`wb_my_task` + `wb_comment` 默认路由即可覆盖全部，无需在 persona 写节点专属逻辑。
 
-**组合流程（skill `wb-agent-guide`，随 preset 挂载，m6 §3.2）**——工具描述只承载单工具语义；多步业务编排由 skill 承载（agent 接到相关任务时主动加载）：
+**组合流程（skill `wb-agent-guide` 承载，工具描述只承载单工具语义）**：
 
-- **任务上下文（所有角色通用）**：被派活先调 `wb_my_task(reqId, role)` 拿确定性上下文——本节点做什么（roleObjective/behaviors/onFeedback）、审什么（reviewers/artifactsToReview）、依据什么（dependencyDocs + sessionsByNode 全会话）；随后按 outputs 产出或按 reviewers 表态。
-- **拆分大版本**：`wb_list_versions` 确认目标 → 按 owner 规则逐条 `wb_create_requirement`（带描述 md、owner）→ 每条自动带审计起点。
-- **推进任务**：`wb_list_requirements` 定位 → `wb_get_requirement` 看节点/评论 → 补齐产物与评论 → `wb_resolve` 全部 → `wb_decide pass`；被打回则 `wb_decide reject` 理由回退。
-- **评审闭环**：`wb_get_requirement` → `wb_get_artifact_content` 读正文 → `wb_comment` 行级/代码块级问题 → User 处理 → 循环至全 resolved → `wb_decide pass`。
-- **版本生命周期**：`wb_advance_version` 单向推进；发布前检查 `unfinished`，有未完成需求需 User 确认；`wb_deprecate_version` 前先确认需求归属。
-
-**工具层缺口补齐清单（m6-gap-closure §0，已落地）**：
-
-| # | 缺口 | 方案 | 归属 |
-|---|---|---|---|
-| 1 | 产物登记（doc/link 无工具挂 artifacts.json） | 新增 `wb_add_artifact` | M6 |
-| 2 | 评审者正式表态（reviewers[].state 无工具维护） | 新增 `wb_review`；wb_decide 门禁联动 reviewers | M6 |
-| 3 | 评论无身份/角色（wb_comment 固定 author=User） | wb_comment 支持 author/role 参数 | M6 |
-| 4 | CR 读代码（link 类无法读内容） | Code Reviewer 子 agent 用 fs/代码工具评审真实代码 | M7 |
-| 5 | 工期/依赖信息无约定 | RD 技术设计模板含工期与依赖小节 | 文档约定 |
-| 6 | 部分回滚（QA 打回仅回滚对应分支） | 并行组 join 判定 + reject 支持 targetBranch | M7 |
-| 7 | 通知提醒（门禁待处理/评审@） | sqlite inbox 落库（v1，UI 后置）——已演进为 tasks 投影 | M6 |
+- **任务上下文（所有角色通用）**：被派活先调 wb_my_task 拿确定性上下文——本节点做什么（activeActions）、审什么（reviewers/artifactsToReview）、依据什么（dependencyDocs + discussions）；随后按 outputs 产出或按 reviewers 表态。
+- **拆分大版本**：wb_list_versions 确认目标 → 按 owner 规则逐条 wb_create_requirement → 每条自动带审计起点。
+- **推进任务**：wb_list_requirements 定位 → wb_get_requirement 看节点/评论 → 补齐产物与意见闭环 → collect 聚合 agreed → User 拍板（user_gate）；被打回按 reject 结论协议 exec 重入返工。
+- **评审闭环**：wb_get_requirement → wb_get_artifact_content 读正文 → wb_comment 锚产物提意见 → owner 澄清/修复 → 复核事件循环 → 全部闭环 → collect 判定。
+- **版本生命周期**：wb_advance_version 单向推进；发布前检查 unfinished；wb_deprecate_version 前确认条件解绑。
 
 ### 9.5 编排协议
 
-- **Leader 行为协议（7 条）**：全局视图 → 拆解分派 → 子 agent 并行 → 正式落账 → 门禁推进 → 返工循环 → 收尾。**铁律：Leader 不替角色表态**。
-- **角色子 agent 通用约定**：prompt 自包含；无 wb_* 工具时按 host.js 格式直写 `.workbench/` JSON；不越权（不改 flow.json 状态）。
-- **缺陷闭环与部分回滚**：QA 写《缺陷文档》+ `wb_comment(domain)` 自动指派 → assignee resolve → QA confirm/reopen → QA 重跑自动化回测（`qa/data/` + `qa/code/`）。
-- **断点续接**：`dispatch_at / last_ack / last_progress / resume_hint` 承载，重启扫「已派未确认」「进度陈旧」续接。
+- **Leader 行为协议（7 条）**：全局视图 → 拆解分派 → 子 agent 并行 → 正式落账 → 门禁推进 → 返工循环 → 收尾。**铁律：Leader 不替角色表态**（表态由各评审位 agent 自判上报）。
+- **角色子 agent 通用约定**：prompt 自包含（wb_my_task 上下文 + persona 能力卡）；不越权（不直改流程状态，推进=plugin 判据轮转）。
+- **缺陷闭环与部分回滚**：QA 写 defect + wb_comment(domain) 自动指派 → assignee 修复（declare-fixed）→ QA 复核（confirm/revise）→ 重跑自动化回测（qa/data/ + qa/code/）；验收整体打回走 reject+targetBranch 部分回滚。
+- **断点续接**：dispatch_at / last_ack / last_progress / resume_hint 承载，重启扫「已派未确认」「进度陈旧」续接；派发阶段挂断→重新通知；执行中中断→从断点续做不重来。
 
 ## 10. 文档规范（目录 / 文档依赖 / 产物模板 / 质量门禁）
 
@@ -1435,178 +855,157 @@ docs/
 ├── <版本号>/                           # 版本目录，如 v1.0 / v1.2
 │   ├── arch_design.md                  # 版本架构设计（总纲，即本文档）
 │   ├── roadmap.md                      # 版本规划：目标/范围/需求清单/拆分
-│   ├── align.md                        # 需求对齐文档（版本规划①产物）
-│   ├── research.md                     # 调研文档（版本规划②产物）
+│   ├── align.md                        # 需求对齐文档（plan D1 产物）
+│   ├── research.md                     # 调研文档（plan D3 产物）
 │   ├── diagrams/                       # 架构图（可交互 HTML + 源 JSON）
-│   └── <需求名>/                       # 需求目录，如 01-module-board / 02-module-flow-tree / req-019-join-rollback
-│       ├── prd/
-│       │   └── prd.md                  # 产品需求文档（业务①/任务场景按需）
-│       ├── rd/
-│       │   ├── design.md               # RD 技术设计（业务③/技术②）
-│       │   └── dev.md                  # RD 开发说明（业务⑨.1/技术⑥，含实现-设计对照表）
-│       ├── fe/
-│       │   ├── design.md               # FE 技术设计（业务⑤/技术④按需）
-│       │   └── dev.md                  # FE 开发说明（业务⑨.2/技术⑥，含实现-设计对照表）
-│       ├── qa/
-│       │   ├── cases.md                # 用例/联调设计（业务⑦/技术⑤）
-│       │   ├── test.md                 # 测试用例与验收记录（业务⑩/技术⑦，含 §测试资产）
-│       │   ├── defect.md               # 缺陷文档（QA 验收发现 bug 时）
-│       │   ├── accept.md               # 验收记录（已并入 test.md，废弃留痕）
-│       │   ├── data/                   # 测试资产·数据构造（幂等可重建）
-│       │   └── code/                   # 测试资产·测试代码（一键复跑）
-│       └── plan.md                     # 方案文档（category=任务，执行者产出）
+│   └── <需求名>/                       # 需求目录
+│       ├── brd/brd.md                  # 业务需求文档（business/tech 需求对齐产物）
+│       ├── prd/prd.md                  # 产品需求文档（business ② 产物）
+│       ├── rd/{design.md, dev.md}      # RD 技术设计 / 开发说明
+│       ├── fe/{design.md, dev.md}      # FE 技术设计 / 开发说明
+│       ├── qa/{test.md, defect.md}     # 验收记录与缺陷文档 + data/ + code/ 测试资产
+│       └── plan.md                     # 方案文档（task 执行者产出）
 ```
 
-**命名与登记规则**：
-
-| 项 | 规则 |
-|---|---|
-| 需求目录 | `req-<id>-<短slug>`——id 保留工作台 `.workbench` 数据关联；slug 取需求主题 |
-| 版本目录 | `v<主>.<次>`——与 `.workbench/versions.json` 的 id 对应（如 v-11 → `v1.1`） |
-| 文件命名 | 固定名（`design.md` / `dev.md` / `cases.md` / `test.md` …），版本演进覆盖同文件，git 留痕 |
-| 产物登记 | 产物写入后调用 `wb_add_artifact` 登记（href=文件路径，label=《文档名》，kind=document） |
+**命名与登记规则**：需求目录 `req-<id>-<短slug>`；版本目录 `v<主>.<次>`；文件固定名、版本演进覆盖同文件（git 留痕）；产物写入后 `wb_add_artifact` 登记（href=相对 docs root，kind=document，注记-K 真实存在性校验）。
 
 ### 10.2 文档依赖矩阵与开发完成检查
 
-**文档依赖矩阵**：
-
 | 角色产出 | 来源（优先级从高到低） |
 |---|---|
-| RD 开发（rd/dev.md） | `rd/design.md` → `prd/prd.md` → `qa/cases.md` → `arch_design.md` |
-| FE 开发（fe/dev.md） | `fe/design.md` → `rd/design.md`（接口契约）→ `prd/prd.md` → `qa/cases.md` |
-| RD 技术设计（rd/design.md） | `prd/prd.md` + `arch_design.md` |
-| FE 技术设计（fe/design.md） | `prd/prd.md` + `rd/design.md` |
-| QA 用例（qa/cases.md） | `prd/prd.md` + `rd/design.md` + `fe/design.md` |
-| QA 验收（qa/test.md + qa/defect.md） | `qa/cases.md` + `rd/dev.md` + `fe/dev.md`；测试资产按 `qa/cases.md` 口径沉淀 |
-| 版本规划（align/research/arch_design/roadmap） | 需求池 + 上版本规划 |
+| RD 开发（rd/dev.md） | `rd/design.md` → `prd/prd.md` → `qa/cases 口径` → `arch_design.md` |
+| FE 开发（fe/dev.md） | `fe/design.md` → `rd/design.md`（接口契约）→ `prd/prd.md` |
+| RD 技术设计（rd/design.md） | 输入可见性：business=product_doc / tech=brd（动态注入）+ `arch_design.md` |
+| FE 技术设计（fe/design.md） | product_doc + rd_design（接口契约，不自造契约） |
+| QA 验收（qa/test.md + qa/defect.md） | product_doc（AC）+ rd/fe 设计 + dev_notes + code_mr |
 
 **开发完成检查（RD/FE 通用）**：读依据文档 → 核对四类一致性（覆盖/一致/契约/边界）→ 输出实现-设计对照表（附 dev.md）→ 偏差处理（行为/接口变更 → 停止报告 Leader）→ 完成判定（对照表全一致+自测通过+MR 就绪）。
 
-### 10.3 产物标准机制（v0.29：产出 skill 为权威）
+### 10.3 产物标准机制（产出 skill 为权威）
 
-- **标准权威分层**（v0.29，User 拍板 D1-D6，semantica 47c53ed9）：有产出 skill 的产物，章节骨架 / required / purpose / 质量门禁 / 准出 / 接口协议**全部内联在 skill**（`docs/templates/skills/<skill>/SKILL.md`）——brd/prd/rd/fe 四类已迁（to-brd / to-prd / to-rd-techdesign / to-fe-techdesign）；无 skill 的产物暂由 `docs/templates/*-template.md` 承载（**skill 待建**，索引见 `docs/templates/README.md`）。`*-demo.md`（填充示例）恒保留，与 skill 骨架保持一致（D5）。
-- **capabilities.products 引用（v0.29）**：`[{doc_path, demo_path}]`——**DB 不存标准指针**；产出/评审端经**产出 skill 寻址**（skill frontmatter 声明「用于 X 产出型动作」即绑定）。
+- **标准权威分层**（D1-D6 拍板）：有产出 skill 的产物，章节骨架 / required / purpose / 质量门禁 / 准出 / 接口协议**全部内联在 skill**（`docs/templates/skills/<skill>/SKILL.md`）；无 skill 的产物暂由 `docs/templates/*-template.md` 承载（索引见 `docs/templates/README.md`）；`*-demo.md`（填充示例）恒保留，与 skill 骨架一致（D5）。
+- **capabilities.products 引用**：`[{doc_path, demo_path}]`——**DB 不存标准指针**（v0.29 删 template_path，D4）；产出/评审端经**产出 skill 寻址**（skill frontmatter 声明「用于 X 产出型动作」即绑定）。
 - **程序做路由、agent 做专业**：调整产出标准 = 改对应 skill 文件，全局生效（不碰 persona / 不碰代码 / 不碰 DB）。
+- **待建 skill 清单（22：产出 8 + 开发编排 1 + 对象化评审 13）**：to-brd / to-prd / to-rd-techdesign / to-fe-techdesign / to-arch / to-alignment / implement-techdesign / 对象化评审 ×13（prd-review-{arch,rd,fe}、rd-design-review-{arch,fe,qa,pm}、fe-design-review-qa、arch.fe-design-review、research-review-arch、architecture-review-pm）/ qa-acceptance。已有复用：research / tdd / implement / diagnosing-bugs / to-tickets / triage。
+- **ref 约定**：skill 自检项引用文档一律写目录约定相对路径短名；`—（自含）`=该检查只依据本文件。
+- **质量门禁严重度**：**blocker**（不满足不可评审通过）/ **major**（评审必查，评审内闭环）/ **minor**（建议）。**拦截最小原则**：自检在产出动作内完成，flow 无专门自检节点；exec 准出判据在最初的地方拦截。
 
-**标准作用机制（三层，v0.29 改写自模板三层 m8 §1.2）**：
+**产物速查（product_type → 去向）**：brd→`brd/brd.md`、product_doc→`prd/prd.md`、rd_design→`rd/design.md`、fe_design→`fe/design.md`、test_result→`qa/test.md`、defect→`qa/defect.md`、research→`research.md`、architecture→`arch_design.md`、alignment→`align.md`、dev_notes→`rd|fe/dev.md`、plan→`plan.md`、code_mr→MR 链接（link）。
 
-```
-产出 skill（定义：章节骨架 + 质量门禁 + 准出 + 接口协议，内联 SKILL.md）
-  ├─ 章节骨架        → 产出者按 skill「必填节 + Process」逐节撰写（必填节内联，无自造小标题）
-  ├─ 质量门禁/准出   → 双重消费：
-  │                    ① 产出者完成前按 skill「自检」节逐条自检（severity 分级）
-  │                    ② 评审者按评审能力 how 的「按产出 skill 自检节逐条核对」步骤核对（D1）
-  └─ demo（示例）    → products[].demo_path 指向填充示例，结构与 skill 骨架一致（D5）
-wb_my_task.dependencyDocs  ← 与自检项 ref 同源（同一套路径约定）
-```
-
-- **产出端**：`wb_my_task` 返回 outputs[]（doc_path/demo_path）+ 能力 how → 角色按产出 skill 逐节撰写、按自检节自检 → 写盘（doc_path）→ `wb_add_artifact` 登记；
-- **评审端（D1=a）**：评审者按评审能力 how 内「按产出 skill 自检节逐条核对」步骤 severity 分级核对（blocker 不过即打回、major 必查、minor 建议）——自检在产出动作内（skill 自检节）完成，**flow 无专门自检节点**；
-- **ref 约定**：skill 自检项引用文档一律写目录约定的相对路径短名（`prd/prd.md` / `rd/design.md` / `fe/design.md` / `qa/cases.md` / `qa/test.md` / `qa/defect.md` / `rd/dev.md` / `fe/dev.md` / `plan.md` / `align.md` / `research.md` / `arch_design.md` / `roadmap.md`）；`—（自含）` 表示该检查只依据本文件内容，无外部依赖。
-
-**产出 skill 覆盖范围（v0.29：产出型能力 11 项；已建 skill 4 类，其余模板暂承载待建）**：
-
-| capability_id | 名称 | role_id | 产出 skill / 暂承载模板 | products（doc_path 简述） | 服务对象（谁审什么） |
-|---|---|---|---|---|---|
-| product-design | 产品设计 | arch | **to-prd** | prd/prd.md | 需求评审（PM 价值/可行性） |
-| backend-design | 后端技术设计 | rd | **to-rd-techdesign** | rd/design.md | RD 技术评审（Architect/RD/FE/QA/PM） |
-| frontend-design | 前端技术设计 | fe | **to-fe-techdesign** | fe/design.md | FE 设计评审（QA 可测性） |
-| case-design-cap | 用例/联调设计 | qa | qa-testcase-review-template.md（skill 待建） | qa/cases.md | 用例评审（RD/FE 口径） |
-| acceptance-test | 验收与缺陷管理（v0.28 合并） | qa | qa-acceptance-*.md + qa-defect-management-*.md（skill 待建） | **2 产物**：qa/test.md + qa/defect.md | QA 验收（AC 逐条）+ User |
-| research-cap | 竞品调研 | inv | research-open-source-tech-template.md（skill 待建） | research.md | 调研评审（Architect 覆盖度/建议） |
-| arch-cap | 架构规划 | arch | arch-version-design-template.md（skill 待建） | arch_design.md | 架构规划评审（Leader/PM/User） |
-| alignment-cap | 需求对齐 | arch | arch-version-scope-align-template.md（skill 待建） | align.md | 立项评审（PM/User） |
-| backend-dev | 后端开发 | rd | dev-notes-template.md（skill 待建） | rd/dev.md | CR（设计落地核对） |
-| frontend-dev | 前端开发 | fe | dev-notes-template.md（skill 待建） | fe/dev.md | CR（设计落地核对） |
-| plan-cap | 方案设计（任务） | executor | plan-template.md（skill 待建） | plan.md | 方案评审（QA 可测性/User 拍板） |
-
-> v0.29 变更（D2/D3/D4，User 拍板）：prd / backend-design / frontend-design 三组模板文件删除（标准已进 skill，brd-template 同）；无 skill 的模板原样保留标「skill 待建」；products 删 template_path。运行机制：① wb_my_task outputs[] 给 doc_path/demo_path，产出标准按能力→skill 约定寻址；② 产出者按 skill 自检节自检，评审者按评审能力 how 的 skill 核对步骤审（各审各的）；③ 改 skill 文件即全局调标准（不碰 persona/代码/DB）；④ skill 管「产出结构/门禁/准出」，persona 管「专业能力」，流程路由完全程序化。
-
-**产物速查（13 类产出去向）**：brd→`brd/brd.md`、prd→`prd/prd.md`、rd-design→`rd/design.md`、fe-design→`fe/design.md`、case-design→`qa/cases.md`、test-result→`qa/test.md`、defect→`qa/defect.md`、research→`research.md`、architecture→`arch_design.md`、alignment→`align.md`、dev-notes(rd/fe)→`rd|fe/dev.md`、plan→`plan.md`（权威 skill / 暂承载模板索引见 `docs/templates/README.md`）。
-
-**质量门禁严重度**：**blocker**（阻塞门禁：不满足不可评审通过）/ **major**（评审必查，须在评审内闭环）/ **minor**（建议）。skill 自检项引用的 ref 文档必须在产出前可读或在验收时存在。
-
-**产物依赖链**：AC 链（prd AC→cases 验收用例→test 逐条核对）、契约链（rd 接口→fe 对接）、版本链（align→research→architecture→roadmap→需求）、验收链（test 结论 + defect 归属→返工闭环）。
-
-**产物形态与展示**：doc（文档正文，阅读器+锚点评论）/ link（新窗口跳转）；📄=doc、🔗=link；节点无产物显示「该节点无产物」。
+**产物依赖链**：AC 链（product_doc AC→验收逐条核对）、契约链（rd 接口→fe 对接）、版本链（alignment→research→architecture→roadmap→需求）、验收链（test 结论 + defect 归属→返工闭环）。
 
 ## 11. 里程碑与落地状态
 
-> 实现沿 M0–M8 演进；每个里程碑独立评审、可回滚。
+**历史里程碑（插件时代，M0-M8）**：设计对齐 / 数据层 / 模块 II / 模块 I 三段 / 工具层 / 执行层演练（req-019 全流程演练 ✅）/ sqlite——全部完成或演练通过；历史实现与文档归档 `.archive/`。
 
-| 里程碑 | 内容 | 状态 |
+**现行（2026-09-08 MVP 重新实现，MIG-04/06）**：
+
+| 阶段 | 内容 | 状态 |
 |---|---|---|
-| M0 | 设计对齐：本文档体系 + 定稿决策 | ✅ |
-| M1 | 数据层：`.workbench/` 文件 Schema + 多项目分桶 + CRUD | ✅（并入 M2） |
-| M2 | **模块 II** 需求 OA 流程树（流程树+评审+阅读器+锚点+门禁） | ✅ |
-| M3 | **模块 I（上）** 版本看板 + 需求池 + 优先级 + 分组列表 | ✅ |
-| M4 | **模块 I（中）** 需求 CRUD + 描述 + 编辑审计 | ✅ |
-| M5 | **模块 I（下）** 版本管理 | ✅ |
-| M6 | 制度层 preset + 工具层（wb_* 全量）+ 通知落库 | 🟡 |
-| M7 | 执行层：真实子 agent 评审编排 | 🟡（req-019 演练 ✅） |
-| M8 | 流程简化程序化：wb_my_task + 默认路由 + sqlite | 🟡 |
+| 设计定稿 | 五件套推演定稿（v3.1/v5 口径）→ 本文件合并（MIG-07） | ✅ |
+| 数据层 | MySQL 14 表 DDL + 迁移链 0001-0004（含 outbox）+ seed | ✅ |
+| 后端 | Go + Gin，HTTP API 22 端点语义 / 28 路由，领域层+repo+service+handler | 🟡 迭代中 |
+| 前端 | React+Vite+TS Web（看板/流程树/收件箱/TODO + P1-P11 原型口径） | 🟡 迭代中 |
+| 质量闸门 | gofmt/vet/build/test + fe test + qa_drive + buf breaking + qa_branch_audit（pre-push） | ✅ 已接线 |
 
-**当前进度明细**：交互层 M2-M5 全部完成；工具层 22 工具注册完成（pkg-41）；数据层 JSON 载体运行中、sqlite 11 表已 seed（schema_version=28）；制度层 preset 待接线；M7 req-019 演练全通过。
-
-**验证记录**：2026-08-15 req-019 业务需求全流程（并行 join / 部分回滚）RD/FE/CR/QA 四角色 + Leader ✅。
-
-**遗留事项**：workbench-plugin 落盘源码对齐；sqlite 应用层落地；team preset 接线 + skill 挂载；剩余角色卡（Architect/PM/Investigator）；需求对齐节点实践；diff 级锚点；多项目切换 UI。
+验证记录：一版 req-019 业务需求全流程（并行 join / 部分回滚）四角色演练 ✅；现行实现验收标准见 spec §4。
 
 ## 12. 关键技术方案与重点实现
 
-- **锚点防漂移**：行级锚点记录 `line` + 去空白 `lineText` 原文指纹；宿主无 crypto，用字符串相等命中，四步定位策略（`02-module-flow-tree/rd/design.md`）。
-- **确定性任务路由**：`wb_my_task` 从 flow.json/artifacts/comments 推导确定性任务上下文，程序做路由、agent 做专业（§9.2）。
-- **评论状态机**：`open → pending-confirm → resolved`（A 修复/B 协商），`confirm`/`reopen` 仅提评者；拉锯升级圆数 >5 通知 Leader/User（§7.3）。
-- **部分回滚**：并行组 `targetBranch=rd|fe` 仅回滚指定分支，join 重算（§8.3）。
+- **锚点防漂移**：划词锚记录去空白原文指纹，字符串相等命中重锚定；宿主无 crypto 依赖（`02-module-flow-tree/rd/design.md`）。
+- **确定性任务路由**：wb_my_task 从领域数据推导确定性任务上下文（§9.2）。
+- **评审轮聚合**：review_results 单字段 + collect 实时判定（全表态全 agree → approved；有 unagree → 澄清循环）——approved/rejected 由 last_decision 承载（§7.3）。
+- **issue 五态双子机**：澄清/修复两阶段 + loop_count 单计数器 + 复核事件（§7.3）。
+- **部分回滚**：并行组 targetBranch=rd|fe 仅回滚指定分支，join 重算（§8.4 C）。
+- **outbox 可靠投递**：事务表 + FlushPending + SweepOutbox，无 dead 无限重试（§7.2）。
 
 ## 13. 非功能架构
 
 | 类别 | 本版本架构要求 |
 |---|---|
-| 性能与扩展性 | 大需求池 >50 条列表筛选优化；sqlite WAL 性能验证（E7 后置增强） |
-| 可用性 | M2 单用户读改写无锁；每次写返回最新聚合快照（lossless） |
-| 安全 | 制度只读；破坏性操作（删需求/废弃版本/强权通过）需 User 明确指令 |
-| 可观测性 | `audit_log` 全表留痕、变更回放 |
-| 兼容性 | 宿主仅 `btoa/atob/TextEncoder`，无 crypto 依赖 |
+| 性能与扩展性 | 大需求池 >50 条列表筛选优化；MySQL 索引按 spec §0；依赖树按需拉取（非常驻） |
+| 可用性 | 单用户读改写+乐观锁；每次写返回最新聚合快照（lossless） |
+| 安全 | 制度只读；破坏性操作（删需求/废弃版本）需 User 明确指令 |
+| 可观测性 | `audit_log` 全表留痕、变更回放；outbox 投递状态可查 |
+| 兼容性 | proto 为真相源（buf breaking 闸门护 wire 兼容）；宿主无 crypto 依赖 |
 
-**工程约束（实现铁律，M3 起强制执行）**：
+**工程约束（实现铁律）**：
 
-1. `cordis_define` **必须同时传 `code.host` 与 `code.client`**（曾多次只传一半导致半包）。
-2. **Host 返回绝不出现 `undefined` 字段**——缺值用 `null`/`[]` 归一（lossless 铁律的落地形态）。
-3. **前端 hooks 全部前置到组件顶部**，之后才允许条件 return。
-4. **循环内 onClick 闭包用块级 `const`**（`while` 内 `var` 共享函数作用域会全指向最后一行）。
+1. Host/API 返回绝不出现 `undefined` 字段——缺值用 `null`/`[]` 归一（lossless）。
+2. 前端 hooks 全部前置到组件顶部，之后才允许条件 return。
+3. 循环内 onClick 闭包用块级 `const`。
+4. 破坏性契约变更：commit 注记声明后 `--no-verify` 绕过 pre-push 闸门。
 
 ## 14. 架构演进路线（本版本内）
 
-| 阶段 | 架构工作 | 对应批次 | 产出 |
-|---|---|---|---|
-| 阶段 1 数据基座 | 实体模型 + sqlite schema | 第 1 批 | 数据层可用 |
-| 阶段 2 核心模块 | 模块 II 流程树 + 模块 I 看板 + 制度/执行 | 第 2 批 | 可运行闭环 |
-| 阶段 3 聚合与稳定 | 收件箱/TODO + 里程碑收尾 | 第 3 批 | 可上线平台 |
+| 阶段 | 架构工作 | 产出 |
+|---|---|---|
+| 阶段 1 数据基座 | MySQL schema + 迁移链 + seed | 数据层可用（✅） |
+| 阶段 2 核心链路 | HTTP API 全端点 + 领域层 + 前端四模块 | 可运行闭环 |
+| 阶段 3 聚合与稳定 | 收件箱/TODO + outbox + 质量闸门收尾 | 可上线平台 |
 
-后续增强（v1.1+）：diff 锚点、多项目切换 UI、跨项目聚合、Agent 审计日志、版本间需求批量迁移、候补队列——见 `roadmap.md`。
+后续增强（v1.1+）：DSH 嵌入适配器、diff 锚点、多项目切换 UI、跨项目聚合、依赖调度器、版本间需求批量迁移——见 `roadmap.md`。
 
 ## 15. 风险与开放问题
 
 | 风险/问题 | 影响 | 应对 | 负责人 |
 |---|---|---|---|
-| sqlite 应用层迁移未完成 | JSON 载体为当前运行载体 | 分步迁移，JSON 保留导出 | Leader |
-| team preset 尚未接线 | 制度层未生效 | 从 standard preset 叠加挂 skill | Leader |
+| 待建 skill 22 个未落地 | 产出/评审动作暂无 skill 承载 | 按清单逐个建（模板暂承载） | Leader |
+| API 词 ↔ 领域事件名 gap（NAM-09） | 接口命名与 CONTEXT 词汇不一致 | 按定序修复：文档映射 → 代码契约 → 替换 | Leader |
+| done 相位存储表达未定（附录 B） | 节点离场终态落库口径 | 实现期裁决 | Leader |
 | Architect/PM/Investigator 角色卡待落地 | 执行层角色不全 | 按角色卡精简生成 | Engineer |
 
 ## 16. 架构评审结论与签名
 
-**评审结论**：通过（平台整体立项设计评审）
+**评审结论**：通过（平台整体立项设计评审；2026-09-12 MIG-07 合并刷新）
 
 | 角色 | 姓名 | 签名/日期 |
 |---|---|---|
-| 架构评审委员 | Architect | 2025-01-01 |
-| 后端 | RD | 2025-01-01 |
-| 前端 | FE | 2025-01-01 |
-| 测试 | QA | 2025-01-01 |
+| 架构评审委员 | Architect | 2026-09-12 |
+| 后端 | RD | 2026-09-12 |
+| 前端 | FE | 2026-09-12 |
+| 测试 | QA | 2026-09-12 |
 
 ## 需求详情页信息架构（2026-09-10 批注轮修复口径，BUG-012/OPT-001/002/003）
 
 - 头部元信息之下、流程导航之上为**需求说明描述卡**：Markdown 渲染（mini renderer，与产物阅读器同口径不引重库），有描述默认展开；变更历史折叠区随描述卡归位（不再沉底）。
 - flow 页**两栏布局**：左列流程导航常驻（当前节点高亮、点击切换），右列节点详情；≤980px 退化为上下堆叠。节点点色语义=门禁结论优先（绿已通过/琥珀待拍板/红已打回）、相位色兜底。
 - 评审上下文呈现：review 型节点详情将**被评审产物**（直接上游 produce 段，my-task relatedArtifacts 置前序）分组顶前展示；评审表态药丸可点展开该角色意见线程（只读，发言走评论通道并强制锚产物，见 BUG-013）。
+
+## 附录 A：作废留痕（undermined，勿再引用；历史裁决正典）
+
+> 源：capability-model-final §8（作废留痕表）合并保留；完整裁决链见 `.plan/timeline/decision-timeline.md` 与 `retired-terms-audit.md`。本附录内旧词汇为历史引用，不受现行词汇黑名单约束。
+
+| 作废项 | 被推翻原因 | 取代 |
+|---|---|---|
+| v1 hook 表（7+1：entry/exec/feedback/replied/reject/exit/transform+task_stale，action 挂 hook） | 轮次制推演；trigger 与编排混同 | 两层属性状态机（§8.2） |
+| trigger 8 词表（含 reviewed/replied/approve/reject 为编排词） | 编排相位=唯一词汇 | 相位 4 值+reviewState per-agent 三态（§7.3） |
+| collect/reviewed/replied/complete/ready 作为节点相位 | 相位=有等待的编排步骤；收集/复核降为评审轮；complete/ready=瞬时信号非相位 | §8.2.2 + 完成上报信号 |
+| 评审节点无 exec / 评审节点恢复 exec（两次摇摆） | exec/review 拆分定稿：审批类节点 exec 不配置、review=产出动作位 | §8.2.6 审批类 |
+| re-entry / re-exec 相位 | 并入 entry/exec（计数位选择配置）——plugin 回退动作保留 | §8.2.4 |
+| Q-F「fix_on_review 统一并入 diagnosing-bugs」 | 用户二次纠正：两动作两挂载（fix_on_review@respond 只响应 CR；diagnosing-bugs@exec 重入响应打回） | §8.5 域分立轴 |
+| qa 意见直通打回 | qa 意见=可测性/安全性设计维度，同走轮次澄清 | §8.2.3 轮次循环 |
+| retest 独立动作（09-07 曾退役） | 09-09 复活为现行动作名——QA exec 重入=复验重测 | §8.5（台账疑义#6 名源待正名） |
+| respond_to_cr / respond_to_qa 独立动作 | 统一 clarify（来源无关）+ fix_on_review 分立 | §8.5 |
+| after-exec hook（提评+评审派发） | 两层属性模型吸收其职责；hook 层全部退役（仅通知/同步扩展位预留） | §8.2.9 完成上报 |
+| 取消独立评审节点（提案） | 评审双轨制确立：跨节点评审需独立节点承载 | §8.2.7 |
+| pending / done / gate 状态占位（作节点态） | 编排进度展示无占位；approve=通过终态（done 后以离场终态语义回归，见 §7.3） | §8.2.1 |
+| pm-review@产品设计评审（自审位） | 文档评审产出者不自审（铁律#2） | §8.3 business 节点 3 |
+| decide-cap.decide（join 裁决动作） | join 裁决=plugin 内置轮转吸收；decide-cap 收缩为 create_reqs 单动作 | §8.2.3 + §8.5 |
+| final-approve 能力 | User 终审职责由 flow_def_nodes.user_gate 配置位承载 | §8.2.3 |
+| 产出类设计节点无内审（v3.1 曾裁跳过）→ 又补内嵌 CR → 再回退 | 最终定稿：编写文档节点没有 review（共识，铁律#2） | §8.2.6 产出类（无内审） |
+| plan-cap 跨流程实例化 / plan-review-arch / alignment-cap / alignment-review-pm | 2026-09-07 裁决：C2 按场景用 backend/frontend-design；D2 门禁型 | §8.5 退役留痕 |
+| R1「跨节点评审 respond=clarify+fix_on_review 双动作」 | 铁律#1（一个 state 只挂一个动作）取代——跨节点 respond=clarify 单挂，修复=rejected → exec 重入 | §8.5 轨道规则 |
+| 技术设计节点内嵌 CR 轮（77f9d96 补裁） | 用户澄清共识回退（gate 回 0、reviewers 清空） | §8.2.6 |
+| **overridden 作为 issue 状态**（一版实现混入） | 09-11/09-12 裁决（NAM-07/ISS-08）：override 是动作、结果置 resolved；resolve_path 增 override 值承载 | §7.3 issue 五态 |
+| **pass / block 作表态值** | v5 per-agent 表态轮转：verdict=agree|unagree（REV-05→07） | §7.3 评审轮 |
+| **resolve(note) 双路径事件名** | 复核位拆分事件：clarified/settle/qualify/reopen/declare-fixed/confirm/revise（ISS-08 三轮定稿） | §7.3 事件名 |
+| wb_decide / wb_override 作 agent 工具 | 裁决=plugin 内置轮转 + User 拍板 UI→service；移出 agent 清单（#2 缺漏裁决 + 09-12） | §9.1 |
+
+## 附录 B：合并疑义（两源冲突/未决项，待裁决；本合并未自行发明结论）
+
+1. **能力池计数口径**：capability-actions-final 标题「18 能力」vs 其 §2 表活跃行与 data-tools-final/seed 工单口径「**21 活跃**」——本文取 **21**（与 seed/实例一致：5 产出 + 2 开发 + 11 对象化评审 + code-review + acceptance-test + decide-cap）；「18」疑为中间口径或标题笔误，待正名（可随 NAM-09 批处理）。
+2. **products JSON 的 templatePath**：spec §0 capabilities.products 注释含 `templatePath`，与 D4 拍板（v0.29 删 template_path，DB 不存标准指针，产出 skill 寻址）冲突——本文按 **D4**（docPath+demoPath）；spec §0 注释滞后，随 NAM-09 批次修正。
+3. **done 相位的存储表达**：CONTEXT 相位词条（done=离场业务终态、禁挂载、打回复位）vs spec §0 flow_nodes.state 注释仅 `'':entry/exec/review/respond`——done 落库形态（state='done' 枚举值 vs current_node 前移+state=''）spec 未体现，实现期裁决。
+4. **retest 命名**：QA-04 定行为（复验重测）、NAM-06 原话只到「给个英文名吧」，「retest」具体名未见于取证原话（decision-timeline 疑义#6）——本文沿用 retest（五件套与代码现行）。
+5. **issue 事件名 ↔ API 工具词 gap**：领域事件（clarified/settle/qualify/declare-fixed/confirm/revise/override）与现行 API（wb_reply/wb_resolve/wb_confirm_review/wb_reopen）存在 gap——REV-08/NAM-09 已立项（先文档映射→代码契约修复→替换）；本文以领域事件名为准，API 词按现行契约（spec §1.2）保留。

@@ -10,9 +10,9 @@ wbflow 前端。React 19 + Vite 8 + TypeScript（严格模式）+ react-router 7
 - **T16 拍板卡三态**（复用 T15 `DecisionCard` 的 `actions` 插槽）：进度只读 → agreed 迎宾呈现（各评审位结论 + resolved 摘要 + 产物链接 + 建议 + 通过/打回按钮组 + ↗ 流程树跳转）→ 已裁决（verdict 徽标 + 结论摘要；rejected 呈 T9 重入相位提示）；wb_decision 409 改判冲突提示 + 失效刷新。
 - **T16 冲突卡**：escalate=1 工单聚合于节点详情意见区顶部；正反对照两栏（正方=review_results 最新反对位 / 反方=issue replies 普通条目）；裁决动作（wb_escalate 拉起幂等 / wb_adjudicate uphold|override 表单，user 角色可见）；裁决回填 replies 留痕呈现 + ↗ 节点/issue 跳转。
 
-五区分栏口径对照（`docs-tmp/ui-interaction-final.md` §1.2）：① 状态卡=双行（执行行：相位徽标+my_task 激活动作；审批行：表态计数）② 评审状态行=per-agent 药丸（轮内完整时间线属暂缓项 P2）③ 产物区=文件行+💬N+外链 ④ 意见区=评论列表+escalate 标记+在途任务投影（冲突卡聚合属 T16）⑤ 拍板卡=进度只读态（评审轮进行中/agreed 待拍板提示/已裁决 verdict）。数据源全部走聚合快照 + my_task（role=user），不自拼接口。
+五区分栏口径对照（`docs/v1.0/arch_design.md` §5.5）：① 状态卡=双行（执行行：相位徽标+my_task 激活动作；审批行：表态计数）② 评审状态行=per-agent 药丸（轮内完整时间线属暂缓项 P2）③ 产物区=文件行+💬N+外链 ④ 意见区=评论列表+escalate 标记+在途任务投影（冲突卡聚合属 T16）⑤ 拍板卡=进度只读态（评审轮进行中/agreed 待拍板提示/已裁决 verdict）。数据源全部走聚合快照 + my_task（role=user），不自拼接口。
 
-交互基线与增补明细：`docs-tmp/ui-interaction-final.md` · 原型：`docs-tmp/diagrams/ui-prototype-v3.html`（P1–P11：P8 看板/需求池、P9 版本管理、P10 收件箱、P11 TODO 为模块 I/III/IV 原型，2026-09-09 补齐）
+交互基线与增补明细：`docs/v1.0/arch_design.md` §5（交互增补层）· 原型：`.archive/docs-tmp-final/diagrams/ui-prototype-v3.html`（P1–P11：P8 看板/需求池、P9 版本管理、P10 收件箱、P11 TODO 为模块 I/III/IV 原型，2026-09-09 补齐）
 
 ## 常用命令
 
@@ -151,8 +151,8 @@ curl -s $H -X POST localhost:8080/api/comments/$CM/escalate -d '{
 #    幂等：已有进行中裁决 session 时 noop=true 回显 session_id
 curl -s $H "localhost:8080/api/inbox?kind=escalation&read_filter=unread" | jq '.notifications'
 
-# 5) User 仲裁回填：uphold=维持议题（回澄清/修复链）/ override=推翻（issue 落 overridden 终态，
-#    escalate 复位 + reviewer 重表态新轮 reentered=true）；结论经 replies kind=adjudication 留痕
+# 5) User 仲裁回填：uphold=维持议题（回澄清/修复链）/ override=推翻（issue 以 resolve_path=override 置 resolved——
+#    无 overridden 态，09-12 裁决；escalate 复位 + reviewer 重表态新轮 reentered=true）；结论经 replies kind=adjudication 留痕
 curl -s $H -X POST localhost:8080/api/comments/$CM/adjudicate -d '{
   "verdict":"uphold","conclusion":"按含降级路径口径执行","decidedBy":"user"}'
 #    escalate=0 时回填 → 409 GATE_BLOCKED

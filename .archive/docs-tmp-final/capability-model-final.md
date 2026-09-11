@@ -1,5 +1,7 @@
 # MVP 节点编排模型 v3（两层属性状态机 · 定稿）
 
+> **已归档（2026-09-12 MIG-07）**：本文件为推演底稿，现行设计权威=docs/v1.0/arch_design.md
+
 > **状态**：2026-09-05 用户逐轮推演定稿。本文件=节点编排模型权威层。配套（均已产出并同步）：capability-actions-final.md（动作→skill 挂载表）、business-flow-derivation.md / flow-derivation-tech-task-plan.md（四流程 v3.1 节点配置）、data-tools-final.md（schema v0.29 DDL 与 23 工具契约）。
 > **v3 相对历版的收敛**（全部经用户场景验证）：trigger 词表退役 → 编排相位=唯一词汇；单列状态白名单废除 → **两层属性状态机**（node.state 可配动作相位 + node.reviewState 内置审批子状态）；re-entry/re-exec 并入 entry/exec（计数位选择）；评审双轨制（节点内 CR 异化 + 跨节点评审节点）；**hook 层全部退役**（预留通知/同步扩展位）；how 四要素退出框架（skill 挂载制）。
 

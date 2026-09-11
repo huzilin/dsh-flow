@@ -1,6 +1,6 @@
 # 团队项目工作台（Team Project Workbench）
 
-DSH 之上「项目管理 + OA 流程 + 评审协作」三合一系统；本文件是**领域词汇单点定义**（现行定义 + `_Avoid_` 退役词）。权威设计见 `docs-tmp/` 五件套与 `.plan/wbflow-impl/spec.md`；术语的**历史沿革与改名链**见 `.plan/timeline/terminology-evolution.md`（本文件不留变更日志）。纪律：每轮方案敲定随台账回写更新本表（alignment-protocol 机制 2「方案敲定三动作」）。
+DSH 之上「项目管理 + OA 流程 + 评审协作」三合一系统；本文件是**领域词汇单点定义**（现行定义 + `_Avoid_` 退役词）。权威设计 = `docs/v1.0/arch_design.md`（单一权威，2026-09-12 MIG-07 合并）；实现规格见 `.plan/wbflow-impl/spec.md`；术语的**历史沿革与改名链**见 `.plan/timeline/terminology-evolution.md`（本文件不留变更日志）。纪律：每轮方案敲定随台账回写更新本表（alignment-protocol 机制 2「方案敲定三动作」）。
 
 ## Language
 

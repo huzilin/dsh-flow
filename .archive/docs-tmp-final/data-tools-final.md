@@ -1,5 +1,7 @@
 # MVP 数据层 + 工具清单定稿（data-tools-final）
 
+> **已归档（2026-09-12 MIG-07）**：本文件为推演底稿，现行设计权威=docs/v1.0/arch_design.md
+
 > **状态**：2026-09-05 工单 07 产出定稿。模型权威=`capability-model-final.md` v3（两层属性状态机）；节点配置=business-flow-derivation.md v3；动作挂载=capability-actions-final.md。
 > **本文回答工单 07 三问**：①sqlite schema 调整清单（v0.29 增量，对照现 11 表）；②wb_* 工具清单终稿（22→**22**）；③seed.json 演进路径（直接重写）。
 > **全量结论输入**：工单 03 v3 模型（相位 4 值/per-agent 评审轮 reviewState 三态/双轨评审/推进契约）+ 缺漏审查 8 项裁决（#2 decide 退役、#5 扫描器参数、#6 幂等、#8 gate 语义）。

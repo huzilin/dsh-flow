@@ -1,5 +1,7 @@
 # 交互层 v3 增补稿（模块 I / II / III·IV · diff 层）
 
+> **已归档（2026-09-12 MIG-07）**：本文件为推演底稿，现行设计权威=docs/v1.0/arch_design.md
+
 > **定位**：既有 PRD（`docs/v1.0/01-module-board`、`02-module-flow-tree`、`03-module-inbox-todo`）为**基线，不动**；本文 = v3 编排模型（capability-model-final v3.1）+ scope 体系 + 评审轮 per-agent 语义在 UI 上的**增补层**——只写「改什么、加什么」，未提及处基线照旧。
 > **原型**：`docs-tmp/diagrams/ui-prototype-v3.html`（六面板已 review：P1/P4/P5/P6 确认，P5/P4/P6 已补节点跳转；P2/P3 视图暂缓开发——设计保留实现靠后）。**P8–P11（2026-09-09 补齐，待 review）**：模块 I 看板/需求池（P8 四泳道+scope 徽标+列表视图+RequirementModal）、版本管理（P9 状态机+依赖树按需拉取+并发调度预留）、模块 III 收件箱（P10 通知七类）、模块 IV TODO（P11 五分类投影）；跳转闭环已接线（看板↔节点详情、拍板卡↔收件箱双通道、冲突卡/TODO→详情）并修复 P1 scope 切换的 flowhint 缺失。同日对 PRD/fe-design 全量扫缺，P1 补会话 tab（⑥）/详情补遗卡（⑦）/会话找 X/缺陷闭环示例——暴露的设计空洞定稿见 **§6**。
 > **模型依据**：两层属性状态机（node.state 4 相位 + per-agent 评审轮 reviewing/agree/unagree + collect 内置聚合）；scope 渲染集合表达式（rd|full / fe|full / full / '' / rd|fe）。

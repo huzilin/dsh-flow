@@ -1,5 +1,7 @@
 # MVP 能力动作终稿（18 能力 · skill 挂载制 · 可回填 seed.json 形态）
 
+> **已归档（2026-09-12 MIG-07）**：本文件为推演底稿，现行设计权威=docs/v1.0/arch_design.md
+
 > **状态**：2026-09-08 v3.1 定稿（skill 挂载制 + per-agent 评审轮）。**动作不携带 how 四要素**（how-spec-v2 降级为 skill 写作参考，框架不强制）——复杂动作直接挂一个 skill（内部按需编排其他 skill、自带目标/自检/门禁）；短协议性动作一句话内联定义。
 > 模型权威见 `capability-model-final.md` v3（两层属性状态机：node.state 4 相位 + per-agent 评审轮）；逐节点实例化见 business / flow-derivation-tech-task-plan v3.1（四流程全部回填）。
 

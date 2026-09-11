@@ -15,7 +15,7 @@
 
 ## 2. v1.0 MVP 范围（需求清单与拆分）
 
-MVP 核心目标（2026-09-08 按 v3.1 编排模型修订）：新增会话以 team preset + 团队制度启动（**22 个 `wb_*` 工具**：+assign_task/task_update，−decide/override 移出 agent 清单；skill 可加载）；一条需求走完业务流程（**需求对齐（to-brd）→ 产品设计 → 多轮评审（per-agent 表态轮转+collect 聚合）→ RD/FE 并行开发（CR 内嵌）→ QA 验收（仅 full 渲染）→ 用户验收**）无阻塞；收件箱通知链路可用（通知规程 §6.8 七类）。**MVP 设计定稿见 docs-tmp/ui-interaction-final.md + capability-model-final.md v3.1**。
+MVP 核心目标（2026-09-08 按 v3.1 编排模型修订）：新增会话以 team preset + 团队制度启动（**22 个 `wb_*` 工具**：+assign_task/task_update，−decide/override 移出 agent 清单；skill 可加载）；一条需求走完业务流程（**需求对齐（to-brd）→ 产品设计 → 多轮评审（per-agent 表态轮转+collect 聚合）→ RD/FE 并行开发（CR 内嵌）→ QA 验收（仅 full 渲染）→ 用户验收**）无阻塞；收件箱通知链路可用（通知规程 §6.8 七类）。**MVP 设计定稿已并入 `docs/v1.0/arch_design.md`（单一权威，2026-09-12 MIG-07）**。
 
 ### MVP 需求拆解
 

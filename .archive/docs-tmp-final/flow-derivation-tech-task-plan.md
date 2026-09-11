@@ -1,5 +1,7 @@
 # tech / task / plan 三流程 · 节点状态挂载配置 v3.1（逐 state 单列）
 
+> **已归档（2026-09-12 MIG-07）**：本文件为推演底稿，现行设计权威=docs/v1.0/arch_design.md
+
 > **状态**：2026-09-05 v3.1 定稿稿（格式与 business v3.1 同构：每节点所有 state 单列，逐 state 明确挂载 action，含跳过相位；蒸馏视角缺漏自查已过，见 §6）。模型权威=`capability-model-final.md` v3；**通用约定见 `business-flow-derivation.md` §0**（两层属性/激活清单/计数位/回退路由/幂等/自审禁令/escalate 全局规则/gate 语义/依赖调度预留——三流程全部适用，不重复）；动作挂载=`capability-actions-final.md`。
 
 ---

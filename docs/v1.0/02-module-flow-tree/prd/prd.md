@@ -255,7 +255,7 @@
 
 ## 11. 追溯与附录
 
-- **追溯链接**：后端设计 `rd/design.md`；前端设计 `fe/design.md`；领域模型 `arch_design.md` §2.4/§3.2；流程模板 `arch_design.md` §8。
+- **追溯链接**：后端设计 `rd/design.md`；前端设计 `fe/design.md`；领域模型 `arch_design.md` §7.2/§7.3；流程模板 `arch_design.md` §8。
 - **未决问题**：[ ] diff 级锚点（Not now）。
 
 | 版本 | 日期 | 修改人 | 修改内容 | 原因 |

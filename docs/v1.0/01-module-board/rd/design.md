@@ -106,7 +106,7 @@ sequenceDiagram
 
 ### 3.6 数据与存储设计
 
-载体 `requirements.json`、`versions.json`（项目级全局）；实体字段定义以 `arch_design.md` §2.1/§2.2 为准，本文不重写。
+载体 `requirements.json`、`versions.json`（项目级全局）；实体字段定义以 `arch_design.md` §7.2 为准，本文不重写。
 
 - **优先级颜色映射**（纯展示）：P0 红 / P1 橙 / P2 蓝 / P3 灰；缺省 `—`。
 - **版本名自由文本**：`id` 稳定短码（`v-<n>`、`v-backlog`），`name` 自由展示名；展示映射 `versionId → versions.json.name`，查不到回退 `versionId || '待分配'`。
