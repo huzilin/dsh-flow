@@ -1,5 +1,7 @@
 # [任务/缺陷] 方案文档（plan）
 
+> **skill 待建（v0.29，D2 拍板）**：本模板暂为该产物的标准载体（章节骨架+质量门禁）。对应产出 skill 建成后标准以 skill 为权威，本模板退役。产物×skill×demo 总索引见 [README.md](README.md)。
+
 > 说明：本文是**方案文档**模板（template_id=plan，owner=executor，执行者由 User/Leader 指定）。定位——**任务场景（修 bug/非需求改动）的方案拍板载体**：怎么修、影响多大、怎么验、怎么回滚。斜体「说明」行为填写指引，使用时删除。
 > doc_path：`docs/<版本号>/<需求名>/plan.md`。
 

@@ -1,5 +1,7 @@
 # [需求/功能名称] 开发说明（dev-notes）
 
+> **skill 待建（v0.29，D2 拍板）**：本模板暂为该产物的标准载体（章节骨架+质量门禁）。对应产出 skill 建成后标准以 skill 为权威，本模板退役。产物×skill×demo 总索引见 [README.md](README.md)。
+
 > 说明：本文是**开发说明（RD/FE 通用分支）**模板（template_id=dev-notes，owner=rd\|fe，按分支实例化）。定位——设计落地的**证据**与返工/验收对照依据：CR 据此核对「设计是否落地」，QA 据此验收对照。`rd/dev.md`（RD 分支）与 `fe/dev.md`（FE 分支）同一结构。斜体「说明」行为填写指引，使用时删除。
 > doc_path：`docs/<版本号>/<需求名>/rd/dev.md`（RD）／`docs/<版本号>/<需求名>/fe/dev.md`（FE）。
 

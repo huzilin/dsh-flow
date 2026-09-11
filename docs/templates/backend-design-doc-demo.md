@@ -115,9 +115,11 @@ sequenceDiagram
 
 内部依赖：query-handler → wide-table-reader / es-reader / fallback-router，全部面向接口编程，便于单测替换。
 
-### 3.5 接口设计
+### 3.5 接口设计（契约）
 
-接口语义保持与现网**完全兼容**（避免客户端改造），内部实现替换：
+> **契约真相源口径（to-rd-techdesign）**：接口契约以项目 proto（api.proto）为真相源——本节 = 契约真相源**索引 + 本模块增量清单**（新增/改动的接口与消息），不内嵌全量、不自造第二份契约；序列化遵循 protojson（`EmitUnpopulated`）/ `int64` 出参为字符串 / 枚举态 string / 失败统一 `{ok:false, error, code, …}`（ErrorResp 同形）。下游 to-fe-techdesign 与 FE 开发据本节直接对接。
+
+接口语义保持与现网**完全兼容**（避免客户端改造），内部实现替换（本模块增量：`/api/order/list` 新增游标参数 `cursor`）：
 
 | 接口 | 方法 | 说明 | 鉴权 | 错误码 |
 |---|---|---|---|---|
