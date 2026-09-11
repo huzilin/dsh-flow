@@ -464,28 +464,30 @@ repo/      MySQL 访问（GORM）： PreparedStmt + SkipDefaultTransaction（写
 
 ## 4. 验收标准
 
+> **AC 编号规范（2026-09-11 拍板）**：版本级条目编 `AC-V-NN`、模块级条目编 `AC-M-NN`——AC id 是稳定追溯键，条目正文可改写、位置可移动，id 不变。AC↔用例双向映射维护在 `docs/v1.0/qa/qa-test-cases.md` §1 覆盖矩阵「AC 引用」列；机器断言（每条 AC 至少一个已执行 cid 覆盖）在 `qa/qa_drive.py` 运行尾执行，spec 新增 AC 未声明覆盖即 FAIL。
+
 ### 4.1 版本级（roadmap P1–P6 全链路）
 
-- [ ] 新会话以 team preset + 团队制度启动，wb_* 28 工具（HTTP 版，含 wb_advance/wb_list_requirement_history）对 agent 可用（P1）
-- [ ] MySQL v0.29 全量表 + seed（四流程 40 定义节点 + 21 能力）初始化通过（P2）
-- [ ] 一条 full 需求端到端：对齐（to-brd）→ 产品设计 → 三轮评审（per-agent 表态/澄清/复核/agreed→approved）→ RD∥FE 并行开发（CR 内嵌）→ QA 验收（仅 full 渲染）→ 用户验收 → 完成，全流程无阻塞（P5）
-- [ ] 一条 rd-only 需求：流程树动态重排为 9 节点（FE 侧与 QA 不渲染、不占位），走通至用户验收（P5）
-- [ ] 一条 task 需求（7 节点无 QA）：走通至用户验收，报障直连开发执行者（P5）
-- [ ] 需求对齐：entry hold 会话 → 用户确认 → to-brd 落盘 → 迁移（P6）
-- [ ] 打回链路：评审 unagree→to-fix → rejected → exec 重入（revise）→ 重新提测 → QA retest 复验 → resolved（P5）
-- [ ] 冲突上升：escalate → 裁决 session → 结论回填 issue → reviewer 重表态 → 恢复（P5）
-- [ ] 收件箱七类通知触发与跳转正确；TODO 投影一致（P5）
-- [ ] 扫描器：5min 催办 / 10min 介入按时触发（注入时钟模拟）（P2）
-- [ ] 幂等：重复 complete/重复派发/同轮覆写无害（P2）
-- [ ] 审计：全部写路径落 audit_log（P2）
+- [ ] AC-V-01：新会话以 team preset + 团队制度启动，wb_* 28 工具（HTTP 版，含 wb_advance/wb_list_requirement_history）对 agent 可用（P1）
+- [ ] AC-V-02：MySQL v0.29 全量表 + seed（四流程 40 定义节点 + 21 能力）初始化通过（P2）
+- [ ] AC-V-03：一条 full 需求端到端：对齐（to-brd）→ 产品设计 → 三轮评审（per-agent 表态/澄清/复核/agreed→approved）→ RD∥FE 并行开发（CR 内嵌）→ QA 验收（仅 full 渲染）→ 用户验收 → 完成，全流程无阻塞（P5）
+- [ ] AC-V-04：一条 rd-only 需求：流程树动态重排为 9 节点（FE 侧与 QA 不渲染、不占位），走通至用户验收（P5）
+- [ ] AC-V-05：一条 task 需求（7 节点无 QA）：走通至用户验收，报障直连开发执行者（P5）
+- [ ] AC-V-06：需求对齐：entry hold 会话 → 用户确认 → to-brd 落盘 → 迁移（P6）
+- [ ] AC-V-07：打回链路：评审 unagree→to-fix → rejected → exec 重入（revise）→ 重新提测 → QA retest 复验 → resolved（P5）
+- [ ] AC-V-08：冲突上升：escalate → 裁决 session → 结论回填 issue → reviewer 重表态 → 恢复（P5）
+- [ ] AC-V-09：收件箱七类通知触发与跳转正确；TODO 投影一致（P5）
+- [ ] AC-V-10：扫描器：5min 催办 / 10min 介入按时触发（注入时钟模拟）（P2）
+- [ ] AC-V-11：幂等：重复 complete/重复派发/同轮覆写无害（P2）
+- [ ] AC-V-12：审计：全部写路径落 audit_log（P2）
 
 ### 4.2 模块级 AC
 
-- 模块 I/II/III 基线 PRD 的全部 AC 沿用（既有实现已验证的交互回归）+ 本文增补点新增 AC：
-- [ ] 流程树 scope 重排：切换/实例化三种 scope，节点集与序号符合渲染矩阵，被裁节点不占位
-- [ ] 拍板卡三态切换：进度只读 → agreed 迎宾呈现（汇总+按钮组+跳转）→ approved/rejected
-- [ ] 冲突卡：escalate 聚合、正反对照、裁决回填 issue、跳转节点详情
-- [ ] per-agent 表态：review_results 单字段读写一致；reviewing→agree/unagree 迁移判据正确
+- 模块 I/II/III 基线 PRD 的全部 AC 沿用（既有实现已验证的交互回归，不另编号）+ 本文增补点新增 AC：
+- [ ] AC-M-01：流程树 scope 重排：切换/实例化三种 scope，节点集与序号符合渲染矩阵，被裁节点不占位
+- [ ] AC-M-02：拍板卡三态切换：进度只读 → agreed 迎宾呈现（汇总+按钮组+跳转）→ approved/rejected
+- [ ] AC-M-03：冲突卡：escalate 聚合、正反对照、裁决回填 issue、跳转节点详情
+- [ ] AC-M-04：per-agent 表态：review_results 单字段读写一致；reviewing→agree/unagree 迁移判据正确
 
 ---
 

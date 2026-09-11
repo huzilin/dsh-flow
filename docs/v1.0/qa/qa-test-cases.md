@@ -19,12 +19,13 @@
 
 ## 1. 用例总览与覆盖矩阵
 
-| 组 | 覆盖 | 用例 | 重点 |
-|---|---|---|---|
-| A 接口专项 | 28 个 wb_* 端点 + /healthz ×（正常/拦截/幂等/负路径） | A-01~A-30 | 每接口至少 1 正 1 负 |
-| B 流程走查 | 4 流程定义 40 定义节点全走（business×full 13 / business×rd 9 / tech×full 11 / task×rd 7 / plan 9） | B-1~B-5 | 全节点 + 逐节点产物矩阵 |
-| C 分支剧本 | 拒绝打回/回退重 review/reproject/澄清/retest/上升/仲裁/reopen 自动上升/join 双序/版本条件解绑/幂等族/通知族 | C-1~C-12 | spec §4.1 AC 逐条 |
-| D 对账 | expected_outputs×artifacts 逐节点矩阵；audit_log 计数对账 | D-1~D-2 | 库态直查 |
+| 组 | 覆盖 | 用例 | AC 引用 | 重点 |
+|---|---|---|---|---|
+| A 接口专项 | 28 个 wb_* 端点 + /healthz ×（正常/拦截/幂等/负路径） | A-01~A-30 | AC-V-01（全接口面）；AC-V-09（A-29 TODO 投影） | 每接口至少 1 正 1 负 |
+| B 流程走查 | 4 流程定义 40 定义节点全走（business×full 13 / business×rd 9 / tech×full 11 / task×rd 7 / plan 9） | B-1~B-5 | AC-V-02（seed 前置）；AC-V-03（B-1）；AC-V-04（B-2）；AC-V-05（B-4）；AC-V-06（B-1 对齐段）；AC-M-02 后端表态序列（B-1，UI 三态由 fe vitest 覆盖） | 全节点 + 逐节点产物矩阵 |
+| C 分支剧本 | 拒绝打回/回退重 review/reproject/澄清/retest/上升/仲裁/reopen 自动上升/join 双序/版本条件解绑/幂等族/通知族 | C-1~C-12 | AC-V-07（C-1/2/5）；AC-V-08（C-6/7）；AC-V-09（C-11）；AC-V-10（C-11 慢路径 skip 标注，真库 IT 补位 rd/service/scanner_it_test.go）；AC-V-11（C-10）；AC-V-12（C-12）；AC-M-01 后端半（C-3 scope 落值/删行不占位，UI 渲染矩阵由 fe vitest 覆盖）；AC-M-03 后端半（C-6，UI 冲突卡由 fe vitest 覆盖）；AC-M-04（C-4/B-1） | spec §4.1 AC-V-01~12 逐条（见 AC 引用列） |
+| D 对账 | expected_outputs×artifacts 逐节点矩阵；audit_log 计数对账 | D-1~D-2 | AC-V-02（D-1 产物矩阵）；AC-V-12（D-2 审计） | 库态直查 |
+| E 修复回归 | 2026-09-10 批注/修复轮 BUG-001/004/006/008/011/013（E-1a~h）+ dependencyDocs 防御路径（E-2） | E-1~E-2 | 注记 -J1~-J6 回归（注记为设计层条目，不入 §4 AC 编号） | 修复回归 |
 
 ## 2. A 接口专项（每接口正常/拦截/幂等）
 
@@ -104,6 +105,6 @@ user_gate 分流（agreed 停等 vs 机械 approved）、评审轮 round 语义�
 
 - [x] 28 wb_* 端点全覆盖（正常+拦截+幂等至少各 1）
 - [x] 4 流程定义 40 定义节点全走
-- [x] spec §4.1 P5 AC 六链路（full/rd-only/task/打回/上升/收件箱）全数映射到 B/C 组
+- [x] spec §4.1 AC-V-01~12 + §4.2 AC-M-01~04 全数映射（§1「AC 引用」列；AC-V-10=C-11 skip 标注+scanner_it 真库补位；AC-M-01/02/03 的 UI 半边由 fe vitest 覆盖）；机器断言在 qa_drive.py 运行尾（spec 有 AC 而无覆盖声明即 FAIL）
 - [x] 注记 A-H 逐条有用例（A-06/C-9=-A；A-27/B*= -B/-C；A-09/C-5=-D1/-D2；A-11=-D3；A-08=-D4；A-29=-D5；A-16=-E/-F；D-2=-G；C-11 通知 outbox=-H）
 - [x] 负路径：401/404/400/409 blocked/missing 全覆盖

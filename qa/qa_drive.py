@@ -34,6 +34,65 @@ OUT = os.path.join(HERE, "qa-results.json")
 RESULTS = []
 WALKED = []  # (req_id, flow, scope) 已全走需求（D-1 产物矩阵对账数据源）
 
+# ===== AC 覆盖映射（spec §4「AC 编号规范」注的执行端，2026-09-11 拍板一期①）=====
+# 维护纪律：spec §4 新增 AC 时——qa_drive 可见证的加 AC_MAP（UI/外部半边在 note 写明见证方）；
+# qa_drive 整条不可见证的（真库 IT / fe vitest / DSH 侧）加 AC_OUT_OF_SCOPE 并写明见证方。
+# 缺声明=FAIL；映射 cid 全未执行=FAIL；仅 SKIP/WARN 行保持可见不拦绿灯。
+AC_MAP = {
+    "AC-V-01": (["A-02", "A-03", "A-13"], "接口面即工具契约面（team preset 启动属 DSH 侧，不经本驱动）"),
+    "AC-V-02": (["B-1", "D-1"], "seed 初始化由走查前置与产物矩阵共同见证"),
+    "AC-V-03": (["B-1", "C-8"], ""),
+    "AC-V-04": (["B-2", "C-3"], ""),
+    "AC-V-05": (["B-4"], ""),
+    "AC-V-06": (["B-1", "A-13"], "对齐段在 B-1 前段；entry 迎宾 A-13"),
+    "AC-V-07": (["C-1", "C-2", "C-5"], ""),
+    "AC-V-08": (["C-6", "C-7"], ""),
+    "AC-V-09": (["C-11", "A-29"], ""),
+    "AC-V-11": (["C-10", "A-16"], ""),
+    "AC-V-12": (["C-12", "D-2"], ""),
+    "AC-M-01": (["C-3"], "后端半边（scope 落值/删行不占位）；UI 渲染矩阵=fe vitest"),
+    "AC-M-02": (["B-1"], "后端表态序列；UI 三态=fe vitest"),
+    "AC-M-03": (["C-6"], "后端半边；UI 冲突卡=fe vitest"),
+    "AC-M-04": (["C-4", "B-1"], ""),
+}
+AC_OUT_OF_SCOPE = {
+    "AC-V-10": "扫描器 5/10min 阈值=rd/service/scanner_it_test.go 真库 IT（注入时钟）；本驱动 C-11 仅通知投影半边（慢路径 skip 标注）",
+}
+
+
+def ac_coverage_assert():
+    """spec §4 AC ↔ 用例覆盖机器断言：断「声明存在 + 映射可执行」，不断言 AC 本体通过。"""
+    import re
+    spec_path = os.path.join(REPO, ".plan", "wbflow-impl", "spec.md")
+    try:
+        text = open(spec_path, encoding="utf-8").read()
+    except OSError as e:
+        ck("AC-COVERAGE", False, f"spec 不可读: {e}")
+        return
+    sec = text.split("## 4. 验收标准", 1)[-1].split("## Testing Decisions", 1)[0]
+    acs = sorted(set(re.findall(r"AC-[VM]-\d{2}", sec)))
+    if not acs:
+        ck("AC-COVERAGE", False, "spec §4 未解析到任何 AC 编号——编号规范注被移除？")
+        return
+    print(f"\n===== AC 覆盖断言（spec §4 共 {len(acs)} 条）=====")
+    for ac in acs:
+        if ac not in AC_MAP:
+            if ac in AC_OUT_OF_SCOPE:
+                print(f"COVER-EXT {ac}  外部见证：{AC_OUT_OF_SCOPE[ac]}")
+            else:
+                ck(f"AC-COVERAGE {ac}", False, "spec 新增 AC 未声明覆盖（AC_MAP/AC_OUT_OF_SCOPE 均无）")
+            continue
+        cids, note = AC_MAP[ac]
+        rows = [x for x in RESULTS if any(re.match(re.escape(c) + r"(?!\d)", x["cid"]) for c in cids)]
+        passed = [x for x in rows if x["ok"] is True]
+        suffix = f"：{note}" if note else ""
+        if not rows:
+            ck(f"AC-COVERAGE {ac}", False, f"映射 cid {cids} 一个都未执行（对应驱动阶段被删改？）")
+        elif not passed:
+            print(f"WARN  {ac}  映射 cid 全 SKIP/FAIL（{cids}）{suffix}")
+        else:
+            print(f"COVER {ac}  {len(passed)}/{len(rows)} 断言通过{suffix}")
+
 
 def ck(cid, cond, detail=""):
     RESULTS.append(dict(cid=cid, ok=bool(cond), detail=str(detail)[:400]))
@@ -1144,6 +1203,7 @@ def main():
     ok = sum(1 for x in RESULTS if x["ok"] is True)
     fail = sum(1 for x in RESULTS if x["ok"] is False)
     skipped = sum(1 for x in RESULTS if x["ok"] is None)
+    ac_coverage_assert()
     print(f"\n===== 汇总：PASS {ok} / FAIL {fail} / SKIP {skipped}（{time.time()-t0:.1f}s）=====")
     for x in RESULTS:
         if x["ok"] is False:
