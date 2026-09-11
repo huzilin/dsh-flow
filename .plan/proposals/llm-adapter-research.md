@@ -1,5 +1,7 @@
 # novel LLM 通路取证调研：直接 copy 清单 + 适配点映射（供 wbflow rd spec 注记 -L4）
 
+> **⚠️ 定位修正（2026-09-12 User 澄清）**：novel 侧 DSH 只是模型端点工具；**wbflow 相反——DSH 是宿主与地基，项目目的就是嵌入 DSH**。本调研只 copy novel 的**传输机制实证件**（围栏剥离/退避/DisableKeepAlives 等），定位随 DSH：adapter = 「DSH 模型通路的客户端」，baseURL 默认=本地 DSH 网关（http://127.0.0.1:3080），模型路由/账号/鉴权归 DSH 管，不照搬 novel「外部端点直连」的用法。
+
 调研对象：`/Users/huzilin/workdir/novel`（be/llm 包 + service 调用链 + config）。
 日期：2026-09-11。性质：全部为「文档已写明/代码已写明」，逐条标 file:line；推断处显式标注「推断」。
 
