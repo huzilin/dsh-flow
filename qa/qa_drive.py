@@ -172,7 +172,7 @@ EXP = {
     "tec-b8a": [("dev_notes", "《RD 开发说明》", DOC), ("code_mr", "《RD 代码 MR》", LINK)],
     "tec-b8b": [("dev_notes", "《FE 开发说明》", DOC), ("code_mr", "《FE 代码 MR》", LINK)],
     "tec-b9": [("test_result", "《测试用例与验收记录》", DOC), ("defect", "《缺陷文档》", DOC)],
-    "tsk-c2": [("rd_design", "《RD 技术设计》", DOC)],  # scope=rd：fe_design 不渲染
+    "tsk-c2": [("rd_design", "《RD 技术设计》", DOC), ("fe_design", "《FE 技术设计》", DOC)],  # 双 scope 节点：rd 走 rd_design / fe 走 fe_design（对账按 scope 裁剪）
     "tsk-c4": [("dev_notes", "《开发说明》", DOC), ("code_mr", "《代码 MR》", LINK)],
     "pln-d1": [("alignment", "《需求对齐文档》", DOC)],
     "pln-d3": [("research", "《调研文档》", DOC)],
@@ -197,8 +197,14 @@ def href_of(ptype):
     return f"v1.0/qa/fixtures/{ptype}.md"
 
 
-def products_of(defid):
-    return EXP.get(defid, [])
+def products_of(defid, scope=None):
+    """节点期望产物（按需求 scope 裁剪双 scope 节点，与 D-1 对账同口径：rd 裁 fe_design / fe 裁 rd_design）。"""
+    rows = EXP.get(defid, [])
+    if scope == "rd":
+        return [r for r in rows if r[0] != "fe_design"]
+    if scope == "fe":
+        return [r for r in rows if r[0] != "rd_design"]
+    return rows
 
 
 # ---- 需求剧本对象 ----
@@ -206,6 +212,7 @@ class Req:
     def __init__(self, cid_prefix, title, flow=None, scope=None, category="需求任务",
                  owner="pm", version_id=None, priority=None):
         self.cid = cid_prefix
+        self.scope = scope
         body = {"title": title, "category": category, "createdBy": "user-a", "owner": owner}
         if flow:
             body["flowDefsId"] = flow
@@ -272,7 +279,7 @@ class Req:
         assert st == 200 and b.get("ok"), f"assign {action} 失败 HTTP {st}: {b}"
         self.task_update(tid, "ack")
         self.task_update(tid, "progress", progress=f"QA 演练 {action} {note}")
-        for ptype, _, _ in products_of(defid):
+        for ptype, _, _ in products_of(defid, self.scope):
             self.add_artifact(defid, ptype, by)
         return self.task_update(tid, "complete")
 
@@ -974,6 +981,398 @@ def p_task():
     r.ck_current("B-4f", "tsk-c7")
 
 
+# ============================== C-13 澄清矩阵（§7 补测①×6） ==============================
+def p_clarify_matrix():
+    sec("C-13 澄清矩阵（§7 补测①：6 条 clarify 全链：unagree→respond→owner 澄清→重入新轮→复核→门禁收口）")
+
+    def clarify_chain(r, defid, cap, owner, anchor_defid, tag, tail):
+        """澄清循环同型链（C-4 范本）：评论→unagree→respond→clarify 派发→settle→complete 重入→复核→收口。
+        tail(req) 收口回调（在复核 agree、gate 开放后调用一次）。评审位=arch（pln-d6 为 pm）。"""
+        reviewer = "pm" if cap.startswith("pm.") else "arch"
+        art = next((a for a in r.snap.get("artifacts", [])
+                    if a.get("nodeId") == r.node(anchor_defid)), {})
+        st, b, iss = r.comment(defid, f"{reviewer}-a", reviewer,
+                               "口径未定义，需澄清（澄清矩阵探针）", owner,
+                               anchor={"kind": "document", "artifactId": art.get("artifactId", "")})
+        st, b = r.review(defid, reviewer, cap, "unagree")
+        ck(f"{tag}1 unagree→clarify（respond 相位）", st == 200 and b.get("collectOutcome") == "clarify",
+           f"HTTP {st} {b}")
+        r.reload()
+        r.ck_phase(f"{tag}2", defid, "respond")
+        st, b, tid = r.assign(defid, tag_action[tag], owner)
+        ck(f"{tag} 澄清动作派发 200", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        r.task_update(tid, "ack")
+        st, b = r.settle(iss, owner)
+        ck(f"{tag}3 owner 澄清 issue resolved", st == 200 and b.get("issue", {}).get("state") == "resolved",
+           f"HTTP {st} {b}")
+        rr0 = r.inbox_kinds(reviewer).get("re_review", 0)
+        st, b = r.task_update(tid, "complete")
+        ck(f"{tag}4 respond complete 触发评审重入", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        r.reload()
+        r.ck_phase(f"{tag}5 重入 review 新轮", defid, "review")
+        ck(f"{tag}6 评审位收 re_review", r.inbox_kinds(reviewer).get("re_review", 0) > rr0,
+           f"{rr0}→{r.inbox_kinds(reviewer).get('re_review', 0)}")
+        r.review(defid, reviewer, cap, "agree")
+        tail(r)
+
+    # —— task×rd：backend-design.clarify（技术评审 tsk-c3）——
+    r = Req("C-13", "QA 澄清矩阵 task×rd", flow="task", scope="rd", owner="rd")
+    WALKED.append((r.id, "task", "rd"))
+    r.decide("tsk-c0", "approved", "启动")
+    r.decide("tsk-c1", "approved", "对齐确认")
+    r.execute("tsk-c2", "backend-design.produce", "rd")
+    r.advance("tsk-c2")
+    r.reload()
+
+    def tail_rd(req):
+        st, b = req.decide("tsk-c3", "approved", "澄清后通过")
+        ck("C-13a7 拍板 approved 门禁收口", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        req.reload()
+        req.ck_current("C-13a8", "tsk-c4")
+        req.execute("tsk-c4", "backend-dev.dev", "rd")
+        req.carry("tsk-c4", [("cr", "code-review")])
+        req.decide("tsk-c6", "approved", "用户验收")
+        req.reload()
+        req.ck_current("C-13a9 尾段收口 tsk-c7（D-1 对账）", "tsk-c7")
+    clarify_chain(r, "tsk-c3", "arch.rd-design-review", "rd", "tsk-c2", "C-13a", tail_rd)
+
+    # —— task×fe：frontend-design.clarify（技术评审 tsk-c3）——
+    r = Req("C-13", "QA 澄清矩阵 task×fe", flow="task", scope="fe", owner="fe")
+    WALKED.append((r.id, "task", "fe"))
+    r.decide("tsk-c0", "approved", "启动")
+    r.decide("tsk-c1", "approved", "对齐确认")
+    st, b, tid = r.assign("tsk-c2", "frontend-design.produce", "fe")
+    assert st == 200 and b.get("ok"), f"assign produce 失败: {b}"
+    r.task_update(tid, "ack")
+    r.add_artifact("tsk-c2", "fe_design", "fe")  # 手工登记：scope=fe 不登 rd_design（D-1 矩阵）
+    r.task_update(tid, "complete")
+    r.advance("tsk-c2")
+    r.reload()
+
+    def tail_fe(req):
+        st, b = req.decide("tsk-c3", "approved", "澄清后通过")
+        ck("C-13b7 拍板 approved 门禁收口", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        req.reload()
+        req.ck_current("C-13b8", "tsk-c4")
+        req.execute("tsk-c4", "frontend-dev.dev", "fe")
+        req.carry("tsk-c4", [("cr", "code-review")])
+        req.decide("tsk-c6", "approved", "用户验收")
+        req.reload()
+        req.ck_current("C-13b9 尾段收口 tsk-c7（D-1 对账）", "tsk-c7")
+    clarify_chain(r, "tsk-c3", "arch.fe-design-review", "fe", "tsk-c2", "C-13b", tail_fe)
+
+    # —— plan：research-cap.clarify（pln-d4 调研评审，机械收口）——
+    r = Req("C-13", "QA 澄清矩阵 plan", category="规划审批任务")
+    WALKED.append((r.id, "plan", ""))
+    ck("C-13c0 plan 实例化 9 节点", defids_of(r) == [f"pln-d{i}" for i in range(9)], str(defids_of(r)))
+    r.decide("pln-d0", "approved", "启动")
+    r.execute("pln-d1", "to-alignment", "arch")
+    r.decide("pln-d1", "approved", "对齐确认")
+    r.decide("pln-d2", "approved", "立项通过")
+    r.execute("pln-d3", "research-cap.produce", "inv")
+    r.advance("pln-d3")
+    r.reload()
+
+    def tail_d4(req):
+        req.reload()
+        req.ck_current("C-13c7 机械收口（user_gate=0）→pln-d5", "pln-d5")
+    clarify_chain(r, "pln-d4", "arch.research-review", "inv", "pln-d3", "C-13c", tail_d4)
+    r.execute("pln-d5", "arch-cap.produce", "arch")
+    r.advance("pln-d5")
+    r.reload()
+
+    # —— plan：arch-cap.clarify（pln-d6 架构规划评审，用户拍板）——
+    def tail_d6(req):
+        st, b = req.decide("pln-d6", "approved", "澄清后通过")
+        ck("C-13d7 拍板 approved 门禁收口", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        st, b, tid = req.assign("pln-d7", "decide-cap.create_reqs", "leader")
+        req.task_update(tid, "ack")
+        req.task_update(tid, "complete")
+        req.advance("pln-d7")
+        req.reload()
+        req.ck_current("C-13d8 尾段收口 pln-d8（D-1 对账）", "pln-d8")
+    clarify_chain(r, "pln-d6", "pm.architecture-review", "arch", "pln-d5", "C-13d", tail_d6)
+
+    # —— tech×full：backend-dev/frontend-dev.clarify（QA 验收 tec-b9）——
+    r = Req("C-13", "QA 澄清矩阵 tech×full", flow="tech", scope="full")
+    WALKED.append((r.id, "tech", "full"))
+    r.decide("tec-b0", "approved", "启动")
+    r.execute("tec-b1", "to-brd", "pm")
+    r.decide("tec-b1", "approved", "对齐确认")
+    r.execute("tec-b2", "backend-design.produce", "rd")
+    r.advance("tec-b2")
+    r.carry("tec-b3", [("arch", "arch.rd-design-review"), ("fe", "fe.rd-design-review"),
+                       ("qa", "qa.rd-design-review")])
+    r.decide("tec-b3", "approved", "RD 技术评审通过")
+    r.execute("tec-b4", "frontend-design.produce", "fe")
+    r.advance("tec-b4")
+    r.carry("tec-b5", [("qa", "qa.fe-design-review")])
+    r.execute("tec-b8a", "backend-dev.dev", "rd")
+    r.carry("tec-b8a", [("cr", "code-review")])
+    r.execute("tec-b8b", "frontend-dev.dev", "fe")
+    r.carry("tec-b8b", [("cr", "code-review")])
+    r.reload()
+    r.ck_current("C-13e0 前置走查到 tec-b9", "tec-b9")
+    # QA 验收节点（reviewers=[]）无 review/respond 相位（respond 唯一写入点=评审 collect
+    # clarify，rd/service/review.go:180）——issue 闭环半边由 C-13a~d/C-15 见证；
+    # 此处见证可派发性（assign 守卫仅挡空/done 相位）+ respond 判据链（open issue 清零）。
+    st, b, tid = r.assign("tec-b9", "backend-dev.clarify", "rd")
+    ck("C-13e backend-dev.clarify 派发（tech/tec-b9）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.task_update(tid, "ack")
+    st, b = r.task_update(tid, "complete")
+    ck("C-13e2 respond complete 判据（open issue 清零）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    st, b, tid = r.assign("tec-b9", "frontend-dev.clarify", "fe")
+    ck("C-13f frontend-dev.clarify 派发（tech/tec-b9）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.task_update(tid, "ack")
+    r.task_update(tid, "complete")
+    r.execute("tec-b9", "acceptance-test.accept", "qa")
+    r.reload()
+    r.ck_current("C-13e3 验收后推进 tec-b10（门禁收口）", "tec-b10")
+    r.decide("tec-b10", "approved", "用户验收")
+    r.reload()
+    r.ck_current("C-13e4 尾节点 tec-b11（D-1 对账）", "tec-b11")
+
+
+# clarify_chain 用的动作标签表（动作 id → 补测项 cid 前缀；词汇基准=seed node_actions）
+tag_action = {
+    "C-13a": "backend-design.clarify",
+    "C-13b": "frontend-design.clarify",
+    "C-13c": "research-cap.clarify",
+    "C-13d": "arch-cap.clarify",
+}
+
+
+# ============================== C-14 修订矩阵（§7 补测②×4） ==============================
+def p_revise_matrix():
+    sec("C-14 修订矩阵（§7 补测②：4 条 revise exec 重入修订：rejected→回退→revise→重评→拍板收口）")
+
+    # —— business×rd：product-design.revise（bus-02）——
+    r = Req("C-14", "QA 修订矩阵 business×rd", flow="business", scope="rd")
+    WALKED.append((r.id, "business", "rd"))
+    r.decide("bus-00", "approved", "启动")
+    r.execute("bus-01", "to-brd", "pm")
+    r.decide("bus-01", "approved", "对齐确认")
+    r.execute("bus-02", "product-design.produce", "pm")
+    r.advance("bus-02")
+    r.reload()
+    r.carry("bus-03", [("arch", "arch.prd-review"), ("rd", "rd.prd-review")])
+    st, b = r.decide("bus-03", "rejected", "产品设计范围蔓延，打回修订")
+    ck("C-14a rejected 回退 bus-02", st == 200 and b.get("rollbackNodeId") == r.node("bus-02"),
+       f"HTTP {st} {b}")
+    r.reload()
+    n02 = r.ndef("bus-02")
+    ck("C-14a2 bus-02 exec 重入（downstream-reject）", n02.get("state") == "exec"
+       and n02.get("reopenSource") == "downstream-reject" and int(n02.get("rolledBackCount", "0")) == 1,
+       f"state={n02.get('state')} src={n02.get('reopenSource')} rbc={n02.get('rolledBackCount')}")
+    st, b, tid = r.assign("bus-02", "product-design.revise", "pm")
+    ck("C-14a3 product-design.revise 派发（business/bus-02）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.task_update(tid, "ack")
+    r.task_update(tid, "progress", progress="QA 演练 revise")
+    r.add_artifact("bus-02", "product_doc", "pm")
+    st, b = r.task_update(tid, "complete")
+    ck("C-14a4 修订 complete", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.advance("bus-02")
+    r.reload()
+    r.ck_phase("C-14a5 bus-03 重入 review", "bus-03", "review")
+    r.carry("bus-03", [("arch", "arch.prd-review"), ("rd", "rd.prd-review")])
+    st, b = r.decide("bus-03", "approved", "修订后通过")
+    ck("C-14a6 重评拍板 approved", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    # 走完 rd 尾段（D-1 对账）
+    r.execute("bus-04", "backend-design.produce", "rd")
+    r.advance("bus-04")
+    r.carry("bus-05", [("arch", "arch.rd-design-review"), ("qa", "qa.rd-design-review"),
+                       ("pm", "pm.rd-design-review")])
+    r.decide("bus-05", "approved", "技术评审通过")
+    r.execute("bus-08", "backend-dev.dev", "rd")
+    r.carry("bus-08", [("cr", "code-review")])
+    r.decide("bus-11", "approved", "用户验收")
+    r.reload()
+    r.ck_current("C-14a7 尾段收口 bus-12", "bus-12")
+
+    # —— task×fe：frontend-design.revise（tsk-c2）——
+    r = Req("C-14", "QA 修订矩阵 task×fe", flow="task", scope="fe", owner="fe")
+    WALKED.append((r.id, "task", "fe"))
+    r.decide("tsk-c0", "approved", "启动")
+    r.decide("tsk-c1", "approved", "对齐确认")
+    st, b, tid = r.assign("tsk-c2", "frontend-design.produce", "fe")
+    r.task_update(tid, "ack")
+    r.add_artifact("tsk-c2", "fe_design", "fe")
+    r.task_update(tid, "complete")
+    r.advance("tsk-c2")
+    r.reload()
+    r.carry("tsk-c3", [("arch", "arch.fe-design-review")])
+    st, b = r.decide("tsk-c3", "rejected", "技术方案不成立，打回修订")
+    ck("C-14b rejected 回退 tsk-c2", st == 200 and b.get("rollbackNodeId") == r.node("tsk-c2"),
+       f"HTTP {st} {b}")
+    r.reload()
+    nc2 = r.ndef("tsk-c2")
+    ck("C-14b2 tsk-c2 exec 重入（downstream-reject）", nc2.get("state") == "exec"
+       and nc2.get("reopenSource") == "downstream-reject" and int(nc2.get("rolledBackCount", "0")) == 1,
+       f"state={nc2.get('state')} src={nc2.get('reopenSource')} rbc={nc2.get('rolledBackCount')}")
+    st, b, tid = r.assign("tsk-c2", "frontend-design.revise", "fe")
+    ck("C-14b3 frontend-design.revise 派发（task/tsk-c2）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.task_update(tid, "ack")
+    r.add_artifact("tsk-c2", "fe_design", "fe")
+    st, b = r.task_update(tid, "complete")
+    ck("C-14b4 修订 complete", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.advance("tsk-c2")
+    r.reload()
+    r.ck_phase("C-14b5 tsk-c3 重入 review", "tsk-c3", "review")
+    r.carry("tsk-c3", [("arch", "arch.fe-design-review")])
+    st, b = r.decide("tsk-c3", "approved", "修订后通过")
+    ck("C-14b6 重评拍板 approved", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.execute("tsk-c4", "frontend-dev.dev", "fe")
+    r.carry("tsk-c4", [("cr", "code-review")])
+    r.decide("tsk-c6", "approved", "用户验收")
+    r.reload()
+    r.ck_current("C-14b7 尾段收口 tsk-c7（D-1 对账）", "tsk-c7")
+
+    # —— plan：research-cap.revise（exec 探针）+ arch-cap.revise（pln-d5 重入）——
+    r = Req("C-14", "QA 修订矩阵 plan", category="规划审批任务")
+    WALKED.append((r.id, "plan", ""))
+    r.decide("pln-d0", "approved", "启动")
+    r.execute("pln-d1", "to-alignment", "arch")
+    r.decide("pln-d1", "approved", "对齐确认")
+    r.decide("pln-d2", "approved", "立项通过")
+    # research-cap.revise 唯一重入触发=pln-d4 rejected，而 pln-d4 user_gate=0（collect 机械
+    # 装配，wb_decision 非 User 拍板位必 409）——重入不可达。落两半：①exec 相位直接派发探针
+    # （assign 守卫仅挡空/done）+ produce 族判据链；②409 负探针实证触发封闭。
+    st, b, tid = r.assign("pln-d3", "research-cap.revise", "inv")
+    ck("C-14d research-cap.revise exec 相位派发（plan/pln-d3 探针）", st == 200 and b.get("ok"),
+       f"HTTP {st} {b}")
+    r.task_update(tid, "ack")
+    r.add_artifact("pln-d3", "research", "inv")
+    st, b = r.task_update(tid, "complete")
+    ck("C-14d2 修订 complete（produce 族判据）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.advance("pln-d3")
+    r.reload()
+    r.ck_current("C-14d3 推进 pln-d4", "pln-d4")
+    st, b = r.decide("pln-d4", "rejected", "research-cap.revise 唯一重入触发探针")
+    ck("C-14d4 pln-d4 rejected 409（user_gate=0 重入触发不可达实证）",
+       st == 409 and b.get("blocked") is True, f"HTTP {st} {b}")
+    r.carry("pln-d4", [("arch", "arch.research-review")])
+    r.reload()
+    r.ck_current("C-14d5 机械收口 pln-d5", "pln-d5")
+    r.execute("pln-d5", "arch-cap.produce", "arch")
+    r.advance("pln-d5")
+    r.reload()
+    d5art = next((a for a in r.snap.get("artifacts", []) if a.get("nodeId") == r.node("pln-d5")), {})
+    st, b, iss = r.comment("pln-d6", "pm-a", "pm", "容量估算缺依据，需澄清（修订矩阵铺垫）", "arch",
+                           anchor={"kind": "document", "artifactId": d5art.get("artifactId", "")})
+    r.review("pln-d6", "pm", "pm.architecture-review", "unagree")
+    r.reload()
+    r.ck_phase("C-14c1 pln-d6 respond（澄清铺垫）", "pln-d6", "respond")
+    st, b, tid = r.assign("pln-d6", "arch-cap.clarify", "arch")
+    r.task_update(tid, "ack")
+    r.settle(iss, "arch")
+    r.task_update(tid, "complete")
+    r.reload()
+    r.review("pln-d6", "pm", "pm.architecture-review", "agree")
+    st, b = r.decide("pln-d6", "rejected", "架构规划不成熟，打回修订")
+    ck("C-14c rejected 回退 pln-d5", st == 200 and b.get("rollbackNodeId") == r.node("pln-d5"),
+       f"HTTP {st} {b}")
+    r.reload()
+    nd5 = r.ndef("pln-d5")
+    ck("C-14c2 pln-d5 exec 重入（downstream-reject）", nd5.get("state") == "exec"
+       and nd5.get("reopenSource") == "downstream-reject" and int(nd5.get("rolledBackCount", "0")) == 1,
+       f"state={nd5.get('state')} src={nd5.get('reopenSource')} rbc={nd5.get('rolledBackCount')}")
+    st, b, tid = r.assign("pln-d5", "arch-cap.revise", "arch")
+    ck("C-14c3 arch-cap.revise 派发（plan/pln-d5）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.task_update(tid, "ack")
+    r.add_artifact("pln-d5", "architecture", "arch")
+    st, b = r.task_update(tid, "complete")
+    ck("C-14c4 修订 complete", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    r.advance("pln-d5")
+    r.reload()
+    r.ck_phase("C-14c5 pln-d6 重入 review", "pln-d6", "review")
+    r.carry("pln-d6", [("pm", "pm.architecture-review")])
+    st, b = r.decide("pln-d6", "approved", "修订后通过")
+    ck("C-14c6 重评拍板 approved", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    st, b, tid = r.assign("pln-d7", "decide-cap.create_reqs", "leader")
+    r.task_update(tid, "ack")
+    r.task_update(tid, "complete")
+    r.advance("pln-d7")
+    r.reload()
+    r.ck_current("C-14c7 尾段收口 pln-d8（D-1 对账）", "pln-d8")
+
+
+# ============================== C-15 CR 修复矩阵（§7 补测③×4） ==============================
+def p_cr_fix_matrix():
+    sec("C-15 CR 修复矩阵（§7 补测③：fix_on_review=节点内 respond 修复轮内闭环；diagnosing-bugs=代码域 exec 重入）")
+
+    def cr_chain(side, cap_produce, cap_dev, fix_action, diag_action, tag_fix, tag_diag):
+        """task 流 CR 修复同型链：dev→CR 缺陷 issue→fix_on_review 轮内闭环（tag_fix）→c6 打回→diagnosing-bugs 重入（tag_diag）→复验收口。
+        fix_action/diag_action 须字面量传入（qa_branch_audit 静态语料匹配，动态拼接不可见）。"""
+        owner = side
+        r = Req("C-15", f"QA CR 修复矩阵 task×{side}", flow="task", scope=side, owner=owner)
+        WALKED.append((r.id, "task", side))
+        r.decide("tsk-c0", "approved", "启动")
+        r.decide("tsk-c1", "approved", "对齐确认")
+        st, b, tid = r.assign("tsk-c2", cap_produce, owner)
+        r.task_update(tid, "ack")
+        r.add_artifact("tsk-c2", "rd_design" if side == "rd" else "fe_design", owner)
+        r.task_update(tid, "complete")
+        r.advance("tsk-c2")
+        r.reload()
+        r.carry("tsk-c3", [("arch", f"arch.{side}-design-review")])
+        r.decide("tsk-c3", "approved", "技术评审通过")
+        r.execute("tsk-c4", cap_dev, owner)
+        r.reload()
+        r.ck_phase(f"{tag_fix}1 tsk-c4 进 CR review", "tsk-c4", "review")
+        art = next((a for a in r.snap.get("artifacts", [])
+                    if a.get("nodeId") == r.node("tsk-c4") and a.get("productType") == "dev_notes"), {})
+        st, b, iss = r.comment("tsk-c4", "cr-a", "cr", "导出接口缺超时分支（CR 缺陷）", owner,
+                               anchor={"kind": "document", "artifactId": art.get("artifactId", "")})
+        ck(f"{tag_fix}2 CR 缺陷 issue 建行", st == 200 and b.get("ok") and iss != "", f"HTTP {st} {b}")
+        st, b, tid = r.assign("tsk-c4", fix_action, owner)
+        ck(f"{tag_fix} fix_on_review 派发（task/tsk-c4）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        r.task_update(tid, "ack")
+        st, b = r.settle(iss, owner)
+        ck(f"{tag_fix}3 CR 缺陷 resolved（respond 判据清零）", st == 200
+           and b.get("issue", {}).get("state") == "resolved", f"HTTP {st} {b}")
+        rr0 = r.inbox_kinds("cr").get("re_review", 0)
+        st, b = r.task_update(tid, "complete")
+        ck(f"{tag_fix}4 respond complete 轮内重入（不打回）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        r.reload()
+        r.ck_phase(f"{tag_fix}5 tsk-c4 重入 review 新轮", "tsk-c4", "review")
+        ck(f"{tag_fix}6 cr 收 re_review", r.inbox_kinds("cr").get("re_review", 0) > rr0,
+           f"{rr0}→{r.inbox_kinds('cr').get('re_review', 0)}")
+        ck(f"{tag_fix}7 节点内修复无 rejected 结论（永不 rejected）", r.ndef("tsk-c4").get("lastDecision", "") == ""
+           and r.flow.get("currentNodeId", "") == r.node("tsk-c4"),
+           f"ld={r.ndef('tsk-c4').get('lastDecision')} current={r.flow.get('currentNodeId')}")
+        r.carry("tsk-c4", [("cr", "code-review")])
+        r.reload()
+        r.ck_current(f"{tag_fix}8 cr 复核 agree 机械推进 c6", "tsk-c6")
+        # diagnosing-bugs：用户验收打回 → 代码域 exec 重入
+        st, b = r.decide("tsk-c6", "rejected", "验收发现缺陷，打回定位修复")
+        ck(f"{tag_diag}1 rejected 回退 tsk-c4", st == 200 and b.get("rollbackNodeId") == r.node("tsk-c4"),
+           f"HTTP {st} {b}")
+        r.reload()
+        n4 = r.ndef("tsk-c4")
+        ck(f"{tag_diag}2 tsk-c4 exec 重入（downstream-reject）", n4.get("state") == "exec"
+           and n4.get("reopenSource") == "downstream-reject" and int(n4.get("rolledBackCount", "0")) == 1,
+           f"state={n4.get('state')} src={n4.get('reopenSource')} rbc={n4.get('rolledBackCount')}")
+        st, b, tid = r.assign("tsk-c4", diag_action, owner)
+        ck(f"{tag_diag} diagnosing-bugs 派发（task/tsk-c4）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        r.task_update(tid, "ack")
+        r.task_update(tid, "progress", progress="QA 演练 diagnosing-bugs")
+        st, b = r.task_update(tid, "complete")
+        ck(f"{tag_diag}3 缺陷定位 complete（dev 族，产物已登记）", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        r.advance("tsk-c4")
+        r.reload()
+        r.ck_phase(f"{tag_diag}4 tsk-c4 重入 CR review", "tsk-c4", "review")
+        r.carry("tsk-c4", [("cr", "code-review")])
+        st, b = r.decide("tsk-c6", "approved", "修复后复验通过")
+        ck(f"{tag_diag}5 复验拍板 approved", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+        r.reload()
+        r.ck_current(f"{tag_diag}6 收口 tsk-c7（D-1 对账）", "tsk-c7")
+
+    cr_chain("rd", "backend-design.produce", "backend-dev.dev",
+             "backend-dev.fix_on_review", "backend-dev.diagnosing-bugs", "C-15a", "C-15c")
+    cr_chain("fe", "frontend-design.produce", "frontend-dev.dev",
+             "frontend-dev.fix_on_review", "frontend-dev.diagnosing-bugs", "C-15b", "C-15d")
+
+
 # ============================== B-5 plan ==============================
 def p_plan():
     sec("B-5 plan 9 节点")
@@ -986,6 +1385,7 @@ def p_plan():
     ck("B-5a 规划审批任务→plan 绑定", b["requirement"].get("flowDefsId") == "plan", str(b["requirement"]))
     r = Req.__new__(Req)
     r.cid = "B-5"
+    r.scope = None  # plan 无 scope（products_of 全量返回）
     r.id = rid
     r.flow_defs = "plan"
     r.tasks = 0
@@ -1169,8 +1569,11 @@ def p_reconcile():
         for n in b.get("flowNodes", []):
             defid = n.get("defNodeId")
             exp = {p[0]: p for p in EXP.get(defid, [])}
-            if flow == "task" and scope == "rd":
-                exp = {k: v for k, v in exp.items() if k != "fe_design"}
+            if flow == "task":
+                if scope == "rd":
+                    exp = {k: v for k, v in exp.items() if k != "fe_design"}
+                elif scope == "fe":
+                    exp = {k: v for k, v in exp.items() if k != "rd_design"}
             got = arts.get(n.get("nodeId"), {})
             for ptype in exp:
                 if ptype not in got:
@@ -1203,7 +1606,8 @@ def main():
         print("FATAL: fixture 基座缺失（qa-test-cases.md 不存在）")
         sys.exit(2)
     phases = [p_health_auth, p_versions, p_req_crud, p_artifact_content, p_business_full, p_reject_branch,
-              p_rdonly, p_tech, p_task, p_plan, p_issue_branches, p_idempotent, p_reconcile]
+              p_rdonly, p_tech, p_task, p_clarify_matrix, p_revise_matrix, p_cr_fix_matrix, p_plan,
+              p_issue_branches, p_idempotent, p_reconcile]
     for p in phases:
         try:
             p()

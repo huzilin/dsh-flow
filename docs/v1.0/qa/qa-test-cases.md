@@ -15,7 +15,7 @@
 | 测试阶段 | 验收（功能全量 + 分支 + 边界 + 幂等 + 对账） |
 | 环境 | scratch 库 `wbflow_qa_<ts>`（迁移+seed 后独立演练，不触 wbflow 库）+ 真实服务进程 :18081 |
 | 方法 | HTTP 黑盒驱动（演练者扮演全部 agent/User 角色）+ scratch 库只读 SQL 对账（审计/产物矩阵） |
-| 用例数 | A 接口专项 30 + B 流程走查 5 剧本 + C 分支 12 + D 对账 2 |
+| 用例数 | A 接口专项 30 + B 流程走查 5 剧本 + C 分支 15（含补测矩阵 C-13/14/15）+ D 对账 2 |
 
 ## 1. 用例总览与覆盖矩阵
 
@@ -23,7 +23,7 @@
 |---|---|---|---|---|
 | A 接口专项 | 28 个 wb_* 端点 + /healthz ×（正常/拦截/幂等/负路径） | A-01~A-30 | AC-V-01（全接口面）；AC-V-09（A-29 TODO 投影） | 每接口至少 1 正 1 负 |
 | B 流程走查 | 4 流程定义 40 定义节点全走（business×full 13 / business×rd 9 / tech×full 11 / task×rd 7 / plan 9） | B-1~B-5 | AC-V-02（seed 前置）；AC-V-03（B-1）；AC-V-04（B-2）；AC-V-05（B-4）；AC-V-06（B-1 对齐段）；AC-M-02 后端表态序列（B-1，UI 三态由 fe vitest 覆盖） | 全节点 + 逐节点产物矩阵 |
-| C 分支剧本 | 拒绝打回/回退重 review/reproject/澄清/retest/上升/仲裁/reopen 自动上升/join 双序/版本条件解绑/幂等族/通知族 | C-1~C-12 | AC-V-07（C-1/2/5）；AC-V-08（C-6/7）；AC-V-09（C-11）；AC-V-10（C-11 慢路径 skip 标注，真库 IT 补位 rd/service/scanner_it_test.go）；AC-V-11（C-10）；AC-V-12（C-12）；AC-M-01 后端半（C-3 scope 落值/删行不占位，UI 渲染矩阵由 fe vitest 覆盖）；AC-M-03 后端半（C-6，UI 冲突卡由 fe vitest 覆盖）；AC-M-04（C-4/B-1） | spec §4.1 AC-V-01~12 逐条（见 AC 引用列） |
+| C 分支剧本 | 拒绝打回/回退重 review/reproject/澄清/retest/上升/仲裁/reopen 自动上升/join 双序/版本条件解绑/幂等族/通知族/澄清矩阵/修订矩阵/CR 修复矩阵 | C-1~C-15 | AC-V-07（C-1/2/5）；AC-V-08（C-6/7）；AC-V-09（C-11）；AC-V-10（C-11 慢路径 skip 标注，真库 IT 补位 rd/service/scanner_it_test.go）；AC-V-11（C-10）；AC-V-12（C-12）；AC-M-01 后端半（C-3 scope 落值/删行不占位，UI 渲染矩阵由 fe vitest 覆盖）；AC-M-03 后端半（C-6，UI 冲突卡由 fe vitest 覆盖）；AC-M-04（C-4/B-1） | spec §4.1 AC-V-01~12 逐条（见 AC 引用列）；C-13~C-15 补 seed 29 动作词表差集（§7） |
 | D 对账 | expected_outputs×artifacts 逐节点矩阵；audit_log 计数对账 | D-1~D-2 | AC-V-02（D-1 产物矩阵）；AC-V-12（D-2 审计） | 库态直查 |
 | E 修复回归 | 2026-09-10 批注/修复轮 BUG-001/004/006/008/011/013（E-1a~h）+ dependencyDocs 防御路径（E-2） | E-1~E-2 | 注记 -J1~-J6 回归（注记为设计层条目，不入 §4 AC 编号） | 修复回归 |
 
@@ -91,6 +91,9 @@ user_gate 分流（agreed 停等 vs 机械 approved）、评审轮 round 语义�
 | C-10 | 幂等族 | 重复派发/重复表态（覆写取最后）/重复 advance noop/重复 complete/重复申报（qualify fixed→fixed） |
 | C-11 | 通知族 | gate_pending/clarify_task/re_review（澄清子型 target_id 空 + retest 子型 target_id=issueId）/escalation 投影正确（stall_followup/need_intervene 慢路径标注 skip——扫描器 5/10min 阈值不.waitFor） |
 | C-12 | 审计对账 | requirements/flows/flow_nodes/tasks/artifacts INSERT 与步骤计数对账；拍板/回退/推进 UPDATE by_who 归属（user/plugin/system） |
+| C-13 | 澄清矩阵（§7 补测①×6） | 6 条 clarify 动作全链（C-4 范本同型：unagree→respond→owner clarify 派发→settle→respond complete 重入新轮→re_review→复核 agree→门禁收口）：backend-design/frontend-design.clarify（task/tsk-c3 技术评审，用户拍板收口）、research-cap.clarify（plan/pln-d4，机械收口）/arch-cap.clarify（plan/pln-d6，用户拍板收口）；backend-dev/frontend-dev.clarify（tech/tec-b9 QA 验收）——QA 验收节点无评审位（reviewers=[]），respond 相位引擎不可达（唯一写入点=评审 collect clarify），落可派发性+respond 判据链（open issue 清零）探针，issue 闭环半边由 C-13a~d/C-15 见证 |
+| C-14 | 修订矩阵（§7 补测②×4） | 4 条 revise 动作 exec 重入修订（rejected→回退目标 exec 重入 reopen_source=downstream-reject→revise 派发→complete→advance 重入 review→重评拍板收口）：product-design.revise（business/bus-02）、frontend-design.revise（task/tsk-c2）、arch-cap.revise（plan/pln-d5）；research-cap.revise（plan/pln-d3）唯一重入触发=pln-d4 rejected 而 pln-d4 user_gate=0 不可达（409 负探针实证）——落 exec 相位直接派发探针（可派发性+produce 族判据+推进） |
+| C-15 | CR 修复矩阵（§7 补测③×4） | task 流 CR 打回修复：fix_on_review=节点内 respond 修复轮内闭环（CR 锚产物缺陷 issue→settle resolved→respond complete 重入新轮→cr 收 re_review 复核 agree 机械推进；断言节点无 rejected 结论——永不 rejected）；diagnosing-bugs=代码域 exec 重入（tsk-c6 用户验收 rejected→回退 tsk-c4 exec 重入→派发→complete→CR 复评→复验拍板 approved→收口）；backend-dev.fix_on_review/diagnosing-bugs（rd 泳道）、frontend-dev 同构（fe 泳道） |
 
 ## 5. D 对账（scratch 库只读 SQL）
 
@@ -109,14 +112,25 @@ user_gate 分流（agreed 停等 vs 机械 approved）、评审轮 round 语义�
 - [x] 注记 A-H 逐条有用例（A-06/C-9=-A；A-27/B*= -B/-C；A-09/C-5=-D1/-D2；A-11=-D3；A-08=-D4；A-29=-D5；A-16=-E/-F；D-2=-G；C-11 通知 outbox=-H）
 - [x] 负路径：401/404/400/409 blocked/missing 全覆盖
 
-## 7. 补测清单（qa_branch_audit.py 产出，2026-09-11 首跑基线）
+## 7. 补测清单（qa_branch_audit.py 产出，2026-09-11 首跑基线；同日落剧本差集清零）
 
-`qa/qa_branch_audit.py` 对 seed 40 定义节点的 node_actions 全集（29 条动作）做**可解析性 + 驱动覆盖**审计（驱动语料 = qa_drive.py + rd/e2e/*.go；capability 动作对 capability.actions 列解析、subagent 条目对 docs/templates/skills/ 目录解析；豁免显式化带理由）。首跑差集 14 条 = C 组扩展候选：
+`qa/qa_branch_audit.py` 对 seed 40 定义节点的 node_actions 全集（29 条动作）做**可解析性 + 驱动覆盖**审计（驱动语料 = qa_drive.py + rd/e2e/*.go；capability 动作对 capability.actions 列解析、subagent 条目对 docs/templates/skills/ 目录解析；豁免显式化带理由）。首跑差集 14 条，2026-09-11 已全部落剧本（C-13/C-14/C-15，动作 id 字面量进驱动语料），现差集=空，`--strict` 可作锁定门禁：
 
-| 类 | 条目 | 去向 |
+| 类 | 动作（审计归属 flow/节点） | 处置 |
 |---|---|---|
-| 澄清动作 ×6 | backend-design/frontend-design（task 评审）、backend-dev/frontend-dev（tech QA 验收）、arch-cap/research-cap（plan 评审）的 clarify | business 已有 C-4 范本，举一反三落各流程澄清剧本 |
-| 修订动作 ×4 | arch-cap/frontend-design/product-design/research-cap 的 revise（exec 重入修订） | C-1/C-2 打回链路的对应流程扩展 |
-| CR 修复动作 ×4 | backend-dev/frontend-dev 的 diagnosing-bugs / fix_on_review | task 流 CR 打回修复路径剧本 |
+| 澄清 ×6 | backend-design.clarify（task/技术评审） | 已落剧本 C-13a |
+| | frontend-design.clarify（task/技术评审） | 已落剧本 C-13b |
+| | research-cap.clarify（plan/调研评审） | 已落剧本 C-13c |
+| | arch-cap.clarify（plan/架构规划评审） | 已落剧本 C-13d |
+| | backend-dev.clarify（tech/QA 验收） | 已落剧本 C-13e（respond 相位不可达观察，见 §4 C-13） |
+| | frontend-dev.clarify（tech/QA 验收） | 已落剧本 C-13f（同上） |
+| 修订 ×4 | product-design.revise（business/产品设计） | 已落剧本 C-14a |
+| | frontend-design.revise（task/技术设计） | 已落剧本 C-14b |
+| | arch-cap.revise（plan/架构规划） | 已落剧本 C-14c |
+| | research-cap.revise（plan/调研） | 已落剧本 C-14d（exec 探针+409 负探针，见 §4 C-14） |
+| CR 修复 ×4 | backend-dev.fix_on_review（task/开发） | 已落剧本 C-15a |
+| | frontend-dev.fix_on_review（task/开发） | 已落剧本 C-15b |
+| | backend-dev.diagnosing-bugs（task/开发） | 已落剧本 C-15c |
+| | frontend-dev.diagnosing-bugs（task/开发） | 已落剧本 C-15d |
 
-处置纪律：逐条落剧本，或确认后转 EXEMPT_ACTIONS/SKILL_EXEMPT 显式豁免（带理由）；`--strict` 模式差集非空即 FAIL，C 组扩齐后可作锁定门禁。现存豁免：SKILL_EXEMPT={to-alignment}（待建 skill，roadmap P4 清单内）。
+处置纪律：逐条落剧本，或确认后转 EXEMPT_ACTIONS/SKILL_EXEMPT 显式豁免（带理由）；`--strict` 模式差集非空即 FAIL。现存豁免：SKILL_EXEMPT={to-alignment}（待建 skill，roadmap P4 清单内）。
