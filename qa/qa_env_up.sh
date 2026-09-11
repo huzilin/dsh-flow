@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # wbflow QA 环境拉起：scratch 库（迁移+seed）+ 真实服务进程（:6081）。
-# 用法: qa_env_up.sh   （凭据经环境变量注入，见 config.local.yaml 口径；零落地）
+# 用法: qa_env_up.sh   （默认走 config.local.yaml qa 段的 wbflow_qa 测试用户；环境变量可覆盖；零落地）
 set -euo pipefail
 QA_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$QA_DIR/.." && pwd)"
@@ -8,11 +8,31 @@ TS=$(date +%s)
 DB="wbflow_qa_${TS}"
 PORT=6081
 TOKEN="wbflow-qa-token"
+LOCAL_CFG="$REPO/rd/configs/config.local.yaml"
 
-: "${QA_MYSQL_HOST:=192.168.3.100}"
-: "${QA_MYSQL_PORT:=3306}"
-: "${QA_MYSQL_USER:=root}"
-: "${QA_MYSQL_PASSWORD:?须注入 QA_MYSQL_PASSWORD}"
+read_cfg() { # $1=dotted.key  $2=default
+  python3 - "$1" "$2" "$LOCAL_CFG" <<'PY' 2>/dev/null || echo "$2"
+import sys
+path, default, file = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    import yaml
+    d = yaml.safe_load(open(file))
+except Exception:
+    sys.exit(1)
+for k in path.split('.'):
+    d = d.get(k) if isinstance(d, dict) else None
+    if d is None:
+        break
+print(d if d is not None else default)
+PY
+}
+
+MYSQL_HOST_BASE=$(read_cfg mysql.host "192.168.3.100")
+: "${QA_MYSQL_HOST:=$(read_cfg qa.host "$MYSQL_HOST_BASE")}"
+: "${QA_MYSQL_PORT:=$(read_cfg qa.port "3306")}"
+: "${QA_MYSQL_USER:=$(read_cfg qa.user "wbflow_qa")}"
+: "${QA_MYSQL_PASSWORD:=$(read_cfg qa.password "")}"
+[ -n "$QA_MYSQL_PASSWORD" ] || { echo "FATAL: QA 凭据缺失——先执行 bash qa/qa_provision.sh 生成测试库与用户"; exit 1; }
 
 QA_DOCS_ROOT="${REPO}/docs"
 CFG="/tmp/wbflow-qa-config-${TS}.yaml"
