@@ -77,7 +77,7 @@ reviewers: [ {arch(rd|full): arch.rd-design-review}, {fe(fe): fe.rd-design-revie
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（**审批类节点 review=产出动作位，exec 不配置**） | —— | —— | —— |
-| review | arch.rd-design-review.review / fe.rd-design-review.review（scope=fe 按需）/ qa.rd-design-review.review（评上一节点 rd_design） | 各自对象化评审 skill（rd-design-review-{arch,fe,qa}-skill） | arch / fe / qa | 全表态（实时判据）→ 有 unagree → clarifying；全 agree → agreed |
+| review | arch.rd-design-review.review / fe.rd-design-review.review（scope=fe 按需）/ qa.rd-design-review.review（评上一节点 rd_design） | 各自对象化评审 skill（rd-design-review-{arch,fe,qa}-skill） | arch / fe / qa | 全表态（实时判据）→ 有 unagree → owner 澄清（reviewer 回 reviewing 重表态）；全 agree → 门禁（collect 瞬时判定，approved/rejected 走 last_decision） |
 | respond | backend-design.clarify（单动作；修复=B2 exec 重入 revise） | inline | rd | 全 resolve（转 pending-confirm）→ 评审者重新表态；复核需修改 → rejected → B2 exec 重入 |
 
 **评审轮（per-agent）**：各评审位 reviewing → 上报 agree / unagree（自判有无 open 工单）→ collect 聚合：全 agree → 门禁 approved / 有 unagree → owner 澄清 → reviewer 重新表态（回 reviewing）→ 循环；to-fix 真问题 → 打回。
@@ -109,7 +109,7 @@ reviewers: [ {qa: qa.fe-design-review} ]   # 单评审位——机械判定
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
-| review | qa.fe-design-review.review（评上一节点 fe_design） | fe-design-review-qa-skill | qa | 实时判据（单评审位立即成立）→ 有 unagree → clarifying；全 agree → agreed |
+| review | qa.fe-design-review.review（评上一节点 fe_design） | fe-design-review-qa-skill | qa | 实时判据（单评审位立即成立）→ 有 unagree → owner 澄清（reviewer 回 reviewing 重表态）；全 agree → 门禁（collect 瞬时判定，approved/rejected 走 last_decision） |
 | respond | frontend-design.clarify（单动作；修复=B4 exec 重入 revise） | inline | fe | 全 resolve（转 pending-confirm）→ 评审者重新表态；复核需修改 → rejected → B4 exec 重入 |
 
 **评审轮（per-agent）**：各评审位 reviewing → 上报 agree / unagree（自判有无 open 工单）→ collect 聚合：全 agree → 门禁 approved / 有 unagree → owner 澄清 → reviewer 重新表态（回 reviewing）→ 循环；to-fix 真问题 → 打回。
@@ -126,8 +126,8 @@ reviewers: [ {cr: code-review} ]
 | entry | ——跳过 | —— | —— | —— |
 | exec 首次 | backend-dev.dev（B8a）/ frontend-dev.dev（B8b） | implement-techdesign | rd / fe | 完成上报+判据（提评登记内联）→ plugin 轮转 → review |
 | exec 重入 | backend-dev / frontend-dev.diagnosing-bugs | diagnosing-bugs | rd / fe | 完成上报+校验（按 B9 rejected 返工）→ 重新提评 |
-| review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill（Standards→Spec） | cr | 实时判据（单评审位立即成立）→ 有 unagree → clarifying；全 agree → agreed |
-| respond | backend-dev / frontend-dev.fix_on_review（**只响应 CR，不做澄清**——CR 异化裁决） | inline | rd / fe | 全 resolve → confirming |
+| review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill（Standards→Spec） | cr | 实时判据（单评审位立即成立）→ 有 unagree → owner 澄清（reviewer 回 reviewing 重表态）；全 agree → 门禁（collect 瞬时判定，approved/rejected 走 last_decision） |
+| respond | backend-dev / frontend-dev.fix_on_review（**只响应 CR，不做澄清**——CR 异化裁决） | inline | rd / fe | 全 resolve → cr 回 reviewing 重新表态 |
 
 **评审轮（per-agent · CR 异化）**：CR reviewing → 上报 agree / unagree → collect 聚合：全 agree → 门禁 approved / 有 unagree → 修复（respond fix_on_review，不澄清）→ CR 重新表态（回 reviewing）→ 循环至全 agree（无 rejected 出口）。
 **裁决（机械）**：agreed → approved（并行组 join 重算）→ B9。
@@ -147,7 +147,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: full | reviewers: []
 | exec 首次 | acceptance-test.accept | qa-acceptance（用例设计+执行+AC 核对；缺陷登记 defect） | qa | 完成上报+判据 → respond |
 | exec 重入 | acceptance-test.retest（复验重测） | inline：「针对重新提测的代码重新执行测试→核对是否修复→更新 defect 文档（已解决标记/新增缺陷登记并分派）」 | qa | 完成上报+校验 → respond 重开 |
 | review | ——跳过（**无评审位——qa 不自审**） | —— | —— | —— |
-| respond | backend-dev.clarify / frontend-dev.clarify（rd/fe 各自缺陷确认/归属争议——跨节点路由，按 assignee 分派；修复在 B8a/B8b exec 重入） | inline | rd / fe | 全 resolve → confirming（qa 复核缺陷响应）→ agreed |
+| respond | backend-dev.clarify / frontend-dev.clarify（rd/fe 各自缺陷确认/归属争议——跨节点路由，按 assignee 分派；修复在 B8a/B8b exec 重入） | inline | rd / fe | 全 resolve → qa 回 reviewing 重新表态（复核缺陷响应）→ collect 全 agree → 门禁 |
 
 **评审轮（per-agent）**：各评审位 reviewing → 上报 agree / unagree（自判有无 open 工单）→ collect 聚合：全 agree → 门禁 approved / 有 unagree → owner 澄清 → reviewer 重新表态（回 reviewing）→ 循环；to-fix 真问题 → 打回。
 **裁决（机械）**：无 reject 争议残留 → approved（迁移 B10）；真缺陷残留 → rejected → targetBranch=qa 分派 → plugin 回退 B8a/B8b exec 重入。
@@ -230,7 +230,7 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {arch: arch.rd-design-
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
-| review | arch.rd-design-review.review / arch.fe-design-review.review（by scope，评上一节点 rd/fe_design） | rd-design-review-arch-skill / fe-design-review-arch-skill | arch | 实时判据（单评审位立即成立）→ 有 unagree → clarifying；全 agree → agreed |
+| review | arch.rd-design-review.review / arch.fe-design-review.review（by scope，评上一节点 rd/fe_design） | rd-design-review-arch-skill / fe-design-review-arch-skill | arch | 实时判据（单评审位立即成立）→ 有 unagree → owner 澄清（reviewer 回 reviewing 重表态）；全 agree → 门禁（collect 瞬时判定，approved/rejected 走 last_decision） |
 | respond | backend-design.clarify / frontend-design.clarify（by scope，单动作；修复=C2 exec 重入 revise） | inline | 执行者 | 全 resolve（转 pending-confirm）→ 评审者重新表态；复核需修改 → rejected → C2 exec 重入 |
 
 **评审轮（per-agent）**：各评审位 reviewing → 上报 agree / unagree（自判有无 open 工单）→ collect 聚合：全 agree → 门禁 approved / 有 unagree → owner 澄清 → reviewer 重新表态（回 reviewing）→ 循环；to-fix 真问题 → 打回。
@@ -247,7 +247,7 @@ node_type: produce | gate: 1 | user_gate: 0 | scope: rd|fe | reviewers: [ {cr: c
 | entry | ——跳过 | —— | —— | —— |
 | exec 首次 | backend-dev.dev 或 frontend-dev.dev（by scope） | implement-techdesign | 执行者 | 完成上报+判据（提评登记内联）→ plugin 轮转 → review |
 | exec 重入 | backend-dev / frontend-dev.diagnosing-bugs | diagnosing-bugs | 执行者 | 完成上报+校验（按 C6 rejected 报障返工）→ 重新提评 |
-| review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill | cr | 实时判据（单评审位立即成立）→ 有 unagree → clarifying；全 agree → agreed |
+| review | code-review.review（评本节点产物——节点内评审异化） | code-review-skill | cr | 实时判据（单评审位立即成立）→ 有 unagree → owner 澄清（reviewer 回 reviewing 重表态）；全 agree → 门禁（collect 瞬时判定，approved/rejected 走 last_decision） |
 | respond | backend-dev / frontend-dev.fix_on_review（**只响应 CR，不做澄清**） | inline | 执行者 | 全 resolve → CR 重新表态（回 reviewing） |
 
 **评审轮（per-agent · CR 异化）**：CR reviewing → 上报 agree / unagree → collect 聚合：全 agree → 门禁 approved / 有 unagree → 修复（respond fix_on_review，不澄清）→ CR 重新表态（回 reviewing）→ 循环至全 agree（无 rejected 出口）。
@@ -343,7 +343,7 @@ node_type: review | gate: 1 | user_gate: 0 | reviewers: [ {arch: arch.research-r
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
-| review | arch.research-review.review（评上一节点 research） | research-review-arch-skill | arch | 实时判据（单评审位立即成立）→ 有 unagree → clarifying；全 agree → agreed |
+| review | arch.research-review.review（评上一节点 research） | research-review-arch-skill | arch | 实时判据（单评审位立即成立）→ 有 unagree → owner 澄清（reviewer 回 reviewing 重表态）；全 agree → 门禁（collect 瞬时判定，approved/rejected 走 last_decision） |
 | respond | research-cap.clarify（单动作；修复=D3 exec 重入 revise） | inline | inv | 全 resolve（转 pending-confirm）→ 评审者重新表态；复核需修改 → rejected → D3 exec 重入 |
 
 **评审轮（per-agent）**：各评审位 reviewing → 上报 agree / unagree（自判有无 open 工单）→ collect 聚合：全 agree → 门禁 approved / 有 unagree → owner 澄清 → reviewer 重新表态（回 reviewing）→ 循环；to-fix 真问题 → 打回。
@@ -372,7 +372,7 @@ node_type: review | gate: 1 | user_gate: 1 | reviewers: [ {pm: pm.alignment-revi
 | state | 挂载动作 | skill / inline | 执行者 | 离开判据 |
 |---|---|---|---|---|
 | entry / exec | ——跳过（审批类 exec 不配置） | —— | —— | —— |
-| review | pm.architecture-review.review（评上一节点 architecture） | architecture-review-pm-skill | pm | 实时判据（单评审位立即成立）→ 有 unagree → clarifying；全 agree → agreed |
+| review | pm.architecture-review.review（评上一节点 architecture） | architecture-review-pm-skill | pm | 实时判据（单评审位立即成立）→ 有 unagree → owner 澄清（reviewer 回 reviewing 重表态）；全 agree → 门禁（collect 瞬时判定，approved/rejected 走 last_decision） |
 | respond | arch-cap.clarify（单动作；修复=D5 exec 重入 revise） | inline | arch | 全 resolve（转 pending-confirm）→ 评审者重新表态；复核需修改 → rejected → D5 exec 重入 |
 
 **评审轮（per-agent）**：各评审位 reviewing → 上报 agree / unagree（自判有无 open 工单）→ collect 聚合：全 agree → 门禁 approved / 有 unagree → owner 澄清 → reviewer 重新表态（回 reviewing）→ 循环；to-fix 真问题 → 打回。

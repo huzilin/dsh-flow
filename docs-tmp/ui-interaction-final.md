@@ -35,8 +35,8 @@
 
 | 态 | 呈现 | 操作 |
 |---|---|---|
-| 进度态（reviewing/clarifying/confirming） | 只读：表态 N/M（agree/unagree 计数）+ 工单统计（open/pending-confirm/resolved）| 无按钮（拍板置灰） |
-| **agreed → 迎宾呈现态** | 门禁汇总（各评审位结论 + resolved 摘要 + 产物链接 + 建议）——§6.8 owner 报送内容 | 通过 / 打回（必填理由，走 reject 结论协议）/ 会话找 owner / **↗ 节点详情** |
+| 进度态（reviewing / 已表态 agree·unagree） | 只读：表态 N/M（agree/unagree 计数）+ 工单统计（open/pending-confirm/resolved）| 无按钮（拍板置灰） |
+| **门禁待拍板（gate_pending）→ 迎宾呈现态** | 门禁汇总（各评审位结论 + resolved 摘要 + 产物链接 + 建议）——§6.8 owner 报送内容 | 通过 / 打回（必填理由，走 reject 结论协议）/ 会话找 owner / **↗ 节点详情** |
 | 收件箱联动 | 「待你拍板」通知（点此跳节点详情） | 双通道：收件箱=系统投递、迎宾=owner 呈现 |
 
 ### 1.4 冲突卡与上升（取代 override 强权）

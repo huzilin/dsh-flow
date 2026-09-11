@@ -86,9 +86,9 @@ to-fix（待修复）→ fixed（已修复）→ 复核 → resolved（修复成
 
 | 节点类型 | 可配相位（node.state） | reviewState | 例 |
 |---|---|---|---|
-| **产出类（有内审）** | exec（首/重入）→ review → respond → review… | '-'→reviewing→clarifying→confirming→agreed（门禁：approved，last_decision 承载） | RD 开发（CR 内嵌） |
+| **产出类（有内审）** | exec（首/重入）→ review → respond → review… | '-' + per-agent reviewing/agree/unagree（collect 全 agree 瞬时判定→门禁 approved，last_decision 承载） | RD 开发（CR 内嵌） |
 | **产出类（无内审）** | exec（首/重入） | 恒 '-'（评审在下游审批类节点） | 产品设计 |
-| **审批类** | **review（产出动作位，exec 不配置）** | reviewing→clarifying→confirming→agreed（门禁：approved / rejected） | 产品设计评审 / RD 技术评审 / FE 设计评审 |
+| **审批类** | **review（产出动作位，exec 不配置）** | per-agent reviewing/agree/unagree（collect 判定→门禁 approved / rejected，last_decision 承载） | 产品设计评审 / RD 技术评审 / FE 设计评审 |
 | **交互类** | entry → exec(to-brd) | 恒 '-' | 需求对齐 |
 | **门禁类** | entry（迎宾呈现+会话通道） | 恒 '-' | 用户验收 |
 
@@ -182,7 +182,7 @@ QA 验收节点激活：[accept, backend-dev/frontend-dev.clarify（缺陷确认
 
 ## 7. 数据层与边界
 
-- **轮转内置逻辑（plugin，不可配）**：collect 全表态收集（review_results 更新/读取）、clarifying 派发、全表态判定、approved/rejected 输出——审批子状态全部 plugin 驱动；可配的只有动作相位上的 action。
+- **轮转内置逻辑（plugin，不可配）**：collect 全表态收集（review_results 更新/读取）、owner 澄清派发、重新收票判定、approved/rejected 输出——审批子状态全部 plugin 驱动；可配的只有动作相位上的 action。
 - **外部兜底扫描器**：宿主侧扫描（工单 07 实装）——发现中断/悬置 → 重推相位/唤醒/周期提醒（对齐节点确认悬置）。
 - **project 注册层**（Q6-Q8 已裁）：per-project workbench 隔离（每工作区一套 .workbench/ + sqlite，11 表零改动）；project registry=plugin 全局配置（~/.dsh/wbflow/projects.json）；MVP 无 agent 跨项目操作（wb_* 按当前工作区隐式定位）；新增 plugin 接口：project 注册/列出/切换/停用⚠️。
 - **需求/版本本体**：JSON 源承载（.workbench/requirements.json + versions.json），sqlite 投影——现状不动。
