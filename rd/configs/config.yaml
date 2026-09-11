@@ -41,3 +41,21 @@ scanner:
   followup_after_sec: 300
   intervene_after_sec: 600
   retry_backoff_sec: 5
+# 大模型通路（spec 注记 -L4 + MIG-08/MIG-09 拍板）：exec/review 环节真执行经
+# DSH 网关调底层大模型（OpenAI 兼容 {base_url}/chat/completions）。
+# api_key 凭据红线：yaml 置空走环境变量注入 export WBFLOW_LLM_API_KEY='sk-****'
+# （本地 DSH 免鉴权场景可留空——空串=请求不带 Authorization 头）。
+# base_url 置空 = 替身演示态（FakeClient，不外呼，任务照常派发与呈现）。
+# actions = LLM 自动执行准入动作集（样板先行：bus-01 to-brd produce 通路 +
+# arch.prd-review.review review 通路；机制通用，扩面改本清单）。
+llm:
+  enabled: true
+  base_url: http://127.0.0.1:3080
+  api_key: ${WBFLOW_LLM_API_KEY}
+  model: deepseek-v4-flash
+  timeout_sec: 120
+  retry_max: 6
+  stall_after_sec: 600
+  actions:
+    - to-brd
+    - arch.prd-review.review

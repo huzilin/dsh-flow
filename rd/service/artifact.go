@@ -323,6 +323,47 @@ func outsideRoot(real string, rootReal string) bool {
 	return !strings.HasPrefix(real, rootReal+string(filepath.Separator))
 }
 
+// WriteDocument 服务端写入库文档（spec 注记 -L4 produce 通路：LLM 产出 → 写
+// docs root → wb_add_artifact 登记 kind=document）。路径安全与 GetContent/Add
+// 共用同一 resolveDocsPath 防线（越界一律拒绝）；docs root 与中间目录缺失时
+// 自动创建（LLM 产出是写入路径，读路径保持缺失即报错的口径不变）。
+// 同名覆盖写（幂等——任务恢复重跑产出同一 href 覆盖，产物登记幂等命中既有行）。
+//
+// 错误集：ErrPolicyRejected（href 空/绝对路径/越界）；ErrInvalidArgument
+// （root 不可用/解析异常）；底层 IO 错误经 Trace 上抛。
+func (s *ArtifactService) WriteDocument(href string, content string) error {
+	if href == "" {
+		return policyRejected("href 为空")
+	}
+	// 词法前置校验（Join 清洗后越界即拦）+ 中间目录先建——resolveDocsPath 的
+	// 叶子缺失分支以「父目录可 resolve」为前提
+	target := filepath.Join(s.docsRoot, href)
+	if escaped := outsideRoot(target, s.docsRoot); escaped {
+		return policyRejected("href resolve 后越出 docs root: %q", href)
+	}
+	if _, err := os.Stat(s.docsRoot); os.IsNotExist(err) {
+		if mkErr := os.MkdirAll(s.docsRoot, 0o755); mkErr != nil {
+			return errs.Trace(mkErr)
+		}
+	}
+	if mkErr := os.MkdirAll(filepath.Dir(target), 0o755); mkErr != nil {
+		return errs.Trace(mkErr)
+	}
+	real, exists, err := s.resolveDocsPath(href)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if mkErr := os.MkdirAll(filepath.Dir(real), 0o755); mkErr != nil {
+			return errs.Trace(mkErr)
+		}
+	}
+	if err := os.WriteFile(real, []byte(content), 0o644); err != nil {
+		return errs.Trace(err)
+	}
+	return nil
+}
+
 // validateExternalHref link href 校验：须为带 host 的 http(s) 绝对 URL。
 func validateExternalHref(href string) error {
 	parsed, err := url.Parse(href)

@@ -27,6 +27,7 @@ type Config struct {
 	Artifacts ArtifactsConfig `yaml:"artifacts"`
 	Escalate  EscalateConfig  `yaml:"escalate"`
 	Scanner   ScannerConfig   `yaml:"scanner"`
+	LLM       LLMConfig       `yaml:"llm"`
 }
 
 // HTTPConfig HTTP 服务配置。
@@ -97,6 +98,37 @@ type ScannerConfig struct {
 	RetryBackoffSec int64 `yaml:"retry_backoff_sec"`
 }
 
+// LLMConfig 大模型通路配置（spec 注记 -L4 + MIG-08/MIG-09 执行拍板：模型调用经
+// DSH 网关——base_url 默认本地 DSH（http://127.0.0.1:3080），模型路由/账号/鉴权
+// 归 DSH 管；api_key 走环境变量注入不落盘（对齐凭据红线，${VAR} 展开机制复用）。
+// base_url 置空 = FakeClient 替身演示态（novel main.go 装配模式 C11 copy）。
+type LLMConfig struct {
+	// Enabled LLM 自动执行总开关：false 时扫描器不派发、不驱动 LLM 任务
+	// （任务总线仍可人工/agent 正常使用）
+	Enabled bool `yaml:"enabled"`
+	// BaseURL DSH 网关地址（OpenAI 兼容，POST {baseURL}/chat/completions）；
+	// 空 = 替身演示态（FakeClient，不外呼）
+	BaseURL string `yaml:"base_url"`
+	// APIKey 网关鉴权 key；经 ${WBFLOW_LLM_API_KEY} 环境变量注入，yaml 置空，
+	// 禁止落地仓库文件（空串=请求不带 Authorization 头，本地 DSH 免鉴权场景可用）
+	APIKey string `yaml:"api_key"`
+	// Model 模型名（DSH 侧路由）
+	Model string `yaml:"model"`
+	// TimeoutSec 单次请求整体超时（秒；默认 120，对齐拍板）
+	TimeoutSec int64 `yaml:"timeout_sec"`
+	// RetryMax 失败重试总尝试次数（指数退避；拍板默认 6）
+	RetryMax int64 `yaml:"retry_max"`
+	// StallAfterSec LLM 任务停滞判定窗口（秒）：in-progress 超窗无进度心跳且
+	// 进程内无执行协程 → 扫描器重新触发执行（「继续任务」恢复而非回退，
+	// MIG-09 拍板；默认 600，≥ 单次请求超时与重试序列总时长量级）
+	StallAfterSec int64 `yaml:"stall_after_sec"`
+	// Actions LLM 自动执行准入动作集（动作定位全名：node action id 或
+	// "<capabilityId>.<action>"；空集=不自动派发任何动作——样板先行节奏：
+	// 首批 to-brd（produce 通路样板）+ arch.prd-review.review（review 通路样板），
+	// 机制通用、扩面仅改本清单）
+	Actions []string `yaml:"actions"`
+}
+
 // Load 加载配置：mainPath 必选；localPath 可选（不存在时静默跳过）。
 // 两份文件内容均做 ${VAR} 环境变量展开。
 func Load(mainPath string, localPath string) (*Config, error) {
@@ -156,6 +188,17 @@ func defaults() *Config {
 			FollowupAfterSec:  300,
 			InterveneAfterSec: 600,
 			RetryBackoffSec:   5,
+		},
+		LLM: LLMConfig{
+			Enabled:       true,
+			BaseURL:       "http://127.0.0.1:3080",
+			APIKey:        "",
+			Model:         "deepseek-v4-flash",
+			TimeoutSec:    120,
+			RetryMax:      6,
+			StallAfterSec: 600,
+			// 样板准入集（-L4 落地节奏：bus-01 to-brd 单节点先行，机制通用）
+			Actions: []string{"to-brd", "arch.prd-review.review"},
 		},
 	}
 }

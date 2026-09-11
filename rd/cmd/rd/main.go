@@ -20,6 +20,7 @@ import (
 	"github.com/huzilin/wbflow/rd/config"
 	"github.com/huzilin/wbflow/rd/database"
 	"github.com/huzilin/wbflow/rd/handler"
+	"github.com/huzilin/wbflow/rd/llm"
 	"github.com/huzilin/wbflow/rd/logger"
 	"github.com/huzilin/wbflow/rd/migration"
 	"github.com/huzilin/wbflow/rd/repo"
@@ -115,6 +116,7 @@ func runServer() {
 	var inboxSvc *service.InboxService
 	var reviewSvc *service.ReviewService
 	var advanceSvc *service.AdvanceService
+	var llmFlowSvc *service.LLMFlowService
 	var repoHandle *repo.Repo
 	if db.Gorm != nil {
 		repoHandle = repo.NewRepo(db.Gorm)
@@ -128,6 +130,29 @@ func runServer() {
 		inboxSvc = service.NewInboxService(repoHandle)
 		reviewSvc = service.NewReviewService(repoHandle)
 		advanceSvc = service.NewAdvanceService(repoHandle)
+		// LLM 通路装配（-L4 + C11 装配模式）：base_url 空 = FakeClient 替身演示态；
+		// 非 = ChatClient 经 DSH 网关（api_key 环境变量注入，空串=不带鉴权头）
+		var llmClient llm.Completer
+		if cfg.LLM.BaseURL == "" {
+			llmClient = &llm.FakeClient{}
+			lg.Warn("llm.base_url 未配置，LLM 通路运行于替身演示态（FakeClient，不外呼）")
+		} else {
+			timeout := time.Duration(cfg.LLM.TimeoutSec) * time.Second
+			if timeout <= 0 {
+				timeout = 120 * time.Second
+			}
+			llmClient = llm.NewChatClient(cfg.LLM.BaseURL, cfg.LLM.APIKey, cfg.LLM.Model, timeout, nil)
+			lg.Info("LLM 通路已装配（DSH 网关）",
+				zap.String("base_url", cfg.LLM.BaseURL),
+				zap.String("model", cfg.LLM.Model),
+				zap.Duration("timeout", timeout),
+			)
+		}
+		llmFlowSvc = service.NewLLMFlowService(repoHandle, taskSvc, artSvc, issueSvc, reviewSvc, llmClient, service.LLMFlowOptions{
+			Enabled:  cfg.LLM.Enabled,
+			RetryMax: int(cfg.LLM.RetryMax),
+			Actions:  cfg.LLM.Actions,
+		}).WithLogger(lg)
 	} else {
 		lg.Warn("gorm 句柄不可用，API 路由降级不注册（仅 /healthz）")
 	}
@@ -168,7 +193,7 @@ func runServer() {
 			FollowupAfter:  time.Duration(cfg.Scanner.FollowupAfterSec) * time.Second,
 			InterveneAfter: time.Duration(cfg.Scanner.InterveneAfterSec) * time.Second,
 			RetryBackoff:   time.Duration(cfg.Scanner.RetryBackoffSec) * time.Second,
-		}).WithLogger(lg)
+		}).WithLogger(lg).WithLLMFlow(llmFlowSvc)
 		scannerDone.Add(1)
 		go func() {
 			defer scannerDone.Done()

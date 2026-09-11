@@ -45,9 +45,11 @@ type Scanner struct {
 	db       ScannerPinger
 	notifier *Notifier
 	adv      *AdvanceService
-	opts     ScannerOptions
-	now      func() int64
-	log      *zap.Logger
+	// llm LLM 通路执行器（-L4：派发+驱动收口于扫描循环；nil=未装配不巡检）
+	llm  *LLMFlowService
+	opts ScannerOptions
+	now  func() int64
+	log  *zap.Logger
 }
 
 // NewScanner 构造扫描器（now 缺省 repo.NowMillis；log 缺省 nop）。
@@ -61,6 +63,12 @@ func NewScanner(r *repo.Repo, db ScannerPinger, opts ScannerOptions) *Scanner {
 		now:      repo.NowMillis,
 		log:      zap.NewNop(),
 	}
+}
+
+// WithLLMFlow 注入 LLM 通路执行器（-L4 装配；未注入=不巡检 LLM 任务）。
+func (s *Scanner) WithLLMFlow(llm *LLMFlowService) *Scanner {
+	s.llm = llm
+	return s
 }
 
 // WithClock 注入时钟（单测模拟时间推进用；生产用默认 repo.NowMillis）。
@@ -92,6 +100,10 @@ type ScanReport struct {
 	// ParallelPushes 本轮并行组兜底补推命中的需求 id 集（2026-09-09 拍板-C③：
 	// 双侧均 complete 但组未推进的漏推自愈）
 	ParallelPushes []string
+	// LLMDispatched 本轮 LLM 通路新派发任务（-L4，task_id）
+	LLMDispatched []string
+	// LLMContinued 本轮 LLM 通路停滞恢复驱动（继续任务，task_id）
+	LLMContinued []string
 }
 
 // RunOnce 单轮扫描：DB ping 失败降级返回（Degraded=true，无错误上抛——调用方
@@ -108,6 +120,8 @@ func (s *Scanner) RunOnce(ctx context.Context) (*ScanReport, error) {
 		Followups:      make([]string, 0),
 		Intervenes:     make([]string, 0),
 		ParallelPushes: make([]string, 0),
+		LLMDispatched:  make([]string, 0),
+		LLMContinued:   make([]string, 0),
 	}
 	if s.db != nil {
 		pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -168,6 +182,16 @@ func (s *Scanner) RunOnce(ctx context.Context) (*ScanReport, error) {
 		return nil, errs.Trace(err)
 	}
 	report.ParallelPushes = pushed
+	// LLM 通路巡检（-L4 执行拍板 MIG-09）：准入动作派发（节点激活语义）+ 停滞
+	// 恢复驱动（继续任务，镜像 outbox sweep 模式）；失败回退链在执行协程内闭环
+	if s.llm != nil {
+		llmReport, llmErr := s.llm.SweepLLMTasks(ctx)
+		if llmErr != nil {
+			return nil, errs.Trace(llmErr)
+		}
+		report.LLMDispatched = llmReport.Dispatched
+		report.LLMContinued = llmReport.Continued
+	}
 	// 通知 outbox 补投（spec §1.2 注记-H）：failed（retry 预算内）+ pending/sending
 	// 停滞（业务提交后 immediate flush 未触达/进程崩溃残留）周期兜底
 	s.notifier.SweepOutbox(ctx, now)

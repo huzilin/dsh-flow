@@ -97,6 +97,20 @@ func (r *Repo) ListInflightTasksByRequirementAndNode(ctx context.Context, requir
 	return items, nil
 }
 
+// ListTasksByRequirementAndNode 读该需求该节点全部任务（不限状态，id 升序）——
+// LLM 巡检「同动作已有完成任务不再重派」判据数据源（防推进受阻节点反复重产）。
+func (r *Repo) ListTasksByRequirementAndNode(ctx context.Context, requirementID string, nodeID string) ([]*Task, error) {
+	items := make([]*Task, 0)
+	err := r.g.WithContext(ctx).
+		Where("requirement_id = ? AND node_id = ?", requirementID, nodeID).
+		Order("id").
+		Find(&items).Error
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	return items, nil
+}
+
 // ListTasksByRequirementAndNodeTx 事务内读该需求该节点全部任务（不限状态，id 升序）
 // ——wb_advance exec 相位 complete 判据事实（已完成/在途 exec 任务计数）。
 func ListTasksByRequirementAndNodeTx(ctx context.Context, tx *gormio.DB, requirementID string, nodeID string) ([]*Task, error) {

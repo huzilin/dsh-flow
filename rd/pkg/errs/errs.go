@@ -37,6 +37,10 @@ var (
 	// ErrInvalidTransition 非法状态迁移：issue 状态机 v2 拒绝该操作（当前态 ×
 	// 动作 × 操作者约束任一不成立，T7）。
 	ErrInvalidTransition = perr.New("wbflow: 非法状态迁移")
+	// ErrLLM 大模型通路失败（spec 注记 -L4）：网关不可用/非 2xx/响应解析失败/
+	// 产出非预期形状。执行器据此做失败分流（重试耗尽→任务回退+need_intervene，
+	// 调研适配点 D5 哨兵口径）；HTTP 语义 = 502 Bad Gateway。
+	ErrLLM = perr.New("wbflow: 大模型通路失败")
 )
 
 // Trace 统一错误包裹入口：内部错误链路层层包裹，保留堆栈。
@@ -63,6 +67,7 @@ const (
 	CodePolicyRejected     Code = "POLICY_REJECTED"
 	CodeInvalidTransition  Code = "INVALID_TRANSITION"
 	CodeUnauthorized       Code = "UNAUTHORIZED"
+	CodeLLM                Code = "LLM_UNAVAILABLE"
 	CodeInternal           Code = "INTERNAL"
 )
 
@@ -101,6 +106,8 @@ func MapToHTTP(err error) HTTPMapping {
 		return HTTPMapping{HTTPStatus: http.StatusNotFound, Code: CodeNotFound}
 	case Is(err, ErrDependencyCycle):
 		return HTTPMapping{HTTPStatus: http.StatusConflict, Code: CodeDependencyCycle}
+	case Is(err, ErrLLM):
+		return HTTPMapping{HTTPStatus: http.StatusBadGateway, Code: CodeLLM}
 	default:
 		return HTTPMapping{HTTPStatus: http.StatusInternalServerError, Code: CodeInternal}
 	}
