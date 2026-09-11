@@ -9,6 +9,7 @@ disable-model-invocation: false
 产出《业务需求文档 brd》（`docs/{{req-version}}/{{req-name}}/brd/brd.md`）。brd 是**需求对齐节点**的收敛产物：把 pm 与 User 在这一节点已进行的对齐对话综合成可交付文档。**不重新访谈、不重新收集需求**——对齐对话已发生，这里只做综合与固化。brd 无评审回路，质量由对齐期 User 确认背书。
 
 > **标准权威说明**：本 skill 承载章节骨架 / required / purpose / 质量门禁 / 准出标准的**权威版本**。原 `brd-template.md` 已于 v0.29 删除（D3 拍板，semantica 47c53ed9）；章节骨架以本 skill 必填节为唯一权威，不自造小标题。
+> **对齐协议指针（落笔前门禁，2026-09-11 拍板形态 B）**：本 skill 是「需求→设计文档链」一环，定稿前过《对齐协议》`docs/templates/alignment-protocol.md`——追问关（grilling，本段 ≤3 轮 + Clarifications/Assumptions 台账）、上游依据声明（wayfinder 问题定义）与 BR-xxx 编号目标集交出、三席评审（本段：业务席）、拍板 ADR+semantica 双写、结构化交接。协议为正本，本 skill 不复制正文。
 
 ## 依赖（从 my_task 的 inputs 取）
 

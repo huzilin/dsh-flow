@@ -10,6 +10,7 @@ disable-model-invocation: false
 
 > **标准权威说明**：本 skill 承载章节骨架 / required / purpose / 质量门禁 / 准出 / 接口消费标准的**权威版本**。原 `frontend-design-doc-template.md` 已于 v0.29 删除（D3 拍板，semantica 47c53ed9）；章节骨架以本 skill 必填节为唯一权威，成品示例见 `docs/templates/frontend-design-doc-demo.md`。
 > **契约 owner**：rd 是唯一契约真相源，**FE 只消费、不定义**。fe_design 的接口消费 = 对 rd_design 契约的逐字段对齐索引，不自造方法/字段。
+> **对齐协议指针（落笔前门禁，2026-09-11 拍板形态 B）**：本 skill 是「需求→设计文档链」一环，定稿前过《对齐协议》`docs/templates/alignment-protocol.md`——追问关（grilling，本段 ≤2 轮 + Clarifications/Assumptions 台账）、上游依据声明（消费 FR-xxx + rd 契约）与 TD-xxx 编号条目交出、三席评审（本段：业务/技术/QA 全三席）、拍板 ADR+semantica 双写、结构化交接。协议为正本，本 skill 不复制正文。
 
 ## 依赖（从 my_task 的 inputs 取）
 

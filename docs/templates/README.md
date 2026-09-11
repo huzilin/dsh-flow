@@ -22,6 +22,10 @@
 | FE 开发笔记 | `docs/<版本>/<需求>/fe/dev.md` | dev-notes-template.md（skill 待建） | — |
 | 方案设计（任务） | `docs/<版本>/<需求>/plan.md` | plan-template.md（skill 待建） | — |
 
+## 段间协议（2026-09-11 拍板，形态 B）
+
+**`alignment-protocol.md` = 「需求→设计文档链」段间协议正本**（追问关/全链编号+RTM/三席评审/拍板留痕/结构化交接五机制）。to-brd / to-prd / to-rd-techdesign / to-fe-techdesign 四个 skill 头部持指针，落笔前过协议；协议改动全局生效，**不许把机制正文复制进 skill**。
+
 ## 已知缺口（P2 待办）
 
 - seed 引用的 `qa-testcase-review-template.md` / `qa-testcase-review-demo.md` **文件不存在**（case-design-cap 的 products 此前指向它；v0.29 删 template_path 后断链已消，但 cases.md 的标准载体实际缺失，建 skill 或补模板时一并解决）。

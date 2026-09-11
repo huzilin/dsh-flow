@@ -9,6 +9,7 @@ disable-model-invocation: false
 产出《RD 技术设计文档 rd_design》（`docs/{{req-version}}/{{req-name}}/rd/design.md`）。**不访谈用户、不重新收集需求**——把已对齐的材料（product_doc、architecture 方向）转成可评审、可交给 RD 开发 / FE 对接 / QA 联调的技术设计。rd_design 是**契约层**：接口契约、数据模型、模块划分要被下游直接消费。
 
 > **标准权威说明**：本 skill 承载章节骨架 / required / purpose / 质量门禁 / 准出 / 接口协议标准的**权威版本**。原 `backend-design-doc-template.md` 已于 v0.29 删除（D3 拍板，semantica 47c53ed9）；章节骨架以本 skill 必填节为唯一权威，成品示例见 `docs/templates/backend-design-doc-demo.md`。
+> **对齐协议指针（落笔前门禁，2026-09-11 拍板形态 B）**：本 skill 是「需求→设计文档链」一环，定稿前过《对齐协议》`docs/templates/alignment-protocol.md`——追问关（grilling，本段 ≤2 轮 + Clarifications/Assumptions 台账）、上游依据声明（消费 FR-xxx）与 TD-xxx 编号条目+状态机条目配状态表交出、三席评审（本段：业务/技术/QA 全三席）、拍板 ADR+semantica 双写（强制 Alternatives considered 节）、结构化交接。协议为正本，本 skill 不复制正文。
 
 ## 依赖（从 my_task 的 inputs 取）
 

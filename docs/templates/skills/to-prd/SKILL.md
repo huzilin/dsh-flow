@@ -9,6 +9,7 @@ disable-model-invocation: false
 产出《产品需求文档 product_doc》（`docs/{{req-version}}/{{req-name}}/prd/prd.md`）。**不访谈用户、不重新收集需求**——只把已经对齐的材料（brd、architecture 方向）转成可交付、可评审、可验证的 PRD。PRD 定位 = 共同理解的对齐载体 + 交付边界的约束机制 + 可验证结果的交付契约（目标 / 边界 / 验收三件事写清楚）。
 
 > **标准权威说明**：本 skill 承载章节骨架 / required / purpose / 质量门禁 / 准出标准的**权威版本**。原 `prd-template.md` 已于 v0.29 删除（D3 拍板，semantica 47c53ed9）；章节骨架以本 skill 必填节为唯一权威，成品示例见 `docs/templates/prd-demo.md`。
+> **对齐协议指针（落笔前门禁，2026-09-11 拍板形态 B）**：本 skill 是「需求→设计文档链」一环，定稿前过《对齐协议》`docs/templates/alignment-protocol.md`——追问关（grilling，本段 ≤2 轮 + Clarifications/Assumptions 台账）、上游依据声明（消费 BR-xxx）与 FR-xxx 编号需求集+轻量 RTM 交出（零覆盖 CRITICAL 不放行）、三席评审（本段：业务/技术/QA 全三席）、拍板 ADR+semantica 双写、结构化交接。协议为正本，本 skill 不复制正文。
 
 ## 依赖（从 my_task 的 inputs 取）
 
