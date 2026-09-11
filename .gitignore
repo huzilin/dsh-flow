@@ -7,5 +7,5 @@ config.local.yaml
 .gocache/
 rd/docs
 docs/docs
-.agents/
+.agents
 .dsh/
