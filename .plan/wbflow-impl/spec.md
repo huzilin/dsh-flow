@@ -380,6 +380,37 @@ CREATE TABLE versions (
 > **-G（tasks.reply_count 死列；CR 复审裁决 I，semantica `ec4639b8`）**：迁移 v1 遗留列，现无写入路径（仅 model 定义与快照 DTO 读零值），回复计数语义由评论查询聚合承载——保留列 + TODO 注记插件期接线，不做迁移 DROP（v4 迁移成本大于收益），本注记为裁决正本。
 >
 > **-H（通知可靠投递 outbox 化；2026-09-10 User 方案，semantica `22864e64`）**：原「通知派发一律事务外、Dispatch 吞错记日志」口径（联调实证 req-002 gate_pending 静默丢失一次——无重试、无留痕）升级为消息事务表模式。新增 `notify_outbox`（迁移 v4，状态机 pending→sending→sent/failed；同日 User 追加拍板 semantica `c25c0552`：单人内部系统通知必须全部送达——failed 无限补投无放弃态，retry_count 仅观测）：①**业务事务内 enqueue**——各通知触发点（escalation/retest/re_review 重入轮/collect gate_pending·clarify/scanner 催办介入）在业务事务闭包内 `EnqueueNotificationTx` 写通知意图，与业务提交原子（「Dispatch 未被调用即丢」窗口消除）；enqueue 失败随业务回滚——同一 MySQL 实例下表故障即库故障，业务主写同样不可达，语义可接受；②**事务提交后 FlushPending** 即时推送（原子认领防双推→Notify 写 issues 通知行→sent）；③**scanner SweepOutbox** 周期补投（failed 全量 + pending/sending 停滞的崩溃残留），无限重试直至送达。「通知写入失败不阻断业务路径」口径保留于推送侧——flush/sweep 失败只影响通知时效，不回滚业务。收件箱读侧不变（仍读 issues 通知行投影），FE 零改动。
+>
+> **-J7（-J5 契约侧补记；2026-09-10 批注轮 fe/契约侧，与 -J5 同拍板出处）**：my-task `relatedArtifacts` 语义升级——review 型节点=直接上游连续 produce 段已登记产物（置前=被评审产物）+ 本节点产物；`RelatedArtifactItem` 无 upstream 标注字段，FE 按快照 nodeId 反查分段（未来多消费方需要显式标注再加字段）。
+>
+> **-J8（-J6 契约侧补记；同上出处）**：评论锚契约收紧——评审上下文（state∈{review,respond} ∪ 发表者∈评审位）issue 类评论必须携带 `anchor.artifactId`（document 级含之）；`ValidateIssueAnchor` document 分支允许 artifact_id 非空，DDL「artifact_id NULL=document 级」注记自本注记起废止（NULL 仍合法=历史数据，新写入恒带值）。
+> **-I（并行 join wait 分支=设计级死代码；2026-09-10 BUG-007 裁决，文档化不动代码）**：advanceAfterGateLockedTx 的 `AdvanceOutcomeWait` 分支（本侧 fe 侧 exec-CR 节点完成而对侧 rd 侧未 approved → 本侧完成待对侧）经 API 不可达——fe 侧 exec-CR 节点唯一激活链是 rd 侧 gate 落定 approved 的瞬间（activateAndMoveLockedTx 唯一激活写点；打回联动与 scanner 巡检均不破坏该不变量），故 `!peerApproved(prev)` 恒 false。**裁决正本：wait 分支为防御性保留的死分支，仅 scanner 兜底巡检语义预留，不删不改**（同注记 -E/-F/-G「裁决正本」处理格式；诊断证据见 qa-diagnosis.md §5）。
+>
+> **-J（批注轮修复注记；2026-09-10 User 修复指令拍板 + 最小原则先例，逐条行为变更）**：
+>
+> **-J1（BUG-001 需求状态联动）**：`requirements.status` 与编排推进自动联动（方案 A，spec §7.3「收尾→已完成」本就要求）。触发点定义：①流程**首次进入编排**（flows.current_node_id 由空变非空）→ 待启动→进行中；②推进**落位尾节点**（实例链最后一个节点被激活/驻留）→ 已完成。实现落点=推进核 activateAndMoveLockedTx（wb_advance / wb_decision / complete 内聚 / scanner 巡检四条路径统一收口）；同事务 + 审计（by_who=推进方 plugin/system）；只在值变化时写（幂等）；已取消=终态不覆盖；requirements 乐观锁不介入（不带基线直更，避免与 wb_update_requirement 互相制造 409 冲突面）。
+>
+> **-J2（BUG-004 局部更新契约）**：`wb_update_requirement` 由「全量必填」改为**空串=不修改**语义——title/description/category/priority/status/owner/versionId 非空才校验+diff+写，全空=no-op；owner/version_id 以空串为合法值（清空/解绑）的旧口径废止（清空指派/解绑版本不经本端点）；proto 契约注释同步（proto 为真相源，api.pb.go 经 buf 重生成，注释级变更不影响序列化）。
+>
+> **-J3（BUG-006 my-task 动作全名）**：`wb_my_task` activeActions 的 actionId 口径统一——kind=capability 条目回显 `<capabilityId>.<action>` 全名（与 wb_assign_task 入参同口径，调用方可直接回填派发）；kind=node 条目保持原 id（align.opening 本就带点）。
+>
+> **-J4（BUG-008 通知 kind 投影）**：writeEscalationNoticeTx 通知行（issues notification）anchor_kind 由硬编码 document 改落七类词表 **escalation**，anchor_artifact_id=源 issueId（跳转锚）——手动 wb_escalate 与自动阈值两路径的通知行在收件箱「冲突待裁决←escalation」投影维度对齐 T11/comment 路径（通知行 anchor_kind 语义=通知类别，非评论锚点，issues 锚点校验域不覆盖通知行）。
+>
+> **-J5（BUG-011 被评审产物口径）**：评审节点的被评审产物 = **直接上游 produce 节点已登记的产物**（提评来源；多上游取全部直接上游 produce——实例链线性，即紧邻前驱起的连续 produce 段）。实现：my_task 装配 relatedArtifacts 时 node_type=review 的节点追加上游产物并置前（本节点产物殿后）；FE 产物区分段归 fe 批次。
+>
+> **-J6（BUG-013 评论锚产物强制）**：口径「所有的评审都是挂在文档上的」——评审上下文（节点 state ∈ {review, respond}，或 author 角色 ∈ 节点评审位）的 **issue 类**评论 anchor_kind=document 且未携 anchorArtifactId → 400 invalidArg（错误信息引导挂锚）；notification/discussion 类不受限（内部通知不走此通道）；存量数据不回溯（新评论硬拦）。既有 e2e 为旧口径产物由 QA 驱动统一更新，service 层 IT 冲突用例已同步锚产物。
+>
+> **-K（产物入库约束；2026-09-10 BUG-015 拍板）**：expected_outputs 期望的产物必须是系统内入库文档——kind=document，href 为相对 docs root 路径且文件真实存在。登记口（wb_add_artifact）：期望 document 的产物以 link 登记 → 400 blocked（`rd/service/artifact.go`，期望外 product_type 如 code_mr 补充外链不受限）；判据口（complete / advance exec 同口径，`rd/service/task.go` completeMissing）：仅 kind 合规的登记计入判据，kind 不符 → 显式缺项（token 前缀 `artifact_kind:<type>` + 人话说明，同 `exec_task:` 缺项族口径）。link 仅用于期望外的补充外链（如 code_mr）。用户验收环境数据巡检（D-3，`qa/qa_live_audit.py` 对联调库跑同一期望矩阵）违规即回归不通过。背景：联调库 9 产物曾为假域名外链占位，文档阅读→锚定评论→评审链在用户环境不可达（qa-defects.md BUG-015）。
+>
+> **-L（2026-09-10 深夜对齐轮四项拍板；User 逐条定案；spec 偏差清零批）**：
+>
+> **-L1（collect=评论闭环表态；OPT-004 拍板落地）**：collect 表态的本义对齐老设计（被反复确认十几遍的门禁链）——**agree 的前提=该评审位名下评论全部被响应并澄清**（state ∈ resolved/overridden；open/to-fix/fixed/pending-confirm 未闭环）；有未闭环评论须先解决（resolve 族）或保持 unagree（确认是问题 → 打回前一节点）。**approve 前置=节点名下全部 issue 类评论闭环**（要么打回要么全 resolved/overridden 才进下一节点）；rejected 不受限（打回即「确认是问题」的合法出口）。强权泄压阀：新增 `wb_override_role`（POST /api/comments/override-role，operator 须=user）——整角色未闭环评论批量置 overridden（「强行通过 X 全部剩余」原型对应物）。空集=闭环（vacuous，0 评论可直接表态）。notification/discussion 行不参与闭环。轮次高亮沿用 -C7 reopen≥5 自动上升口径。
+>
+> **-L2（done 离场终态；BUG-016 拍板落地）**：flow_nodes.state 增加 **done** 业务终态（老模型「已通过」的 v1.0 对应物）——wb_advance 推进激活目标节点时，目标之前的全部活跃相位节点（entry/exec/review/respond，按 node_order 切片序）统一置 done（并行组对侧+存量脏状态一次自愈）；done 节点**禁止挂载**（wb_add_artifact/wb_assign_task → 400/409）；对 done 节点重复 wb_advance 幂等 noop 200；打回重入由 RollbackForRejectTx 复位；裁决轮重入对 done 节点 no-op（不阻断回填）。FE 点色 done=绿、徽标「done · 已完成」。
+>
+> **-L3（评论锚点简化为划词+文档级；OPT-005 拍板落地）**：锚点词表收紧为 **range（划词）+ document（文档级）** 两级——line/block 废弃（wb_comment 400 拒绝并引导本注记）；存量 line/block 数据只读兼容（展示不拒绝）。FE 阅读器交互对齐老阅读器手感：纯单击序列（首点=起点 / 重复点起点=取消 / 起点后点他行=框选区间 / 已有区间再点=重新开始），单行=range(n,n)，无选区=document。Markdown 渲染器扩容：+管道表格（对齐老 renderMd）+blockquote（User 拍板新增）。
+>
+> **-L4（大模型通路=本体需求；「DSH 插件 vs 独立 web」只是壳）**：无论壳形态，exec/review 环节的真执行必须**经 DSH 调用底层大模型**——参照 novel 库 `be/llm/dsh.go` 模式：rd 服务内建 llm adapter（baseURL/apiKey/model 配置化，prompt 模板驱动结构化 JSON 输出+围栏剥离），seed capability how=prompt 素材（读输入=上游入库产物）。produce 通路：节点激活→LLM 产出文档→服务端入库（wb_add_artifact，-K kind=document）→判据内聚推进；review 通路：LLM 按评审能力 how 读被评审产物→意见挂锚（-L3 划词/document）+表态；gate 拍板保留 User 专属；LLM 失败→任务回退+need_intervene 人工接管。落地节奏：先单节点真跑通（bus-01 to-brd）再全流程。2026-09-09 拍板①「一期自包含 Web」修订为：自包含 Web **含 LLM 通路**（无 LLM 的编排引擎不算可用 MVP——User 2026-09-10 深夜重定义）。
 | GET | /api/projects · POST /api/projects | （registry） | ProjectReq/Resp | dsh 嵌入期启用 |
 
 - **移出 agent/HTTP 清单**：wb_decide（门禁判定 = 内部 collect 判定 + User 拍板专用路由 `POST /api/requirements/:reqId/nodes/:nodeId/decision`，DecisionReq/Resp，**已注册实现**）、wb_override（escalate/adjudicate 取代，`POST /api/comments/:commentId/adjudicate` 承载）——语义保留在 service 层。

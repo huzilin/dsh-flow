@@ -571,14 +571,18 @@ func (s *RequirementService) instantiateFlowTx(ctx context.Context, tx *gormio.D
 	return nil
 }
 
-// Update wb_update_requirement：乐观锁更新（全字段替换语义）+ 自动 diff
-// 变更历史——逐变更字段同事务写 audit_log（UPDATE，旧值/新值，by_who=user）。
+// Update wb_update_requirement：乐观锁更新 + 自动 diff 变更历史——逐变更字段
+// 同事务写 audit_log（UPDATE，旧值/新值，by_who=user）。
+// 局部更新语义（2026-09-10 BUG-004 拍板）：title/description/category/priority/
+// status/owner/versionId **空串=不修改**——非空才校验+diff+写，全空=no-op 返回
+// 当前行（不写审计）；清空 owner/解绑 version 不经本端点（owner/version_id 以
+// 空串为合法值的旧口径废止，显式变更走对应管理流）。
 // category 变更时 flow_defs_id 按绑定规则重派生（未变更则保留原绑定）；
-// version_id 空串=移回待分配池（NULL）；无字段变更时 no-op 返回当前行
-// （幂等无害，不写审计）。
+// 无字段变更时 no-op 返回当前行（幂等无害，不写审计）。
 //
 // 入参：requirement_id 必填；updated_at=读取基线（0=以当前库值为基线，宽松模式）；
-// title/created_by 类必填校验、priority/status 枚举校验同创建。
+// 非空字段的类必填/枚举校验同创建（priority/status 枚举、category 未知类别、
+// version_id 存在性）。
 // 出参：更新后的需求行（新 updated_at 基线）。
 //
 // 错误集：ErrInvalidArgument（必填缺失/枚举外/流程派生越集）；
@@ -587,17 +591,12 @@ func (s *RequirementService) Update(ctx context.Context, req *api.UpdateRequirem
 	if req.RequirementId == "" {
 		return nil, invalidArg("requirement_id 必填")
 	}
-	if req.Title == "" {
-		return nil, invalidArg("title 必填")
-	}
-	if !domain.ValidPriority(req.Priority) {
+	// 局部更新校验口径（BUG-004）：非空才校验（空串=不修改，不参与 diff）
+	if req.Priority != "" && !domain.ValidPriority(req.Priority) {
 		return nil, invalidArg("非法优先级 %q（允许 P0-P3）", req.Priority)
 	}
-	if !domain.ValidRequirementStatus(req.Status) {
+	if req.Status != "" && !domain.ValidRequirementStatus(req.Status) {
 		return nil, invalidArg("非法状态 %q（允许：待启动/进行中/已完成/已取消）", req.Status)
-	}
-	if req.Category == "" {
-		return nil, invalidArg("category 必填")
 	}
 	if req.VersionId != "" {
 		exists, err := s.versionExists(ctx, req.VersionId)
@@ -619,8 +618,41 @@ func (s *RequirementService) Update(ctx context.Context, req *api.UpdateRequirem
 			return notFound("需求 %q 不存在", req.RequirementId)
 		}
 
+		// 空串=不修改：patch 以库行为缺省（空入参回落现值 → diff 恒 no-op）
+		title := row.Title
+		if req.Title != "" {
+			title = req.Title
+		}
+		description := row.Description
+		if req.Description != "" {
+			description = req.Description
+		}
+		category := row.Category
+		if req.Category != "" {
+			category = req.Category
+		}
+		priority := row.Priority
+		if req.Priority != "" {
+			priority = req.Priority
+		}
+		status := row.Status
+		if req.Status != "" {
+			status = req.Status
+		}
+		owner := row.Owner
+		if req.Owner != "" {
+			owner = req.Owner
+		}
+		versionID := ""
+		if row.VersionID != nil {
+			versionID = *row.VersionID
+		}
+		if req.VersionId != "" {
+			versionID = req.VersionId
+		}
+
 		flowDefsID := row.FlowDefsID
-		if req.Category != row.Category {
+		if req.Category != "" && req.Category != row.Category {
 			// 带流程实例的需求改 category：blocked 拒绝（数据一致性防线）——
 			// category 派生 flow_defs_id 并重投影实例节点集，流程已实例化时
 			// 原地重投影语义未定（编排接缝裁决 B 范畴，不做同事务重投影）。
@@ -639,20 +671,15 @@ func (s *RequirementService) Update(ctx context.Context, req *api.UpdateRequirem
 			flowDefsID = rederived
 		}
 
-		newVersionID := ""
-		if req.VersionId != "" {
-			newVersionID = req.VersionId
-		}
-
 		changes := diffRequirement(row, &updatePatch{
-			Title:       req.Title,
-			Description: req.Description,
-			Category:    req.Category,
+			Title:       title,
+			Description: description,
+			Category:    category,
 			FlowDefsID:  flowDefsID,
-			Priority:    req.Priority,
-			Status:      req.Status,
-			Owner:       req.Owner,
-			VersionID:   newVersionID,
+			Priority:    priority,
+			Status:      status,
+			Owner:       owner,
+			VersionID:   versionID,
 		})
 
 		if len(changes) == 0 {

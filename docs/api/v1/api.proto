@@ -403,6 +403,33 @@ message ReopenResp {
   IssueItem issue = 3;
 }
 
+// OverrideRoleReq POST /api/comments/override-role 入参（wb_override_role，注记-L1
+// 强权通道）：User 整角色强权通过——该节点该角色名下全部未闭环 issue 类评论批量置
+// overridden（「强行通过 X 全部剩余」的原型对应物）。闭环评论与 notification/
+// discussion 行不动。
+message OverrideRoleReq {
+  // requirement_id 需求 id（必填）
+  string requirement_id = 1;
+  // node_id 节点 id（必填）
+  string node_id = 2;
+  // reviewer_role 评审位角色（必填）
+  string reviewer_role = 3;
+  // operator 操作者（必填，须=user——强权为 User 专属）
+  string operator = 4;
+}
+
+// OverrideRoleResp POST /api/comments/override-role 出参。
+message OverrideRoleResp {
+  // ok 恒 true
+  bool ok = 1;
+  // node_id 节点 id 回显
+  string node_id = 2;
+  // reviewer_role 角色回显
+  string reviewer_role = 3;
+  // overridden 本次批量置 overridden 的评论数
+  int32 overridden = 4;
+}
+
 // GetRequirementResp 聚合快照出参（基础版：需求 + 版本信息 + 实例集合字段先立住）。
 message GetRequirementResp {
   // ok 恒 true
@@ -507,24 +534,26 @@ message CreateRequirementResp {
   RequirementItem requirement = 2;
 }
 
-// UpdateRequirementReq PUT /api/requirements/:reqId 入参（全字段替换语义；
-// updated_at 为读取基线，冲突返回 409 OPTIMISTIC_LOCK）。
+// UpdateRequirementReq PUT /api/requirements/:reqId 入参（局部更新语义，2026-09-10
+// BUG-004 拍板：**空串=不修改**——title/description/category/priority/status/
+// owner/version_id 非空才校验+diff+写，全空=no-op；owner/version_id 清空不经本
+// 端点。updated_at 为读取基线，冲突返回 409 OPTIMISTIC_LOCK）。
 message UpdateRequirementReq {
   // requirement_id 需求业务 id（reqId 取路径）
   string requirement_id = 1;
-  // title 标题
+  // title 标题（空串=不修改）
   string title = 2;
-  // description Markdown 描述
+  // description Markdown 描述（空串=不修改）
   string description = 3;
-  // category 类别标签（变更后 flow_defs_id 按绑定规则重派生）
+  // category 类别标签（空串=不修改；变更后 flow_defs_id 按绑定规则重派生）
   string category = 4;
-  // priority P0-P3
+  // priority P0-P3（空串=不修改）
   string priority = 5;
-  // status 需求状态（待启动/进行中/已完成/已取消）
+  // status 需求状态（待启动/进行中/已完成/已取消；空串=不修改）
   string status = 6;
-  // owner 负责人角色；空=未指派
+  // owner 负责人角色（空串=不修改；清空指派不经本端点）
   string owner = 7;
-  // version_id 归属版本；空串=移回待分配池
+  // version_id 归属版本（空串=不修改；解绑回待分配池走版本废弃解绑流）
   string version_id = 8;
   // updated_at 读取基线，unix 毫秒（乐观锁）
   int64 updated_at = 9;
@@ -686,7 +715,9 @@ message MyTaskReq {
 // MyTaskActionItem 激活动作（wb_my_task activeActions 条目；
 // kind=capability 来自能力动作词表，kind=node 为节点公共动作）。
 message MyTaskActionItem {
-  // action_id 动作标识（kind=capability 为能力内动作 id；kind=node 为 node action id）
+  // action_id 动作标识（kind=capability 为 "<capabilityId>.<action>" 全名，
+  // 2026-09-10 BUG-006 拍板：与 wb_assign_task 入参同口径可直接回填派发；
+  // kind=node 为 node action id，本就带点同口径）
   string action_id = 1;
   // name 动作显示名（kind=node 无独立名，取 action_id）
   string name = 2;

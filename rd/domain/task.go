@@ -53,6 +53,18 @@ func TaskTypeForAction(actionID string) (string, bool) {
 	return taskType, ok
 }
 
+// IsExecAdvanceFamily exec 阶段标志任务族（单一来源，2026-09-10 CR 复审收敛）：
+// produce/dev/accept/create_reqs 完成 = exec 出口放行的唯一判据集。消费方：
+// wb_advance execAdvanceReady 与 complete 内聚推进触发（两处必须同集，
+// 防扩族时单点漏改行为分叉）。
+func IsExecAdvanceFamily(taskType string) bool {
+	switch taskType {
+	case repo.TaskTypeProduce, repo.TaskTypeDev, repo.TaskTypeAccept, repo.TaskTypeCreateReqs:
+		return true
+	}
+	return false
+}
+
 // BranchForScope 泳道派生：rd/fe 单泳道按 scope 直取；full（双泳道）与 plan（无
 // scope）任务不锚定单侧泳道，branch 空（DDL 列注释「rd/fe/空」第三值）。
 func BranchForScope(scope string) string {

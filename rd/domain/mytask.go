@@ -29,7 +29,9 @@ type CapabilityInfo struct {
 
 // ActiveAction 激活动作投影（activeActions 条目）。
 type ActiveAction struct {
-	// ActionID 动作标识（能力内动作 id 或 node action id）
+	// ActionID 动作标识（kind=capability 为 "<capabilityId>.<action>" 全名——
+	// 与 wb_assign_task 入参同口径，2026-09-10 BUG-006 拍板：调用方可直接回填
+	// 派发；kind=node 为 node action id，本就带点同口径）
 	ActionID string
 	// Name 动作显示名（node action 无独立名，取 action_id）
 	Name string
@@ -78,7 +80,7 @@ func ActiveActionsFor(role string, phase string, nodeActionsJSON string, capabil
 			for _, action := range info.Actions {
 				if activated[action.ActionID] && action.On == phase {
 					active = append(active, ActiveAction{
-						ActionID:     action.ActionID,
+						ActionID:     entry.CapabilityID + "." + action.ActionID,
 						Name:         action.Name,
 						Kind:         repo.NodeActionKindCapability,
 						CapabilityID: entry.CapabilityID,

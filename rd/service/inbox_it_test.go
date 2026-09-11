@@ -109,11 +109,22 @@ func TestIntegration_InboxRealMySQL(t *testing.T) {
 	// 2. clarify_task + re_review：需求 2（bus-03=n-17）澄清循环全链
 	req2 := setupReviewNode(t, router, handles, "2", "n-17")
 	execSQL(t, handles, "UPDATE requirements SET owner = 'pm' WHERE requirement_id = ?", req2)
+	// BUG-013 口径：评审上下文 issue 评论必须锚产物（夹具登记上游产物）
+	seedUpstreamArtifact(t, handles, req2, "art-it-inbox", "n-16")
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+req2+"/comments", map[string]any{
 		"nodeId": "n-17", "author": "arch", "roleId": "arch", "text": "边界未覆盖", "assignee": "pm",
+		"anchor": map[string]any{"kind": "document", "artifactId": "art-it-inbox"},
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	issueID := item(t, resp, "issue").str("issueId")
+	// owner 先响应（回复不改变 open 态），再协商一致闭环（注记-L1：agree 前置=闭环）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies",
+		map[string]any{"by": "pm", "roleId": "pm", "text": "附录 C 已覆盖"})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
+		"commentId": issueID, "path": "agree", "operator": "pm", "note": "已补充边界",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, review(req2, "n-17", "arch", "arch.prd-review", "agree").code, http.StatusOK)
 	assert.Equal(t, review(req2, "n-17", "rd", "rd.prd-review", "unagree").code, http.StatusOK)
 	resp = review(req2, "n-17", "fe", "fe.prd-review", "agree")
@@ -133,8 +144,7 @@ func TestIntegration_InboxRealMySQL(t *testing.T) {
 	clarifyTask := item(t, resp, "task").str("taskId")
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+clarifyTask,
 		map[string]any{"event": "ack"}).code, http.StatusOK)
-	assert.Equal(t, reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies",
-		map[string]any{"by": "pm", "roleId": "pm", "text": "附录 C 已覆盖"}).code, http.StatusOK)
+	// （owner 回复已于表态前完成——注记-L1 闭环先行，澄清期仅为流程重入）
 	resp = reqJSON(t, router, http.MethodPatch, "/api/tasks/"+clarifyTask, map[string]any{"event": "complete"})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	resp = inbox(t, router, "?role=rd")
@@ -151,6 +161,7 @@ func TestIntegration_InboxRealMySQL(t *testing.T) {
 	// 3. escalation：评论携 escalate 置位 → 冲突上升裁决通知（reviewer 主持）
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+req2+"/comments", map[string]any{
 		"nodeId": "n-17", "author": "arch", "roleId": "arch", "text": "口径冲突，上升裁决", "escalate": true,
+		"anchor": map[string]any{"kind": "document", "artifactId": "art-it-inbox"},
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	escIssueID := item(t, resp, "issue").str("issueId")
@@ -236,6 +247,8 @@ func TestIntegration_InboxRealMySQL(t *testing.T) {
 	assert.Equal(t, arr(t, resp, "notifications")[0].str("issueId"), qaIDs[0], "已读垫底")
 
 	// 8. TODO 投影一致性：tasks 表同源、终态不残留
+	// （相位守卫 BUG-005 口径：派发节点先播种 exec）
+	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec' WHERE node_id = 'n-03'")
 	resp = reqJSON(t, router, http.MethodPost, "/api/tasks", map[string]any{
 		"requirementId": reqID, "nodeId": "n-03", "actionId": "product-design.produce", "assignee": "pm",
 	})

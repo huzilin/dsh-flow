@@ -32,7 +32,8 @@ func NewFlowService(r *repo.Repo) *FlowService {
 // current_phase（=node.state，""=未进入编排）、active_actions（节点激活清单 ×
 // 相位 on × 角色归属过滤）、review_summary（per-agent 聚合计数与明细）、
 // related_nodes（该角色相关节点最小集：评审位 / node action 响应者 / 能力归属）、
-// related_artifacts（目标节点已登记产物摘要，T6 产物侧注入；无目标节点=空集）、
+// related_artifacts（产物侧上下文注入：本节点已登记产物摘要 + 评审节点的被评审
+// 产物（直接上游 produce，BUG-011 口径）置前；无目标节点=空集）、
 // related_tasks（该需求该节点在途任务 task_id/action/status 摘要，T5 任务侧注入）、
 // related_issues（目标节点未闭合 issue 摘要：issueId/state/issueType/assignee/anchor，T7）。
 //
@@ -127,8 +128,10 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 		return resp, nil
 	}
 
-	// 产物侧上下文注入：目标节点已登记产物摘要（无登记=空集，不报错）
-	relatedArtifacts, err := s.loadRelatedArtifacts(ctx, req.RequirementId, node.NodeID)
+	// 产物侧上下文注入：目标节点已登记产物摘要（无登记=空集，不报错）；
+	// 评审节点追加被评审产物（2026-09-10 BUG-011 拍板：直接上游 produce 节点
+	// 已登记产物=提评来源，多上游全取）
+	relatedArtifacts, err := s.loadRelatedArtifacts(ctx, req.RequirementId, node, nodeRows, defByTmplID)
 	if err != nil {
 		return nil, errs.Trace(err)
 	}
@@ -338,24 +341,64 @@ func (s *FlowService) DependencyTree(ctx context.Context, req *api.DependencyTre
 	return resp, nil
 }
 
-// loadRelatedArtifacts 目标节点已登记产物摘要（my_task 产物侧上下文注入，
-// T6）。登记集为空=无产物（空集不报错）；改动收敛于本独立函数，便于并行
-// 工单对 flow.go 的三方合并。
-func (s *FlowService) loadRelatedArtifacts(ctx context.Context, requirementID string, nodeID string) ([]*api.RelatedArtifactItem, error) {
-	rows, err := s.repo.ListArtifactsByRequirementAndNode(ctx, requirementID, nodeID)
-	if err != nil {
-		return nil, errs.Trace(err)
+// loadRelatedArtifacts 目标节点产物摘要装配（my_task 产物侧上下文注入，T6）：
+// 本节点已登记产物 + 评审节点的被评审产物（2026-09-10 BUG-011 拍板：node_type=
+// review 的节点追加直接上游 produce 节点已登记产物=提评来源，被评审产物置前
+// ——评审者先读被评审文档，零跳转）。登记集为空=无产物（空集不报错）；改动
+// 收敛于本独立函数，便于并行工单对 flow.go 的多方合并。
+func (s *FlowService) loadRelatedArtifacts(ctx context.Context, requirementID string, node *repo.FlowNode, nodeRows []*repo.FlowNode, defByTmplID map[string]*repo.FlowDefNode) ([]*api.RelatedArtifactItem, error) {
+	items := make([]*api.RelatedArtifactItem, 0)
+	if defNode, ok := defByTmplID[node.DefNodeID]; ok && defNode.NodeType == repo.NodeTypeReview {
+		for _, upstream := range upstreamProduceNodes(defByTmplID, nodeRows, node) {
+			if err := appendArtifactItems(ctx, s.repo, &items, requirementID, upstream.NodeID); err != nil {
+				return nil, err
+			}
+		}
 	}
-	items := make([]*api.RelatedArtifactItem, 0, len(rows))
+	if err := appendArtifactItems(ctx, s.repo, &items, requirementID, node.NodeID); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// appendArtifactItems 单节点已登记产物摘要追加（登记序；loadRelatedArtifacts
+// 装配子步）。
+//
+// 错误集：底层 IO 错误经 Trace 上抛。
+func appendArtifactItems(ctx context.Context, r *repo.Repo, items *[]*api.RelatedArtifactItem, requirementID string, nodeID string) error {
+	rows, err := r.ListArtifactsByRequirementAndNode(ctx, requirementID, nodeID)
+	if err != nil {
+		return errs.Trace(err)
+	}
 	for _, row := range rows {
-		items = append(items, &api.RelatedArtifactItem{
+		*items = append(*items, &api.RelatedArtifactItem{
 			ArtifactId:  row.ArtifactID,
 			ProductType: row.ProductType,
 			Label:       row.Label,
 			Kind:        row.Kind,
 		})
 	}
-	return items, nil
+	return nil
+}
+
+// upstreamProduceNodes 评审节点的直接上游 produce 实例节点集（BUG-011 被评审
+// 产物口径）：自紧邻前驱（node_order 降序）向前连续收集 produce 型节点，遇首个
+// 非 produce 前驱停止——实例链线性，紧邻连续 produce 段即全部直接上游提评来源
+// （多上游全取）；紧邻前驱即非 produce（纯对齐/门禁前驱）返回空集。
+func upstreamProduceNodes(defByTmplID map[string]*repo.FlowDefNode, nodeRows []*repo.FlowNode, node *repo.FlowNode) []*repo.FlowNode {
+	out := make([]*repo.FlowNode, 0)
+	for i := len(nodeRows) - 1; i >= 0; i-- {
+		candidate := nodeRows[i]
+		if candidate.NodeOrder >= node.NodeOrder {
+			continue
+		}
+		defNode, ok := defByTmplID[candidate.DefNodeID]
+		if !ok || defNode.NodeType != repo.NodeTypeProduce {
+			break
+		}
+		out = append([]*repo.FlowNode{candidate}, out...)
+	}
+	return out
 }
 
 // resolveTargetNode 解析 my_task 目标节点：显式 nodeId 优先；缺省取当前节点

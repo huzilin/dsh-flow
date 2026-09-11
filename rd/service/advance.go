@@ -218,6 +218,11 @@ func (s *AdvanceService) advanceNodeLocked(ctx context.Context, tx *gormio.DB, f
 		return nil, gateBlocked("节点 %q 澄清中（respond 相位由 owner complete 判据触发评审重入）", node.NodeID)
 	case repo.PhaseEntry:
 		return nil, gateBlocked("节点 %q entry 相位由 wb_decision 拍板推进", node.NodeID)
+	case repo.PhaseDone:
+		// 注记-L2：done=已被推进离场（业务完成态）——重复 advance 幂等命中 noop
+		// （「已完成推进应 200 幂等」口径不变），不得回落为 blocked。
+		res.Outcome = AdvanceOutcomeNoop
+		return res, nil
 	default:
 		return nil, gateBlocked("节点 %q 未进入编排（state 空），无可推进相位", node.NodeID)
 	}
@@ -361,6 +366,30 @@ func (s *AdvanceService) activateAndMoveLockedTx(ctx context.Context, tx *gormio
 	if defNode == nil {
 		return nil, notFound("定义节点 %q 缺失（seed 异常）", target.DefNodeID)
 	}
+
+	// 注记-L2（BUG-016 拍板 2026-09-10）：推进离场终态——目标节点之前的全部活跃相位
+	// 节点（entry/exec/review/respond）统一置 done（业务完成态，老模型「已通过」的
+	// v1.0 对应物）。按切片序（node_order 有序）收口：常规离场 + 并行组对侧 + 存量
+	// 脏状态一次自愈。done 禁止挂载产物/任务（artifact/assign 守卫）；打回重入由
+	// 回退核复位（RollbackForRejectTx），reproject 裁剪不涉 done。
+	targetIdx := -1
+	for i, n := range nodes {
+		if n.NodeID == target.NodeID {
+			targetIdx = i
+			break
+		}
+	}
+	if targetIdx > 0 {
+		for _, leave := range nodes[:targetIdx] {
+			switch leave.State {
+			case repo.PhaseEntry, repo.PhaseExec, repo.PhaseReview, repo.PhaseRespond:
+				audits := []repo.AuditLog{reviewAudit(leave, "state", leave.State, repo.PhaseDone, byWho)}
+				if err := applyNodeUpdatesTx(ctx, s.repo, tx, leave, map[string]any{"state": repo.PhaseDone}, audits); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	if target.State == "" {
 		phase, err := domain.ActivationPhase(defNode.NodeType, defNode.NodeActions)
 		if err != nil {
@@ -390,6 +419,11 @@ func (s *AdvanceService) activateAndMoveLockedTx(ctx context.Context, tx *gormio
 			return nil, err
 		}
 	}
+	// 需求状态联动（2026-09-10 BUG-001 拍板，spec §7.3 收尾联动补实现）：触发点
+	// ①流程首次进入编排 / ②落位尾节点，详见 syncRequirementStatusLockedTx。
+	if err := s.syncRequirementStatusLockedTx(ctx, tx, flow, nodes, target, byWho); err != nil {
+		return nil, err
+	}
 	if flow.CurrentNodeID != nil && *flow.CurrentNodeID == target.NodeID {
 		res.Outcome = AdvanceOutcomeNoop
 		res.NextNodeID = target.NodeID
@@ -418,6 +452,65 @@ func (s *AdvanceService) activateAndMoveLockedTx(ctx context.Context, tx *gormio
 	return res, nil
 }
 
+// syncRequirementStatusLockedTx requirements.status ↔ 编排推进联动写核（2026-09-10
+// BUG-001 拍板，spec §7.3「收尾→已完成」联动补实现）。落点在激活落位核
+// activateAndMoveLockedTx——wb_advance / wb_decision / complete 内聚推进 /
+// scanner 巡检四条路径统一收口于此。触发点二：
+//
+//   - 流程首次进入编排（flows.current_node_id 由空变非空）→ 待启动→进行中；
+//   - 落位尾节点（实例链最后一个节点被激活/驻留）→ 已完成（优先于进行中判定——
+//     单节点流程首次推进即完成）。
+//
+// 写口径：同事务 + 审计（by_who=推进方 plugin/system）；目标态与现值同值不写
+// （幂等，不产生重复审计）；已取消=终态不覆盖（取消需求不应再推进，防御性跳过）。
+// requirements 乐观锁不介入：不带基线直更 status 列（行锁由 flows 链路串行化），
+// 避免与 wb_update_requirement 手动更新互相制造 409 冲突面。
+//
+// 错误集：ErrNotFound（需求行缺失）；底层 IO 错误经 Trace 上抛。
+func (s *AdvanceService) syncRequirementStatusLockedTx(ctx context.Context, tx *gormio.DB, flow *repo.Flow, nodes []*repo.FlowNode, target *repo.FlowNode, byWho string) error {
+	if target == nil || len(nodes) == 0 {
+		return nil
+	}
+	firstEntry := flow.CurrentNodeID == nil || *flow.CurrentNodeID == ""
+	tail := target.NodeID == nodes[len(nodes)-1].NodeID
+	if !firstEntry && !tail {
+		return nil
+	}
+	targetStatus := domain.ReqStatusRunning
+	if tail {
+		targetStatus = domain.ReqStatusDone
+	}
+	row, err := repo.GetRequirementByIDTx(ctx, tx, flow.RequirementID)
+	if err != nil {
+		return errs.Trace(err)
+	}
+	if row == nil {
+		return notFound("需求 %q 不存在", flow.RequirementID)
+	}
+	switch {
+	case row.Status == domain.ReqStatusCanceled:
+		return nil // 已取消=终态不覆盖
+	case row.Status == domain.ReqStatusDone && targetStatus != domain.ReqStatusDone:
+		return nil // 已完成预置不降级（CR 复审边界口径，2026-09-10）
+	case row.Status == targetStatus:
+		return nil // 同值幂等不写
+	}
+	if err := tx.WithContext(ctx).Model(&repo.Requirement{}).
+		Where("requirement_id = ?", row.RequirementID).
+		Update("status", targetStatus).Error; err != nil {
+		return errs.Trace(err)
+	}
+	return s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
+		Table:    "requirements",
+		RowID:    row.RequirementID,
+		Action:   "UPDATE",
+		Field:    utils.StrPtr("status"),
+		OldValue: utils.StrPtr(row.Status),
+		NewValue: utils.StrPtr(targetStatus),
+		ByWho:    byWho,
+	})
+}
+
 // execAdvanceReady exec 相位推进判据：exec 族（produce/dev/accept）任务已有完成
 // 且无在途；否则 rule4 空转兜底——相位无挂载能力动作且无期望产物 → 视为通过直接
 // 轮转（capability-model-final §6 rule4，collect.go 空转语义同源）。
@@ -429,14 +522,14 @@ func (s *AdvanceService) execAdvanceReady(ctx context.Context, tx *gormio.DB, de
 	}
 	completed, inflight := 0, 0
 	for _, task := range tasks {
-		switch task.TaskType {
-		case repo.TaskTypeProduce, repo.TaskTypeDev, repo.TaskTypeAccept:
-			switch {
-			case task.Status == repo.TaskStatusCompleted:
-				completed++
-			case !isTerminalTask(task):
-				inflight++
-			}
+		if !domain.IsExecAdvanceFamily(task.TaskType) {
+			continue
+		}
+		switch {
+		case task.Status == repo.TaskStatusCompleted:
+			completed++
+		case !isTerminalTask(task):
+			inflight++
 		}
 	}
 	if completed > 0 && inflight == 0 {
@@ -487,6 +580,14 @@ func (s *AdvanceService) SweepParallelJoins(ctx context.Context) ([]string, erro
 			nodes, err := repo.ListFlowNodesByRequirementLockTx(ctx, tx, locked.RequirementID)
 			if err != nil {
 				return err
+			}
+			// 打回重定窗口守卫（2026-09-10）：任一节点持有 pending_scope（rejected 回退
+			// 已落、reproject 未做）时巡检跳过——窗口内推进会让尚未重投影的下游节点按
+			// 裁剪前评审位激活播种，与随后的重投影裁剪竞速留下幽灵评审位。
+			for _, n := range nodes {
+				if n.PendingScope != nil {
+					return nil
+				}
 			}
 			res, err := s.advanceNodeLocked(ctx, tx, locked, nodes, derefString(locked.CurrentNodeID), auditByWhoSystem)
 			if err != nil {

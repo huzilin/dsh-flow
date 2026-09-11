@@ -46,6 +46,25 @@ func setupReviewNode(t *testing.T, router *gin.Engine, handles *database.DB, lab
 	return reqID
 }
 
+// seedUpstreamArtifact 评审链夹具：指定节点登记产物行（BUG-011/013 评审上下文
+// 断言数据源——评审评论锚产物强制的锚定目标）。同 id 已存在时跳过（幂等，
+// 同需求多 issue 夹具共用）。
+func seedUpstreamArtifact(t *testing.T, handles *database.DB, reqID string, artifactID string, nodeID string) {
+	t.Helper()
+	var count int64
+	assert.NilError(t, handles.Gorm.WithContext(context.Background()).
+		Raw("SELECT COUNT(*) FROM artifacts WHERE artifact_id = ?", artifactID).Scan(&count).Error)
+	if count > 0 {
+		return
+	}
+	art := &repo.Artifact{
+		ArtifactID: artifactID, RequirementID: reqID, NodeID: nodeID,
+		ProductType: "product_doc", Label: "《产品设计文档》", Href: "docs/product.md",
+		Kind: "document", AddedBy: "pm",
+	}
+	assert.NilError(t, handles.Gorm.Create(art).Error)
+}
+
 // nodeCol scratch 库读实例节点单列文本（NULL=空串；col 限内部字面量，不收外部输入）。
 func nodeCol(t *testing.T, handles *database.DB, nodeId string, col string) string {
 	t.Helper()
@@ -233,15 +252,30 @@ func TestIntegration_ReviewClarifyLoop_RealMySQL(t *testing.T) {
 
 	reqID := setupReviewNode(t, router, handles, "1", "n-04")
 
-	// reviewer 先提 issue（open；评审节点无 exec 能力归属，按 T7 口径显式指派 owner=pm），
+	// reviewer 先提 issue（open；评审节点无 exec 能力归属，按 T7 口径显式指派 owner=pm；
+	// BUG-013 口径：评审上下文 issue 评论必须锚产物——夹具登记上游产物并携锚），
 	// 再报 agree
+	seedUpstreamArtifact(t, handles, reqID, "art-it-review", "n-03")
 	resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/comments", map[string]any{
 		"nodeId": "n-04", "author": "arch", "roleId": "arch", "text": "边界场景未覆盖", "assignee": "pm",
+		"anchor": map[string]any{"kind": "document", "artifactId": "art-it-review"},
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	issueID := item(t, resp, "issue").str("issueId")
+	// 注记-L1：agree 前置=名下评论闭环——owner 协商一致关闭后再表态
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
+		"commentId": issueID, "path": "agree", "operator": "pm", "note": "补充边界场景",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 
 	assert.Equal(t, review(reqID, "n-04", "arch", "arch.prd-review", "agree").code, http.StatusOK)
+	// rd 另提 open issue（unagree 提异议不受闭环限制——-L1 只约束 agree）
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/comments", map[string]any{
+		"nodeId": "n-04", "author": "rd", "roleId": "rd", "text": "接口超时策略未定义", "assignee": "pm",
+		"anchor": map[string]any{"kind": "document", "artifactId": "art-it-review"},
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	issue2 := item(t, resp, "issue").str("issueId")
 	// 存在 unagree 且未齐 → pending（先齐后判，§1.2a ①→②）
 	resp = review(reqID, "n-04", "rd", "rd.prd-review", "unagree")
 	assert.Equal(t, resp.str("collectOutcome"), "pending", "未齐不触发澄清")
@@ -258,10 +292,10 @@ func TestIntegration_ReviewClarifyLoop_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.str("currentPhase"), "respond")
 	active := arr(t, resp, "activeActions")
 	assert.Equal(t, len(active), 1)
-	assert.Equal(t, active[0].str("actionId"), "clarify")
+	assert.Equal(t, active[0].str("actionId"), "product-design.clarify", "BUG-006 口径：全名回显")
 	issues := arr(t, resp, "relatedIssues")
-	assert.Equal(t, len(issues), 1, "clarify 上下文携带 open issue")
-	assert.Equal(t, issues[0].str("issueId"), issueID)
+	assert.Equal(t, len(issues), 1, "clarify 上下文携带 open issue（rd 的超时议题）")
+	assert.Equal(t, issues[0].str("issueId"), issue2)
 
 	// 派发 respond 任务并上报：open issue 未清 → complete 判据拦截回 in-progress
 	resp = reqJSON(t, router, http.MethodPost, "/api/tasks", map[string]any{
@@ -278,8 +312,8 @@ func TestIntegration_ReviewClarifyLoop_RealMySQL(t *testing.T) {
 	assert.Equal(t, nodeCol(t, handles, "n-04", "state"), "respond", "节点停留 respond")
 
 	// owner 澄清回复：open→pending-confirm（open 清零）→ complete 通过 → 评审轮重入
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
-		"by": "pm", "roleId": "pm", "text": "边界场景已在附录 C 覆盖",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issue2+"/replies", map[string]any{
+		"by": "pm", "roleId": "pm", "text": "超时策略已在 §6 约定",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	resp = reqJSON(t, router, http.MethodPatch, "/api/tasks/"+taskID, map[string]any{"event": "complete"})

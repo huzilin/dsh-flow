@@ -19,6 +19,8 @@
 -- v0.28（§10 节点-能力绑定模型，User 拍板落库）：
 --   * A 点：capabilities.doc_path/template_path/demo_path 三列 → 单列 products
 --     （JSON: [{doc_path, template_path, demo_path}]，一能力可多产物；评审/决策类 '[]'）
+--   * v0.29（产出标准权威迁 skill，User 拍板 D4，semantica 47c53ed9）：products 项删 template_path，
+--     现值 [{doc_path, demo_path}]——标准指针不入 DB，产出/评审端经产出 skill 寻址（docs/templates/skills/）
 --   * QA 能力合并（§10.1-3）：acceptance-test + defect-management → 一个能力
 --     「验收与缺陷管理」（acceptance-test）挂 2 产物（qa/test.md + qa/defect.md）；
 --     defect-management 行删除，how 并入。能力 20 → 19 项。
@@ -48,11 +50,11 @@ INSERT INTO roles (role_id, name, note) VALUES
 -- ---------------------------------------------------------------------
 -- capabilities 19 项（role_id 唯一归属；how 为能力本体 ≥2 步：读输入→产出/评审→自检→登记）
 -- 产出型 11 项（products 有 1–2 项产物）；评审/决策型 8 项 products='[]'
--- products 每项：doc_path + template_path/demo_path（指向 docs/templates/ 外置模板文件，v0.23）
---   已建档 9 组模板（prd / backend-design-doc / frontend-design-doc / qa-acceptance /
---   qa-defect-management / qa-testcase-review / arch-version-scope-align / arch-version-design /
---   research-open-source-tech），template_path/demo_path 为 null 即未固化
---   （backend-dev/frontend-dev/plan-cap 3 项）
+-- products 每项（v0.29）：doc_path + demo_path（填充示例，docs/templates/xxx-demo.md）；
+--   无 template_path（D4：产出标准以产出 skill 为权威 docs/templates/skills/，DB 不存标准指针）
+--   有 skill 4 类：to-brd / to-prd / to-rd-techdesign / to-fe-techdesign；无 skill 暂由
+--   docs/templates/*-template.md 承载（skill 待建，索引 docs/templates/README.md）；
+--   demo_path 为 null 即示例未固化（backend-dev/frontend-dev/plan-cap 3 项）
 -- QA 合并（§10.1-3）：acceptance-test 挂 2 产物（qa/test.md + qa/defect.md）；defect-management 已删除
 -- ---------------------------------------------------------------------
 INSERT INTO capabilities (capability_id, name, role_id, how, products) VALUES
@@ -63,17 +65,18 @@ INSERT INTO capabilities (capability_id, name, role_id, how, products) VALUES
     "发现缺陷：登记《缺陷文档》（qa-defect-management 模板：现象/复现/预期/实际 + 归属判定 domain=rd|fe，缺陷分析依赖代码）→ qa/defect.md",
     "缺陷返工：wb_comment(domain=rd|fe) 自动路由 assignee → 返工 → resolve → 重跑自动化回测复验 → confirm/reopen 闭环（roundCount 拉锯）",
     "登记产物 wb_add_artifact(test.md + qa/data/ + qa/code/ link, nodeId=当前节点) → 缺陷闭环后提评/推进"]',
-  '[{"doc_path":"docs/<版本号>/<需求名>/qa/test.md","template_path":"docs/templates/qa-acceptance-template.md","demo_path":"docs/templates/qa-acceptance-demo.md"},
-    {"doc_path":"docs/<版本号>/<需求名>/qa/defect.md","template_path":"docs/templates/qa-defect-management-template.md","demo_path":"docs/templates/qa-defect-management-demo.md"}]'),
+  '[{"doc_path":"docs/<版本号>/<需求名>/qa/test.md","demo_path":"docs/templates/qa-acceptance-demo.md"},
+    {"doc_path":"docs/<版本号>/<需求名>/qa/defect.md","demo_path":"docs/templates/qa-defect-management-demo.md"}]'),
 ('alignment-cap', '需求对齐', 'arch',
   '["读输入：待启动版本需求池 + roadmap.md（上版本路线）",
     "产出《需求对齐文档》alignment：版本方向/需求池梳理/范围界定",
     "自检：价值评估可溯源、分歧有结论、后续动作明确",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=PM)"]',
-  '[{"doc_path":"docs/<版本号>/align.md","template_path":"docs/templates/arch-version-scope-align-template.md","demo_path":"docs/templates/arch-version-scope-align-demo.md"}]'),
+  '[{"doc_path":"docs/<版本号>/align.md","demo_path":"docs/templates/arch-version-scope-align-demo.md"}]'),
 ('arch-tech-review', '技术方案评审（架构视角）', 'arch',
   '["读输入：被评审设计文档（rd-design/fe-design/case-design）",
     "按 focus 评审：技术路线/架构一致/重构影响/调研建议合理性（评审维度见 how 结尾）",
+    "按产出 skill（to-rd-techdesign）自检节核对：接口/数据设计与架构方向约束一致",
     "评论 wb_comment(reviewerRole=arch) → wb_review 表态",
     "复核：意见闭环后确认（resolve）"]',
   '[]'),
@@ -82,25 +85,25 @@ INSERT INTO capabilities (capability_id, name, role_id, how, products) VALUES
     "产出《架构规划》architecture：版本目标/能力规划/需求拆解",
     "自检：拆解覆盖版本目标、架构约束可供 rd/fe-design 遵循",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=Leader/PM)"]',
-  '[{"doc_path":"docs/<版本号>/arch_design.md","template_path":"docs/templates/arch-version-design-template.md","demo_path":"docs/templates/arch-version-design-demo.md"}]'),
+  '[{"doc_path":"docs/<版本号>/arch_design.md","demo_path":"docs/templates/arch-version-design-demo.md"}]'),
 ('backend-design', '后端技术设计', 'rd',
   '["读输入：prd/prd.md（产品设计）+ 版本 arch_design.md（大方向）",
-    "产出《RD 技术设计》：按模板 backend-design-doc 章节骨架逐节编写",
-    "自检质量门禁：接口/数据设计对照 prd/prd.md+arch_design.md 一致",
+    "产出《RD 技术设计》：按产出 skill（to-rd-techdesign）标准逐节撰写，章节骨架/门禁/准出以 skill 为权威",
+    "按 skill 自检节自检：接口/数据设计对照 prd/prd.md+arch_design.md 一致，准出 blocker 不过不提评",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=评审归属)"]',
-  '[{"doc_path":"docs/<版本号>/<需求名>/rd/design.md","template_path":"docs/templates/backend-design-doc-template.md","demo_path":"docs/templates/backend-design-doc-demo.md"}]'),
+  '[{"doc_path":"docs/<版本号>/<需求名>/rd/design.md","demo_path":"docs/templates/backend-design-doc-demo.md"}]'),
 ('backend-dev', '后端开发', 'rd',
   '["读输入：rd/design.md + qa/cases.md（用例口径）+ featureBranch",
     "开发实现 + 自测：按 dev-notes 模板记录实现-设计对照表",
     "自检质量门禁：设计要点逐项落地、边界处理、回归风险说明",
     "登记产物 wb_add_artifact(MR link, nodeId=当前节点) → 提评 wb_comment(to=cr)"]',
-  '[{"doc_path":"docs/<版本号>/<需求名>/rd/dev.md","template_path":null,"demo_path":null}]'),
+  '[{"doc_path":"docs/<版本号>/<需求名>/rd/dev.md","demo_path":null}]'),
 ('case-design-cap', '用例/联调设计', 'qa',
   '["读输入：rd/design.md + fe/design.md（前后端口径）",
     "产出《用例/联调设计》：按模板 qa-testcase-review 章节骨架逐节编写",
     "自检质量门禁：AC 逐条映射用例、联调场景可执行",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=RD/FE)"]',
-  '[{"doc_path":"docs/<版本号>/<需求名>/qa/cases.md","template_path":"docs/templates/qa-testcase-review-template.md","demo_path":"docs/templates/qa-testcase-review-demo.md"}]'),
+  '[{"doc_path":"docs/<版本号>/<需求名>/qa/cases.md","demo_path":"docs/templates/qa-testcase-review-demo.md"}]'),
 ('code-review', '代码评审', 'cr',
   '["读输入：MR link + dev-notes（实现-设计对照表）+ 对应设计文档",
     "按质量门禁评审：代码质量/设计落地/边界与回归风险",
@@ -116,6 +119,7 @@ INSERT INTO capabilities (capability_id, name, role_id, how, products) VALUES
 ('fe-tech-review', '技术方案评审（前端视角）', 'fe',
   '["读输入：被评审设计文档（rd-design/fe-design/case-design）",
     "按 focus 评审：接口契约可对接/前端口径（各审各的，评审维度见 how 结尾）",
+    "按产出 skill（to-fe-techdesign）自检节逐条核对：准出 blocker（逐字段对齐 rd 契约/序列化口径随 rd）不过即打回",
     "评论 wb_comment(reviewerRole=fe) → wb_review 表态",
     "复核：意见闭环后确认（resolve）"]',
   '[]'),
@@ -127,43 +131,46 @@ INSERT INTO capabilities (capability_id, name, role_id, how, products) VALUES
   '[]'),
 ('frontend-design', '前端技术设计', 'fe',
   '["读输入：prd/prd.md（产品方案）+ rd/design.md（接口契约）",
-    "产出《FE 技术设计》：按模板 frontend-design-doc 章节骨架逐节编写",
-    "自检质量门禁：接口消费与 rd 契约一致、关键路径可验证",
+    "产出《FE 技术设计》：按产出 skill（to-fe-techdesign）标准逐节撰写，章节骨架/门禁/准出以 skill 为权威",
+    "按 skill 自检节自检：接口消费与 rd 契约逐字段一致、关键路径可验证，准出 blocker 不过不提评",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=QA)"]',
-  '[{"doc_path":"docs/<版本号>/<需求名>/fe/design.md","template_path":"docs/templates/frontend-design-doc-template.md","demo_path":"docs/templates/frontend-design-doc-demo.md"}]'),
+  '[{"doc_path":"docs/<版本号>/<需求名>/fe/design.md","demo_path":"docs/templates/frontend-design-doc-demo.md"}]'),
 ('frontend-dev', '前端开发', 'fe',
   '["读输入：fe/design.md + qa/cases.md（用例口径）+ featureBranch",
     "开发实现 + 自测：按 dev-notes 模板记录实现-设计对照表",
     "自检质量门禁：接口消费与契约一致、关键路径可用、回归风险说明",
     "登记产物 wb_add_artifact(MR link, nodeId=当前节点) → 提评 wb_comment(to=cr)"]',
-  '[{"doc_path":"docs/<版本号>/<需求名>/fe/dev.md","template_path":null,"demo_path":null}]'),
+  '[{"doc_path":"docs/<版本号>/<需求名>/fe/dev.md","demo_path":null}]'),
 ('plan-cap', '方案设计（任务）', 'executor',
   '["读输入：任务说明（缺陷报告/需求描述）+ arch_design.md",
     "产出《方案文档》plan：根因/方案/影响面/验证方案/分支约定",
     "自检：方案可落地、验证可执行、分支名符合 fix/<需求id>-<主题>",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=QA)"]',
-  '[{"doc_path":"docs/<版本号>/<需求名>/plan.md","template_path":null,"demo_path":null}]'),
+  '[{"doc_path":"docs/<版本号>/<需求名>/plan.md","demo_path":null}]'),
 ('pm-review', '价值/排期评审', 'pm',
   '["读输入：prd/prd.md（价值/优先级/范围）+ rd/design.md（工期依赖）",
     "按 focus 评审：需求价值/优先级/范围/工期依赖（各审各的，评审维度见 how 结尾）",
+    "按产出 skill（to-prd）自检节核对：目标/范围/AC 无歧义，下游可无歧义消费",
     "评论 wb_comment(reviewerRole=pm) → wb_review 表态",
     "复核：意见闭环后确认（resolve）"]',
   '[]'),
 ('product-design', '产品设计', 'arch',
   '["读输入：需求池需求描述 + 版本架构文档 arch_design.md（大方向）",
-    "产出《产品设计文档》：按 prd 模板章节骨架逐节编写",
-    "自检质量门禁：AC 可验证、范围与架构方向不冲突",
+    "产出《产品设计文档》：按产出 skill（to-prd）标准逐节撰写，章节骨架/门禁/准出以 skill 为权威",
+    "按 skill 自检节自检：AC 可验证、范围与架构方向不冲突，下游可无歧义消费",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=PM)"]',
-  '[{"doc_path":"docs/<版本号>/<需求名>/prd/prd.md","template_path":"docs/templates/prd-template.md","demo_path":"docs/templates/prd-demo.md"}]'),
+  '[{"doc_path":"docs/<版本号>/<需求名>/prd/prd.md","demo_path":"docs/templates/prd-demo.md"}]'),
 ('qa-tech-review', '技术方案评审（测试视角）', 'qa',
   '["读输入：被评审设计文档（rd-design/fe-design/case-design）",
     "按 focus 评审：可测性/联调口径/用例覆盖（各审各的，评审维度见 how 结尾）",
+    "按产出 skill（to-rd-techdesign / to-fe-techdesign）自检节核对：数据可测性、边界态处理说明齐备",
     "评论 wb_comment(reviewerRole=qa) → wb_review 表态",
     "复核：意见闭环后确认（resolve）"]',
   '[]'),
 ('rd-tech-review', '技术方案评审（后端视角）', 'rd',
   '["读输入：被评审设计文档（rd-design/case-design）+ prd/prd.md",
     "按 focus 评审：设计完整性/自测方案/后端口径（各审各的，评审维度见 how 结尾）",
+    "按产出 skill（to-rd-techdesign）自检节逐条核对：准出 blocker（接口与契约真相源一致/序列化口径一致/覆盖无遗漏）不过即打回",
     "评论 wb_comment(reviewerRole=rd) → wb_review 表态",
     "复核：意见闭环后确认（resolve）"]',
   '[]'),
@@ -172,7 +179,7 @@ INSERT INTO capabilities (capability_id, name, role_id, how, products) VALUES
     "调研竞品/开源方案：GitHub 等，产出《调研文档》research",
     "自检：候选覆盖 align 范围、结论附依据、建议明确（引入/重写）",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=Architect)"]',
-  '[{"doc_path":"docs/<版本号>/research.md","template_path":"docs/templates/research-open-source-tech-template.md","demo_path":"docs/templates/research-open-source-tech-demo.md"}]');
+  '[{"doc_path":"docs/<版本号>/research.md","demo_path":"docs/templates/research-open-source-tech-demo.md"}]');
 
 -- ---------------------------------------------------------------------
 -- flow_templates 4 种（flow_templates_id + scope_options；节点拓扑见 flow_template_nodes；时间戳走 DEFAULT）
@@ -323,4 +330,4 @@ INSERT INTO flow_template_nodes
 --   + flow_template_nodes.mode 列（produce|align）与 capability_id 可空（需求对齐无产物节点）
 --   + reviewers 统一 [{role,capability_id,scope?}]（focus 移除、leader 移出））
 -- ---------------------------------------------------------------------
-INSERT INTO meta (meta_key, meta_value) VALUES ('schema_version', '28');
+INSERT INTO meta (meta_key, meta_value) VALUES ('schema_version', '29');

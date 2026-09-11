@@ -435,6 +435,10 @@ func adjudicationReply(ruling Ruling) repo.IssueReply {
 // AC「阈值自动 escalate + 通知位」口径——收件箱读侧 T11 消费）：
 // assignee=user（仲裁责任人路由）、author/role_id=by_who（自动上升=plugin、
 // 手动=operator）、escalate=0（通知行本身非冲突卡聚合对象）、state=open。
+// anchor_kind 落七类词表 escalation（2026-09-10 BUG-008 拍板：通知行 anchor_kind
+// 语义=通知类别，T11 路径即此口径——收件箱按 anchor_kind 投影，落 document 会使
+// 手动仲裁请求在「冲突待裁决←escalation」投影断链）+ anchor_artifact_id=源 issueId
+// （跳转锚，对齐 escalationSpec 的 TargetID 口径）。
 // 返回通知行 issue_id（cm-<ts> 取号；唯一键冲突由调用方整体重试兜底）。
 //
 // 错误集：ErrIdempotentConflict 语义冲突由调用方重试；底层 IO 错误经 Trace 上抛。
@@ -444,17 +448,18 @@ func writeEscalationNoticeTx(ctx context.Context, tx *gormio.DB, r *repo.Repo, s
 		return "", err
 	}
 	notice := &repo.Issue{
-		IssueID:       issueID,
-		RequirementID: source.RequirementID,
-		NodeID:        source.NodeID,
-		AnchorKind:    domain.IssueAnchorDocument,
-		Author:        byWho,
-		RoleID:        byWho,
-		IssueType:     domain.IssueTypeNotification,
-		Assignee:      utils.StrPtr(repo.SessionRoleAdjudicator),
-		Text:          domain.BuildEscalationNoticeText(source.IssueID, rouseText),
-		State:         repo.IssueStateOpen,
-		Replies:       "[]",
+		IssueID:          issueID,
+		RequirementID:    source.RequirementID,
+		NodeID:           source.NodeID,
+		AnchorKind:       NotificationKindEscalation,
+		AnchorArtifactID: utils.StrPtr(source.IssueID),
+		Author:           byWho,
+		RoleID:           byWho,
+		IssueType:        domain.IssueTypeNotification,
+		Assignee:         utils.StrPtr(repo.SessionRoleAdjudicator),
+		Text:             domain.BuildEscalationNoticeText(source.IssueID, rouseText),
+		State:            repo.IssueStateOpen,
+		Replies:          "[]",
 	}
 	if err := tx.WithContext(ctx).Create(notice).Error; err != nil {
 		return "", errs.Trace(err)

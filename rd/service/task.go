@@ -90,6 +90,16 @@ func (s *TaskService) Assign(ctx context.Context, req *api.AssignTaskReq) (*api.
 	if node == nil {
 		return nil, notFound("节点 %q 不存在于需求 %q", req.NodeId, req.RequirementId)
 	}
+	// 相位守卫（2026-09-10 User 拍板「每一阶段有每一阶段的标志」，BUG-005）：
+	// 未进入编排的节点（state 空）不可派发任务——孤儿完成会被 exec 判据历史统计
+	// 放行、跳过真实执行。entry 相位放行（对齐节点 entry 派发 to-brd 为剧本既有用法）。
+	// done（注记-L2）同为终态禁区：已完成离场的节点禁止再挂任务。
+	if node.State == repo.PhaseEmpty {
+		return nil, gateBlocked("节点 %q 未进入编排（state 空），不可派发任务", node.NodeID)
+	}
+	if node.State == repo.PhaseDone {
+		return nil, gateBlocked("节点 %q 已完成离场（done），禁止挂载任务；如需返工请 rejected 打回重入", node.NodeID)
+	}
 
 	// 激活清单按实例 scope 裁剪后定位动作（与 my_task 三向投影同函数口径）
 	nodeActions, err := s.scopedNodeActions(ctx, node, flow.Scope)
@@ -105,7 +115,16 @@ func (s *TaskService) Assign(ctx context.Context, req *api.AssignTaskReq) (*api.
 		return nil, err
 	}
 
-	taskCtx, err := buildTaskContext(requirement, flow, node, resolved, req.Context)
+	// 依赖文档注入（BUG-011③）：评审表态任务随派发携带被评审产物（直接上游
+	// produce 段），agent 零跳转；其余任务族不注入
+	var depDocs []repo.TaskContextDependencyDoc
+	if resolved.TaskType == repo.TaskTypeReview {
+		depDocs, err = s.upstreamProduceDocs(ctx, flow, node)
+		if err != nil {
+			return nil, err
+		}
+	}
+	taskCtx, err := buildTaskContext(requirement, flow, node, resolved, req.Context, depDocs)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +145,45 @@ func (s *TaskService) Assign(ctx context.Context, req *api.AssignTaskReq) (*api.
 		return nil, err
 	}
 	return &api.AssignTaskResp{Ok: true, Task: taskItem(result.row), Reused: result.reused}, nil
+}
+
+// upstreamProduceDocs 评审任务的被评审产物集（BUG-011③ dependencyDocs 数据源）：
+// 复用 loadRelatedArtifacts 同款口径——直接上游连续 produce 段（upstreamProduceNodes）
+// 已登记产物；上游无产物=空集（不报错，派发照常）。
+//
+// 错误集：底层 IO 错误经 Trace 上抛。
+func (s *TaskService) upstreamProduceDocs(ctx context.Context, flow *repo.Flow, node *repo.FlowNode) ([]repo.TaskContextDependencyDoc, error) {
+	nodeRows, err := s.repo.ListFlowNodesByRequirement(ctx, node.RequirementID)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	defPtrs, err := s.repo.ListFlowDefNodesByFlowDefsID(ctx, flow.FlowDefsID)
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	defBy := make(map[string]*repo.FlowDefNode, len(defPtrs))
+	for _, d := range defPtrs {
+		defBy[d.TemplateNodeID] = d
+	}
+	docs := make([]repo.TaskContextDependencyDoc, 0, 2)
+	for _, upstream := range upstreamProduceNodes(defBy, nodeRows, node) {
+		rows, listErr := s.repo.ListArtifactsByRequirementAndNode(ctx, node.RequirementID, upstream.NodeID)
+		if listErr != nil {
+			return nil, errs.Trace(listErr)
+		}
+		for _, row := range rows {
+			docs = append(docs, repo.TaskContextDependencyDoc{
+				ArtifactID:  row.ArtifactID,
+				NodeID:      upstream.NodeID,
+				NodeKey:     upstream.NodeKey,
+				ProductType: row.ProductType,
+				Label:       row.Label,
+				Kind:        row.Kind,
+				Href:        row.Href,
+			})
+		}
+	}
+	return docs, nil
 }
 
 // assignOnceResult assignOnce 成功结果载体（withIDAllocRetry 泛型单返回值约束）。
@@ -194,9 +252,9 @@ func (s *TaskService) assignOnce(ctx context.Context, req *api.AssignTaskReq, no
 }
 
 // buildTaskContext 确定性上下文装配（tasks.context TEXT 列单一口径 repo.TaskContext）：
-// my_task 同源的节点/需求摘要 + 动作定位摘要；产物引用/意见清单等留待 T6/T7 注入。
-// supplement 为调用方原样透传 JSON 文本（入参已校验合法）。
-func buildTaskContext(requirement *repo.Requirement, flow *repo.Flow, node *repo.FlowNode, resolved *domain.ResolvedAction, supplement string) (string, error) {
+// my_task 同源的节点/需求摘要 + 动作定位摘要 + 评审任务依赖文档（dependencyDocs，
+// BUG-011③；空切片不落键）。supplement 为调用方原样透传 JSON 文本（入参已校验合法）。
+func buildTaskContext(requirement *repo.Requirement, flow *repo.Flow, node *repo.FlowNode, resolved *domain.ResolvedAction, supplement string, depDocs []repo.TaskContextDependencyDoc) (string, error) {
 	taskContext := repo.TaskContext{
 		Requirement: repo.TaskContextRequirement{
 			RequirementID: requirement.RequirementID,
@@ -220,6 +278,9 @@ func buildTaskContext(requirement *repo.Requirement, flow *repo.Flow, node *repo
 		Scope:      flow.Scope,
 		Branch:     domain.BranchForScope(flow.Scope),
 		Supplement: supplement,
+	}
+	if len(depDocs) > 0 {
+		taskContext.DependencyDocs = depDocs
 	}
 	return utils.MarshalJSONText(taskContext)
 }
@@ -277,6 +338,14 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 		}
 		if row == nil {
 			return notFound("任务 %q 不存在", req.TaskId)
+		}
+		// 相位守卫（BUG-005，同 Assign 口径）：未进入编排的节点上任务总线禁上报
+		lockedNode, nodeErr := repo.GetFlowNodeByRequirementAndNodeIDLockTx(ctx, tx, row.RequirementID, row.NodeID)
+		if nodeErr != nil {
+			return nodeErr
+		}
+		if lockedNode == nil || lockedNode.State == repo.PhaseEmpty {
+			return gateBlocked("节点 %q 未进入编排（state 空），任务不可上报", row.NodeID)
 		}
 		// 乐观锁基线：显式 updated_at 优先（陈旧基线 → 409）；0=以当前库值为基线
 		baseline := row.UpdatedAt
@@ -370,10 +439,10 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 					}
 				}
 			}
-			switch row.TaskType {
-			case repo.TaskTypeProduce, repo.TaskTypeDev, repo.TaskTypeAccept:
-				// 2026-09-09 拍板-B：exec 族 complete 判据通过后服务端内聚触发编排推进
-				//（①跨节点 / ②节点内 CR 轮转 / 并行 join 判定）
+			// 2026-09-09 拍板-B：exec 族 complete 判据通过后服务端内聚触发编排推进
+			//（①跨节点 / ②节点内 CR 轮转 / 并行 join 判定）；2026-09-10 create_reqs
+			// 纳入（BUG-003：plan 流程 pln-d7 尾段死锁修复，阶段标志=create_reqs 完成）
+			if domain.IsExecAdvanceFamily(row.TaskType) {
 				execAdvance = true
 			}
 		}
@@ -450,6 +519,7 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 // 错误集：底层 IO/JSON 解析错误经 Trace 上抛。
 func (s *TaskService) completeMissing(ctx context.Context, row *repo.Task) ([]string, error) {
 	facts := domain.TaskFacts{Role: row.RoleID}
+	kindMismatchExtra := []string{}
 
 	node, err := s.repo.GetFlowNodeByRequirementAndNodeID(ctx, row.RequirementID, row.NodeID)
 	if err != nil {
@@ -468,11 +538,27 @@ func (s *TaskService) completeMissing(ctx context.Context, row *repo.Task) ([]st
 		if err != nil {
 			return nil, errs.Trace(err)
 		}
+		// BUG-015 同口径：仅 kind 与节点期望一致的登记计入判据；类型已登记但 kind
+		// 不符（如入库文档位被 link 冒充）不算满足，并给出显式缺项而非静默放行。
+		expectedKind, err := s.expectedKindMap(ctx, node)
+		if err != nil {
+			return nil, err
+		}
 		registered := make([]string, 0, len(artifacts))
 		for _, artifact := range artifacts {
-			if artifact.NodeID == row.NodeID {
-				registered = append(registered, artifact.ProductType)
+			if artifact.NodeID != row.NodeID {
+				continue
 			}
+			expKind, isExpected := expectedKind[artifact.ProductType]
+			if !isExpected {
+				continue
+			}
+			if domain.NormalizeArtifactKind(artifact.Kind) != expKind {
+				kindMismatchExtra = append(kindMismatchExtra,
+					fmt.Sprintf("artifact_kind:%s 期望 %s（已登记为 %s）", artifact.ProductType, expKind, artifact.Kind))
+				continue
+			}
+			registered = append(registered, artifact.ProductType)
 		}
 		facts.RegisteredProductTypes = registered
 	case repo.TaskTypeReview:
@@ -503,7 +589,25 @@ func (s *TaskService) completeMissing(ctx context.Context, row *repo.Task) ([]st
 			}
 		}
 	}
-	return domain.CompleteCriteria(row.TaskType, facts), nil
+	missing := domain.CompleteCriteria(row.TaskType, facts)
+	return append(missing, kindMismatchExtra...), nil
+}
+
+// expectedKindMap 节点期望产物的 kind 对照表（productType → 归一化 kind）：
+// BUG-015 判据同口径的数据源，取节点定义 expected_outputs；定义缺失=空表。
+func (s *TaskService) expectedKindMap(ctx context.Context, node *repo.FlowNode) (map[string]string, error) {
+	kinds := make(map[string]string)
+	if node == nil {
+		return kinds, nil
+	}
+	expected, err := defExpectedOutputs(ctx, s.repo, node.DefNodeID)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range expected {
+		kinds[item.ProductType] = domain.NormalizeArtifactKind(item.Kind)
+	}
+	return kinds, nil
 }
 
 // scopedNodeActions 单节点激活清单取用（TaskService 侧，独立函数便于 T6/T7 同
@@ -518,6 +622,24 @@ func (s *TaskService) scopedNodeActions(ctx context.Context, node *repo.FlowNode
 		return "[]", nil
 	}
 	return domain.FilterNodeActions(defNodes[0].NodeActions, scope)
+}
+
+// defExpectedOutputs 节点定义期望产物解析（def_node_id → expected_outputs JSON）：
+// 登记守卫（artifact.go）与判据口（expectedProductTypes/expectedKindMap）共用的
+// 单一解析点；定义缺失=空集，JSON 非法经 Trace 上抛。
+func defExpectedOutputs(ctx context.Context, r *repo.Repo, defNodeID string) ([]repo.ExpectedOutput, error) {
+	defNodes, err := r.ListFlowDefNodesByTemplateIDs(ctx, []string{defNodeID})
+	if err != nil {
+		return nil, errs.Trace(err)
+	}
+	if len(defNodes) == 0 {
+		return nil, nil
+	}
+	var expected []repo.ExpectedOutput
+	if err := utils.UnmarshalJSONText(defNodes[0].ExpectedOutputs, &expected); err != nil {
+		return nil, errs.Trace(err)
+	}
+	return expected, nil
 }
 
 // expectedProductTypes 动作产出期望集：action_id 首段为能力 id 时解析其动作
@@ -544,16 +666,9 @@ func (s *TaskService) expectedProductTypes(ctx context.Context, actionID string,
 	if node == nil {
 		return []string{}, nil
 	}
-	defNodes, err := s.repo.ListFlowDefNodesByTemplateIDs(ctx, []string{node.DefNodeID})
+	expected, err := defExpectedOutputs(ctx, s.repo, node.DefNodeID)
 	if err != nil {
-		return nil, errs.Trace(err)
-	}
-	if len(defNodes) == 0 {
-		return []string{}, nil
-	}
-	var expected []repo.ExpectedOutput
-	if err := utils.UnmarshalJSONText(defNodes[0].ExpectedOutputs, &expected); err != nil {
-		return nil, errs.Trace(err)
+		return nil, err
 	}
 	types := make([]string, 0, len(expected))
 	for _, item := range expected {

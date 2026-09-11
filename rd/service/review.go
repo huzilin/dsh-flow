@@ -118,6 +118,26 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 			return err
 		}
 
+		// 注记-L1（2026-09-10 User 拍板：collect 本义=评论闭环表态）：agree 的前提是
+		// 该评审位名下评论全部被响应并澄清（resolved/overridden）——有 open/to-fix/
+		// fixed/pending-confirm 须先解决或保持 unagree。unagree（提异议）不受限。
+		// 强权通道：wb_override_role 整角色批量 overridden（User 专用）。
+		if req.State == repo.ReviewStateAgree {
+			issues, err := s.repo.ListIssuesByRequirement(ctx, req.RequirementId)
+			if err != nil {
+				return errs.Trace(err)
+			}
+			nodeIssues := make([]repo.Issue, 0, len(issues))
+			for _, issue := range issues {
+				if issue.NodeID == req.NodeId {
+					nodeIssues = append(nodeIssues, *issue)
+				}
+			}
+			if closed, unclosed := domain.RoleCommentsClosure(nodeIssues, req.Role); !closed {
+				return gateBlocked("角色 %q 名下 %d 条评论未闭环，agree 前须全部 resolved/overridden（响应并澄清，或 User wb_override_role 强权通过）", req.Role, unclosed)
+			}
+		}
+
 		var entries []repo.ReviewResult
 		if err := utils.UnmarshalJSONText(node.ReviewResults, &entries); err != nil {
 			return errs.Trace(err)
@@ -332,6 +352,30 @@ func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.
 		if outcome != domain.CollectApproved {
 			return gateBlocked("节点 %q 评审未全数 agree（collect=%s），拍板未开放", node.NodeID, outcome)
 		}
+
+		// 注记-L1（2026-09-10 User 拍板）：approve 前置=节点评论全部闭环——每位评审
+		// 提的评论要么被响应澄清（resolved），要么被确认为问题（rejected 打回回滚），
+		// 不允许带着未闭环评论进入下一节点。rejected 打回不受此限（打回即「确认是
+		// 问题」的合法出口）。
+		if req.Verdict == "approved" {
+			issues, err := s.repo.ListIssuesByRequirement(ctx, req.RequirementId)
+			if err != nil {
+				return errs.Trace(err)
+			}
+			nodeIssues := make([]repo.Issue, 0, len(issues))
+			for _, issue := range issues {
+				if issue.NodeID == node.NodeID {
+					nodeIssues = append(nodeIssues, *issue)
+				}
+			}
+			if closed, unclosed := domain.NodeCommentsClosure(nodeIssues); !closed {
+				return gateBlocked("节点 %q 有 %d 条评论未闭环，approve 前须全部 resolved/overridden（或 rejected 打回）", node.NodeID, unclosed)
+			}
+		}
+
+		// 拍板只管拍板（2026-09-10 User 拍板：最小原则，OBS-001 关闭口径）——产物/exec
+		// 判据属 exec 环节自己的出口（wb_task_update complete 判据 + wb_advance
+		// execAdvanceReady），approve 不做跨环节校验；rejected 打回同此口径。
 
 		now := repo.NowMillis()
 		decisionText, err := domain.BuildGateDecision(req.Verdict, req.Reason, now, req.Branch)

@@ -147,6 +147,38 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 			if node.Reviewers != p.Reviewers {
 				updates["reviewers"] = p.Reviewers
 				audits = append(audits, flowNodeAudit(node, "reviewers", node.Reviewers, p.Reviewers))
+				// 裁剪角色残留条目清理（与 reviewers 裁剪同事务同口径）：被裁角色在
+				// review_results 的既有条目一并剔除——否则留下幽灵评审位（重投影与
+				// 评审轮播种竞速时，如 scanner 兜底推进抢先按裁剪前评审位播种）。
+				// 被裁角色不可能再表态（wb_review 校验评审位归属），残留恒为陈旧数据。
+				if node.ReviewResults != "[]" {
+					var entries []repo.ReviewResult
+					if parseErr := utils.UnmarshalJSONText(node.ReviewResults, &entries); parseErr != nil {
+						return errs.Trace(parseErr)
+					}
+					newReviewers, pr := domain.ParseReviewers(p.Reviewers)
+					if pr != nil {
+						return errs.Trace(pr)
+					}
+					roles := make(map[string]bool, len(newReviewers))
+					for _, r := range newReviewers {
+						roles[r.Role] = true
+					}
+					kept := make([]repo.ReviewResult, 0, len(entries))
+					for _, e := range entries {
+						if roles[e.Role] {
+							kept = append(kept, e)
+						}
+					}
+					if len(kept) != len(entries) {
+						pruned, mErr := utils.MarshalJSONText(kept)
+						if mErr != nil {
+							return errs.Trace(mErr)
+						}
+						updates["review_results"] = pruned
+						audits = append(audits, flowNodeAudit(node, "reviewResults", node.ReviewResults, pruned))
+					}
+				}
 			}
 			if len(updates) > 0 {
 				if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.FlowNode{}, node.ID, node.UpdatedAt, updates); err != nil {

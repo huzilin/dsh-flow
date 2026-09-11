@@ -387,6 +387,61 @@ func TestIntegration_RequirementsEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.boolean("blocked"), true, "进行中需求删除应 blocked")
 }
 
+// TestIntegration_RequirementPartialUpdate_RealMySQL BUG-004（2026-09-10 拍板）：
+// wb_update_requirement 局部更新语义——空串=不修改：仅传变更字段 200（旧口径缺
+// category/status/priority 任一即 400）；全空 no-op 不写审计；owner 空串不再清值；
+// 非空非法枚举仍 400。
+func TestIntegration_RequirementPartialUpdate_RealMySQL(t *testing.T) {
+	router, handles := openScratch(t)
+	resp := reqJSON(t, router, http.MethodPost, "/api/requirements", map[string]any{
+		"title": "局部更新需求", "category": "需求任务", "priority": "P1", "createdBy": "user-a",
+	})
+	assert.Equal(t, resp.code, http.StatusOK)
+	reqID := item(t, resp, "requirement").str("requirementId")
+	baseline := item(t, resp, "requirement").number(t, "updatedAt")
+
+	// 仅 title：旧口径 400（category 必填/非法状态），新口径 200 且未传字段保持
+	resp = reqJSON(t, router, http.MethodPut, "/api/requirements/"+reqID, map[string]any{
+		"requirementId": reqID, "title": "局部改题", "updatedAt": baseline,
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	updated := item(t, resp, "requirement")
+	assert.Equal(t, updated.str("title"), "局部改题")
+	assert.Equal(t, updated.str("category"), "需求任务", "未传字段保持原值")
+	assert.Equal(t, updated.str("priority"), "P1", "未传字段保持原值")
+	assert.Equal(t, updated.str("status"), "待启动", "未传字段保持原值")
+	assert.Equal(t, auditFieldCount(t, handles, "requirements", reqID, "title"), int64(1), "仅变更字段写审计")
+	assert.Equal(t, auditFieldCount(t, handles, "requirements", reqID, "status"), int64(0), "未传字段不写审计")
+
+	// owner 空串=不修改：显式指派后再传空串不清值
+	ownerBaseline := updated.number(t, "updatedAt")
+	resp = reqJSON(t, router, http.MethodPut, "/api/requirements/"+reqID, map[string]any{
+		"requirementId": reqID, "owner": "pm", "updatedAt": ownerBaseline,
+	})
+	assert.Equal(t, resp.code, http.StatusOK)
+	ownerBaseline = item(t, resp, "requirement").number(t, "updatedAt")
+	resp = reqJSON(t, router, http.MethodPut, "/api/requirements/"+reqID, map[string]any{
+		"requirementId": reqID, "title": "局部改题", "owner": "", "updatedAt": ownerBaseline,
+	})
+	assert.Equal(t, resp.code, http.StatusOK)
+	assert.Equal(t, item(t, resp, "requirement").str("owner"), "pm", "空串 owner=不修改（清空不经本端点）")
+
+	// 全空 no-op：仅 requirementId+updatedAt → 200 当前态，不写审计
+	latest := item(t, resp, "requirement").number(t, "updatedAt")
+	resp = reqJSON(t, router, http.MethodPut, "/api/requirements/"+reqID, map[string]any{
+		"requirementId": reqID, "updatedAt": latest,
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	assert.Equal(t, auditCount(t, handles, "requirements", reqID, "UPDATE"), int64(2),
+		"全空 no-op 不写审计（累计恰 title+owner 两条）")
+
+	// 非空非法枚举仍 400
+	resp = reqJSON(t, router, http.MethodPut, "/api/requirements/"+reqID, map[string]any{
+		"requirementId": reqID, "priority": "P9", "updatedAt": latest,
+	})
+	assert.Equal(t, resp.code, http.StatusBadRequest)
+}
+
 // TestIntegration_RequirementsScopeFilter_RealMySQL wb_list_requirements scope 筛选
 // （repo EXISTS 子查询分支）：两需求各起不同 scope 流程实例（business 允许 full/rd/fe），
 // scope=rd 只回对应项、scope=fe 只回对应项、不带 scope 回全量。

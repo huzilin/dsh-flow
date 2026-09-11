@@ -57,10 +57,10 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	}
 	assert.NilError(t, handles.Gorm.Create(art).Error)
 
-	// 1. wb_comment：line 锚点（产物必锚 + L1 assignee=登记人 pm + reviewer_role=arch 评审位命中）
+	// 1. wb_comment：range 锚点（注记-L3 划词；产物必锚 + L1 assignee=登记人 pm + reviewer_role=arch 评审位命中）
 	resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+node, map[string]any{
 		"nodeId": "n-04",
-		"anchor": map[string]any{"kind": "line", "artifactId": "art-it-doc", "line": 42},
+		"anchor": map[string]any{"kind": "range", "artifactId": "art-it-doc", "startLine": 41, "endLine": 42},
 		"author": "arch", "roleId": "arch", "text": "第 42 行时序图缺超时分支",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
@@ -68,9 +68,10 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	issueID := issue.str("issueId")
 	assert.Assert(t, issueID != "", "issue_id 应取号 cm-<ts>")
 	assert.Equal(t, issue.str("state"), "open")
-	assert.Equal(t, issue.str("anchorKind"), "line")
+	assert.Equal(t, issue.str("anchorKind"), "range")
 	assert.Equal(t, issue.str("anchorArtifactId"), "art-it-doc")
-	assert.Equal(t, issue.number(t, "anchorLine"), int64(42))
+	assert.Equal(t, issue.number(t, "anchorStartLine"), int64(41))
+	assert.Equal(t, issue.number(t, "anchorEndLine"), int64(42))
 	assert.Equal(t, issue.str("reviewerRole"), "arch", "arch ∈ n-04 评审位，评审归属推导")
 	assert.Equal(t, issue.str("assignee"), "pm", "L1 锚点产物登记人推导")
 	assert.Equal(t, issue.str("issueType"), "issue")
@@ -79,12 +80,11 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 
 	// 2. 入参拦截：锚点 kind 与字段一致性（400）
 	for name, anchor := range map[string]map[string]any{
-		"line 缺产物":      {"kind": "line", "line": 3},
-		"line 缺行号":      {"kind": "line", "artifactId": "art-it-doc"},
-		"block 缺 lang":  {"kind": "block", "artifactId": "art-it-doc", "blockStart": 1, "blockEnd": 2},
-		"range 倒挂":      {"kind": "range", "artifactId": "art-it-doc", "startLine": 9, "endLine": 3},
-		"未知 kind":       {"kind": "heading"},
-		"document 冗余行号": {"kind": "document", "line": 5},
+		"line 已废弃（注记-L3）":  {"kind": "line", "artifactId": "art-it-doc", "line": 3},
+		"block 已废弃（注记-L3）": {"kind": "block", "artifactId": "art-it-doc", "blockStart": 1, "blockEnd": 2, "lang": "sql"},
+		"range 倒挂":         {"kind": "range", "artifactId": "art-it-doc", "startLine": 9, "endLine": 3},
+		"未知 kind":          {"kind": "heading"},
+		"document 冗余行号":    {"kind": "document", "line": 5},
 	} {
 		resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+node, map[string]any{
 			"nodeId": "n-04", "anchor": anchor, "author": "arch", "roleId": "arch", "text": "x",
@@ -209,6 +209,7 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	}
 
 	// 11. wb_resolve path=agree：协商一致关闭（确认内嵌，直落 resolved）
+	//     （discussion 类不受 BUG-013 锚产物强制约束）
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+node, map[string]any{
 		"nodeId": "n-04", "anchor": map[string]any{"kind": "document"},
 		"author": "rd", "roleId": "rd", "issueType": "discussion", "assignee": "qa",
@@ -234,9 +235,10 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, agree.str("resolvedBy"), "qa")
 	assert.Equal(t, agree.number(t, "loopCount"), int64(0))
 
-	// 12. 状态幂等无害：fixed 态重申报 resolve path=fix 停留 fixed（重复申报无害）
+	// 12. 状态幂等无害：fixed 态重申报 resolve path=fix 停留 fixed（重复申报无害；
+	//     BUG-013 口径：评审上下文 issue 评论携 document 锚须锚产物 art-it-doc）
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+node, map[string]any{
-		"nodeId": "n-04", "anchor": map[string]any{"kind": "document"},
+		"nodeId": "n-04", "anchor": map[string]any{"kind": "document", "artifactId": "art-it-doc"},
 		"author": "fe", "roleId": "fe", "assignee": "fe", "text": "样式偏差",
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
@@ -258,7 +260,7 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 
 	// 13. 澄清不收敛：reopen 达阈值（5）自动标 escalate（spec §2，T12 消费钩子）
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+node, map[string]any{
-		"nodeId": "n-04", "anchor": map[string]any{"kind": "document"},
+		"nodeId": "n-04", "anchor": map[string]any{"kind": "document", "artifactId": "art-it-doc"},
 		"author": "arch", "roleId": "arch", "assignee": "pm", "text": "拉锯议题",
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
@@ -307,6 +309,56 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Assert(t, len(arr(t, resp, "issues")) >= 4, "快照应含全部评论行")
 }
 
+// TestIntegration_CommentReviewAnchorRequired_RealMySQL BUG-013（2026-09-10 拍板
+// 「所有的评审都是挂在文档上的」）：评审上下文的 issue 评论必须锚产物——评审位
+// 角色（含未激活节点）与 review 相位节点 document 锚无产物 400 引导挂锚；锚产物
+// 放行；notification/discussion 类不受限；非评审上下文 document 锚保持合法。
+func TestIntegration_CommentReviewAnchorRequired_RealMySQL(t *testing.T) {
+	router, handles := openScratch(t)
+	reqID := createBusinessFullReq(t, router)
+	seedUpstreamArtifact(t, handles, reqID, "art-it-anchor", "n-03")
+	post := func(body map[string]any) testResp {
+		return reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/comments", body)
+	}
+
+	// 评审位角色（arch ∈ n-04 评审位；节点未激活 state="" 同样受限）document 锚无产物 → 400
+	resp := post(map[string]any{
+		"nodeId": "n-04", "author": "arch", "roleId": "arch", "text": "游离评审意见",
+	})
+	assert.Equal(t, resp.code, http.StatusBadRequest, "%v", resp.body)
+	assert.Equal(t, resp.str("code"), "INVALID_ARGUMENT")
+
+	// 锚定产物放行（document 级携 artifactId）
+	resp = post(map[string]any{
+		"nodeId": "n-04", "author": "arch", "roleId": "arch", "text": "锚定评审意见",
+		"anchor": map[string]any{"kind": "document", "artifactId": "art-it-anchor"},
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+
+	// review 相位：非评审位角色同样受限（相位判定）
+	execSQL(t, handles, "UPDATE flow_nodes SET state = 'review' WHERE node_id = 'n-04'")
+	resp = post(map[string]any{
+		"nodeId": "n-04", "author": "pm", "roleId": "pm", "text": "相位内游离评论",
+	})
+	assert.Equal(t, resp.code, http.StatusBadRequest, "review 相位 document 锚无产物应 400: %v", resp.body)
+
+	// discussion / notification 类不受限（内部通知不走此通道）
+	resp = post(map[string]any{
+		"nodeId": "n-04", "author": "arch", "roleId": "arch", "issueType": "discussion", "text": "讨论",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	resp = post(map[string]any{
+		"nodeId": "n-04", "author": "arch", "roleId": "arch", "issueType": "notification", "text": "通知",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+
+	// 非评审上下文（n-02 bus-01 对齐节点：无评审位、state=""）document 锚无产物保持合法
+	resp = post(map[string]any{
+		"nodeId": "n-02", "author": "pm", "roleId": "pm", "text": "对齐节点评论",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+}
+
 // TestIntegration_IssueConcurrentReply_RealMySQL 并发 reply 追加不丢行：
 // 行锁 + 单事务串行化读改写，N 路并发全部成功且 replies/round_count 恰好 N。
 func TestIntegration_IssueConcurrentReply_RealMySQL(t *testing.T) {
@@ -319,7 +371,7 @@ func TestIntegration_IssueConcurrentReply_RealMySQL(t *testing.T) {
 	}
 	assert.NilError(t, handles.Gorm.Create(art).Error)
 	resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/comments", map[string]any{
-		"nodeId": "n-04", "anchor": map[string]any{"kind": "document"},
+		"nodeId": "n-04", "anchor": map[string]any{"kind": "document", "artifactId": "art-it-cc"},
 		"author": "arch", "roleId": "arch", "assignee": "pm", "text": "并发回复基线",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)

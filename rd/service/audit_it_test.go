@@ -174,6 +174,8 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 	assert.Equal(t, auditWhoCount(t, handles, "artifacts", artID, "INSERT", "pm"), int64(1), "产物登记 INSERT 审计 by added_by")
 
 	// ---- tasks：Assign（管理面派发 by user）/ Update ack+progress（执行角色原样）----
+	// （相位守卫 BUG-005 口径：派发节点先播种 exec）
+	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec' WHERE node_id = 'n-03'")
 	resp = reqJSON(t, router, http.MethodPost, "/api/tasks", map[string]any{
 		"requirementId": req1, "nodeId": "n-03", "actionId": "product-design.produce", "assignee": "pm",
 	})
@@ -217,10 +219,13 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 	auditTimestampInvariant(t, handles, "flow_nodes", "n-17")
 
 	// ---- issues：Comment（by 提交角色）/ Reply / Resolve(fix) / Confirm / Reopen ----
+	// BUG-013 口径：评审上下文 issue 评论必须锚产物（夹具登记上游产物 n-16=bus-02）
+	seedUpstreamArtifact(t, handles, req3, "art-it-audit", "n-16")
 	newIssue := func(text string) string {
 		t.Helper()
 		resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+req3+"/comments", map[string]any{
 			"nodeId": "n-17", "author": "arch", "roleId": "arch", "assignee": "pm", "text": text,
+			"anchor": map[string]any{"kind": "document", "artifactId": "art-it-audit"},
 		})
 		assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 		return item(t, resp, "issue").str("issueId")
@@ -282,7 +287,9 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Assert(t, auditWhoCount(t, handles, "issues", issueC, "UPDATE", "user") >= 1, "仲裁回填审计 by user")
 	assert.Equal(t, auditWhoCount(t, handles, "sessions", adjudicationSession, "UPDATE", "user"), int64(1), "session 终局审计 by user")
-	assert.Assert(t, auditWhoCount(t, handles, "flow_nodes", "n-17", "UPDATE", "plugin") >= 2, "轮重入编排审计 by plugin")
+	// 注记-L2：approve 推进离场后节点=done 终态，裁决轮重入对 done no-op（重入
+	// 覆盖移至 InboxRealMySQL 澄清重入链）——此处验证离场 done 审计 by plugin。
+	assert.Assert(t, auditWhoCount(t, handles, "flow_nodes", "n-17", "UPDATE", "plugin") >= 1, "approve 离场 done 审计 by plugin")
 	auditTimestampInvariant(t, handles, "issues", issueC)
 
 	// ---- 自动阈值上升（reopen≥2，每轮 reply→reopen 拉锯）：置位审计 + 通知位

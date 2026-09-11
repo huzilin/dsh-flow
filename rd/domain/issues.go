@@ -258,16 +258,10 @@ func ValidateIssueAnchor(kind string, artifactID string, line int64, startLine i
 		if line != 0 || startLine != 0 || endLine != 0 || blockStart != 0 || blockEnd != 0 || lang != "" {
 			return fmt.Errorf("锚点 kind=document 不允许携带行号/代码块字段")
 		}
-	case IssueAnchorLine:
-		if artifactID == "" {
-			return fmt.Errorf("锚点 kind=line 必填 artifact_id")
-		}
-		if line < 1 {
-			return fmt.Errorf("锚点 kind=line 必填 line（1 起）")
-		}
-		if startLine != 0 || endLine != 0 || blockStart != 0 || blockEnd != 0 || lang != "" {
-			return fmt.Errorf("锚点 kind=line 不允许携带范围/代码块字段")
-		}
+	case IssueAnchorLine, IssueAnchorBlock:
+		// 注记-L3（2026-09-10 User 拍板）：评论锚点仅保留 划词 range + 文档级
+		// document——行级/块级废弃（试了还要改的交互不做），存量数据只读兼容。
+		return fmt.Errorf("锚点 kind=%q 已废弃（仅支持 range 划词 / document 文档级，注记-L3）", kind)
 	case IssueAnchorRange:
 		if artifactID == "" {
 			return fmt.Errorf("锚点 kind=range 必填 artifact_id")
@@ -281,26 +275,48 @@ func ValidateIssueAnchor(kind string, artifactID string, line int64, startLine i
 		if line != 0 || blockStart != 0 || blockEnd != 0 || lang != "" {
 			return fmt.Errorf("锚点 kind=range 不允许携带单行/代码块字段")
 		}
-	case IssueAnchorBlock:
-		if artifactID == "" {
-			return fmt.Errorf("锚点 kind=block 必填 artifact_id")
-		}
-		if blockStart < 1 || blockEnd < 1 {
-			return fmt.Errorf("锚点 kind=block 必填 block_start/block_end（1 起）")
-		}
-		if blockStart > blockEnd {
-			return fmt.Errorf("锚点 kind=block 范围倒挂（%d > %d）", blockStart, blockEnd)
-		}
-		if lang == "" {
-			return fmt.Errorf("锚点 kind=block 必填 lang")
-		}
-		if line != 0 || startLine != 0 || endLine != 0 {
-			return fmt.Errorf("锚点 kind=block 不允许携带单行/范围字段")
-		}
 	default:
-		return fmt.Errorf("未知锚点 kind %q（document/line/range/block）", kind)
+		return fmt.Errorf("未知锚点 kind %q（document/range；line/block 已废弃，注记-L3）", kind)
 	}
 	return nil
+}
+
+// IssueClosed 评论闭环判定（注记-L1 拍板口径）：state ∈ {resolved, overridden} 为
+// 闭环；open/to-fix/fixed/pending-confirm 均未闭环（fixed 须复核确认 resolved 才算）。
+func IssueClosed(state string) bool {
+	return state == repo.IssueStateResolved || state == repo.IssueStateOverridden
+}
+
+// RoleCommentsClosure 单评审位的评论闭环判定（注记-L1：collect 表态前置）——
+// 统计该角色名下（reviewer_role=role）的 issue 类评论（notification/discussion
+// 不参与闭环），返回是否全部闭环与未闭环数。空集=闭环（vacuous）。
+func RoleCommentsClosure(issues []repo.Issue, role string) (bool, int) {
+	unclosed := 0
+	for _, issue := range issues {
+		if issue.IssueType != IssueTypeIssue || issue.ReviewerRole == nil || *issue.ReviewerRole != role {
+			continue
+		}
+		if !IssueClosed(issue.State) {
+			unclosed++
+		}
+	}
+	return unclosed == 0, unclosed
+}
+
+// NodeCommentsClosure 节点级评论闭环判定（注记-L1：approve 拍板前置）——
+// 该节点名下全部 issue 类评论（任意角色）无未闭环项。notification/discussion 行
+// （issues 表同表异 type，BUG-008 口径）不参与。空集=闭环。
+func NodeCommentsClosure(issues []repo.Issue) (bool, int) {
+	unclosed := 0
+	for _, issue := range issues {
+		if issue.IssueType != IssueTypeIssue {
+			continue
+		}
+		if !IssueClosed(issue.State) {
+			unclosed++
+		}
+	}
+	return unclosed == 0, unclosed
 }
 
 // ValidIssueType issue_type 枚举校验（空=默认 issue，合法）。

@@ -52,7 +52,9 @@ var (
 // FilterExecActionsByReentry exec 相位首产/返工配置选择（T9 重入投影）：
 // 按 rolled_back_count（0=首次 / ≥1=重入）从已激活 exec 动作集中二选一——
 // 首次保留首产集、剔除返工集；重入反之。非 exec 相位或计数为负原样返回；
-// 两集合外的动作（如 submit）不参与选择。
+// 两集合外的动作（如 submit）不参与选择。词表键为能力内裸动作 id——
+// ActionID 为 "<capabilityId>.<action>" 全名（BUG-006 口径）时按最后一个点
+// 切出裸名再查表（SplitCapabilityAction 同一口径）。
 func FilterExecActionsByReentry(actions []ActiveAction, rolledBackCount int64) []ActiveAction {
 	if rolledBackCount < 0 {
 		rolledBackCount = 0
@@ -60,11 +62,15 @@ func FilterExecActionsByReentry(actions []ActiveAction, rolledBackCount int64) [
 	reentry := rolledBackCount >= 1
 	kept := make([]ActiveAction, 0, len(actions))
 	for _, action := range actions {
-		if execFirstActions[action.ActionID] {
+		key := action.ActionID
+		if _, bare, isCapability := SplitCapabilityAction(action.ActionID); isCapability {
+			key = bare
+		}
+		if execFirstActions[key] {
 			if reentry {
 				continue
 			}
-		} else if execReentryActions[action.ActionID] {
+		} else if execReentryActions[key] {
 			if !reentry {
 				continue
 			}

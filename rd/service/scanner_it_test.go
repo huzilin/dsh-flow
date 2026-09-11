@@ -71,6 +71,8 @@ func createReqAndTask(t *testing.T, router *gin.Engine, handles *database.DB) (s
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "创建失败: %v", resp.body)
 	reqID := item(t, resp, "requirement").str("requirementId")
+	// 相位守卫（2026-09-10 BUG-005 口径：未进入编排不可派发）——派发节点先播种 exec
+	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec' WHERE node_id = 'n-03'")
 	resp = reqJSON(t, router, http.MethodPost, "/api/tasks", map[string]any{
 		"requirementId": reqID, "nodeId": "n-03", "actionId": "product-design.produce", "assignee": "pm",
 	})

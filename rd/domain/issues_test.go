@@ -168,10 +168,8 @@ func TestUnit_ValidateIssueAnchor(t *testing.T) {
 		line, startLine, endLine, blockStart, blockEnd int64
 	}{
 		{"document 无锚字段", IssueAnchorDocument, "", "", 0, 0, 0, 0, 0},
-		{"line", IssueAnchorLine, "art-1", "", 42, 0, 0, 0, 0},
 		{"range", IssueAnchorRange, "art-1", "", 0, 10, 20, 0, 0},
-		{"range 单行等价", IssueAnchorRange, "art-1", "", 0, 7, 7, 0, 0},
-		{"block", IssueAnchorBlock, "art-2", "sql", 0, 0, 0, 42, 58},
+		{"range 单行等价（划词单行）", IssueAnchorRange, "art-1", "", 0, 7, 7, 0, 0},
 	}
 	for _, tc := range valid {
 		err := ValidateIssueAnchor(tc.kind, tc.artifactID, tc.line, tc.startLine, tc.endLine, tc.blockStart, tc.blockEnd, tc.lang)
@@ -204,6 +202,43 @@ func TestUnit_ValidateIssueAnchor(t *testing.T) {
 		err := ValidateIssueAnchor(tc.kind, tc.artifactID, tc.line, tc.startLine, tc.endLine, tc.blockStart, tc.blockEnd, tc.lang)
 		assert.Assert(t, err != nil, "%s 应拒绝", tc.name)
 	}
+}
+
+// TestUnit_AnchorKindDeprecated 锚点词表收紧（注记-L3，2026-09-10 拍板：仅
+// 划词 range + 文档级 document）——line/block 一律拒绝并提示废弃。
+func TestUnit_AnchorKindDeprecated(t *testing.T) {
+	err := ValidateIssueAnchor(IssueAnchorLine, "art-1", 42, 0, 0, 0, 0, "")
+	assert.Assert(t, err != nil && strings.Contains(err.Error(), "已废弃"), "line 锚应报废弃: %v", err)
+	err = ValidateIssueAnchor(IssueAnchorBlock, "art-2", 0, 0, 0, 42, 58, "go")
+	assert.Assert(t, err != nil && strings.Contains(err.Error(), "已废弃"), "block 锚应报废弃: %v", err)
+}
+
+// TestUnit_CommentsClosure 评论闭环判定表驱动（注记-L1：collect/approve 前置）——
+// 角色过滤（reviewer_role）、类型过滤（notification/discussion 不参与）、
+// 闭环状态集（resolved/overridden；open/to-fix/fixed/pending-confirm 未闭环）、
+// 空集=闭环。
+func TestUnit_CommentsClosure(t *testing.T) {
+	role := func(r string) *string { return &r }
+	issues := []repo.Issue{
+		{IssueType: IssueTypeIssue, ReviewerRole: role("arch"), State: repo.IssueStateOpen},
+		{IssueType: IssueTypeIssue, ReviewerRole: role("arch"), State: repo.IssueStateResolved},
+		{IssueType: IssueTypeIssue, ReviewerRole: role("arch"), State: repo.IssueStateOverridden},
+		{IssueType: IssueTypeIssue, ReviewerRole: role("rd"), State: repo.IssueStateToFix},
+		{IssueType: IssueTypeIssue, ReviewerRole: role("qa"), State: repo.IssueStateFixed},
+		{IssueType: IssueTypeNotification, ReviewerRole: role("arch"), State: repo.IssueStateOpen},
+		{IssueType: IssueTypeDiscussion, ReviewerRole: role("arch"), State: repo.IssueStatePendingConfirm},
+		{IssueType: IssueTypeIssue, State: repo.IssueStateOpen},
+	}
+	closed, n := RoleCommentsClosure(issues, "arch")
+	assert.Assert(t, !closed && n == 1, "arch=resolved+overridden+open，1 条未闭环，got %d", n)
+	closed, n = RoleCommentsClosure(issues, "rd")
+	assert.Assert(t, !closed && n == 1, "rd to-fix 未闭环，got %d", n)
+	closed, n = RoleCommentsClosure(issues, "qa")
+	assert.Assert(t, !closed && n == 1, "qa fixed 未复核=未闭环，got %d", n)
+	closed, n = RoleCommentsClosure(issues, "fe")
+	assert.Assert(t, closed && n == 0, "fe 空集=闭环（vacuous）")
+	closed, n = NodeCommentsClosure(issues)
+	assert.Assert(t, !closed && n == 4, "节点级未闭环=arch open+rd to-fix+qa fixed+无归属 open（notification/discussion 排除），got %d", n)
 }
 
 // TestUnit_Escalate escalate 置位（幂等）与阈值判定分支（spec §2 reopen≥5 口径）。

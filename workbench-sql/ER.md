@@ -21,7 +21,7 @@ erDiagram
         TEXT name
         TEXT role_id FK "引用 ROLES.role_id（1对多，角色拥有能力）"
         TEXT how "JSON 行为步骤（能力本体，v0.23）"
-        TEXT products "JSON [{doc_path,template_path,demo_path}] 产出物清单（v0.28 合并三列；一能力可多产物；评审/决策类 '[]'；产物项内 template/demo 为 JSON null=未固化）"
+        TEXT products "JSON [{doc_path,demo_path}] 产出物清单（v0.28 合并三列，v0.29 删 template_path；一能力可多产物；评审/决策类 '[]'；产物项内 demo 为 JSON null=示例未固化）"
         INTEGER created_at "unix ms"
         INTEGER updated_at "unix ms"
     }
@@ -223,3 +223,4 @@ erDiagram
 > v0.22（User 拍板）：每实体增加 created_at/updated_at（unix ms）；旧等价字段改名——ARTIFACTS.added_at→created_at、ISSUES.at→created_at、AUDIT_LOG.at→created_at（audit_log 也加 updated_at 恒=created_at）；FLOW_NODES.entered_at 保留（业务时间≠行创建）。
 > v0.23（User 拍板）：CAPABILITIES 收缩——删 structure/quality_gates/version/reviewer_focus/inputs；加 template_path/demo_path（模板外置 docs/templates/）；how 强化为能力本体。
 > v0.28（User 拍板，m8 §10 节点-能力绑定模型）：CAPABILITIES.doc_path/template_path/demo_path → 单列 products（JSON 数组，一能力可多产物；评审/决策类 '[]'）；QA 能力合并（acceptance-test 挂 2 产物，defect-management 删除）；FLOW_TEMPLATE_NODES 加 mode（produce|align）、capability_id 可空（align 无产物节点）；reviewers 统一 [{role,capability_id,scope?}]（focus 移除）；角色缩写（architect→arch、investigator→inv）。
+> v0.29（User 拍板 D4，semantica 47c53ed9）：products 项删 template_path（现值 [{doc_path, demo_path}]）——产出标准以产出 skill 为权威（docs/templates/skills/），DB 不存标准指针；评审端按 skill 自检节核对（评审能力 how 已加对应步骤）。

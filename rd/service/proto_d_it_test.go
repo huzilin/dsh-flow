@@ -115,7 +115,7 @@ func TestIntegration_ProtoD_RetestNotification(t *testing.T) {
 	assert.NilError(t, handles.Gorm.Create(art).Error)
 	resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/comments", map[string]any{
 		"nodeId": "n-04",
-		"anchor": map[string]any{"kind": "line", "artifactId": "art-it-retest", "line": 7},
+		"anchor": map[string]any{"kind": "range", "artifactId": "art-it-retest", "startLine": 6, "endLine": 7},
 		"author": "arch", "roleId": "arch", "text": "第 7 行缺超时分支",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)

@@ -34,7 +34,7 @@ bash workbench-sql/init.sh
 | 表 | 业务主键（TEXT UNIQUE） | 说明 |
 |---|---|---|
 | `roles` | `role_id` | 角色注册表：note 工作内容注释（一句话，非子 agent persona）；9 个固定角色 |
-| `capabilities` | `capability_id` | 能力注册表：**role_id（归属角色，1 对多）** + how（能力本体）/ **products（产出物 JSON 数组，一能力可多产物；评审/决策类 `'[]'`）**。（v0.23：reviewer_focus/inputs/quality_gates 已删；v0.28：doc_path/template_path/demo_path 三列合并为 products） |
+| `capabilities` | `capability_id` | 能力注册表：**role_id（归属角色，1 对多）** + how（能力本体）/ **products（产出物 JSON 数组，一能力可多产物；评审/决策类 `'[]'`）**。（v0.23：reviewer_focus/inputs/quality_gates 已删；v0.28：doc_path/template_path/demo_path 三列合并为 products；v0.29：products 项删 template_path——产出标准以产出 skill 为权威） |
 | `flow_templates` | `flow_templates_id` | 4 种流程模板：scope_options（JSON，可选实施范围；节点拓扑见 flow_template_nodes） |
 | `flow_template_nodes` | UNIQUE(flow_templates_id, node_order) | 模板节点定义：**flow_templates_id（逻辑引用 flow_templates.flow_templates_id）** / role_id / capability_id（执行者能力，可空=align 节点）/ **mode（produce｜align）** / gate / branch / parallel_group / **scope（裁剪条件 ''｜be｜fe）** / reviewers（[{role,capability_id,scope?}]）/ expected_outputs |
 | `flows` | `requirement_id` | 流程实例：flow_templates_id（引用模板）/ current_node_id 指针 + 时间 |
@@ -58,6 +58,8 @@ bash workbench-sql/init.sh
 > **v0.23 能力收缩 + 模板外置（User 拍板）**：`capabilities` 删除 `reviewer_focus` / `inputs` / `quality_gates`；新增 `template_path` / `demo_path`（指向 `docs/templates/xxx-template.md` / `xxx-demo.md`）。`how` 强化为能力本体（与 prd 对齐/接口满足前端/架构一致/可测性）；评审维度归入评审能力自身 how，依赖文档由 `task.context` 承载，质量门禁由模板文件承载。**表数不变（11 张）**。
 >
 > **v0.28 节点-能力绑定模型（User 拍板，m8 §10）**：`capabilities`.doc_path/template_path/demo_path 三列 → **单列 `products`**（JSON：`[{doc_path, template_path, demo_path}]`，一能力可多产物；评审/决策类 `'[]'`）；**QA 能力合并**（acceptance-test + defect-management → 一个「验收与缺陷管理」挂 2 产物 qa/test.md + qa/defect.md，defect-management 删除，能力 20→19）；`flow_template_nodes` 加 **`mode`（produce｜align）** 且 `capability_id` 可空（tech/task 需求对齐 = align 无产物节点，结论落 issues discussion，wb_my_task 组装链把全流程讨论打包给 subagent）；**reviewers 统一为 `[{role, capability_id, scope?}]`**（focus 移除——维度已在评审能力自身 how；leader 移出 reviewers——决策者≠评审表态者）。**表数不变（11 张）**。
+>
+> **v0.29 产出标准权威迁 skill（User 拍板 D4，semantica 47c53ed9）**：`products` 项删 `template_path`，现值 `[{doc_path, demo_path}]`——**DB 不存标准指针**：产出/评审端经产出 skill 寻址（`docs/templates/skills/`，frontmatter 声明动作绑定），评审端按 skill 自检节核对（评审能力 how 已加对应步骤）；有 skill 的 4 组模板文件删除（brd/prd/backend/frontend），无 skill 的 9 组模板保留标「skill 待建」；demo 保留并与 skill 骨架保持一致。`schema_version` 28→29。
 >
 > **实现状态（v0.30 泛化，User 拍板「维持 issues discussion 唯一载体 + 全会话按 node 供给」）**：wb_my_task 已先在 **JSON 插件**落地（`workbench-plugin/host.js` pkg-41，22 个 `wb_*` 工具）——**sessionsByNode 泛化**：不搞「特定会话当产物」，而是把**每个 node 里的所有会话（issue/discussion/notification 全含，包括锚定在产物文档上的会话）**都作为上下文产物，按 node 分组打包进返回（条条带 nodeId/nodeKey 明确归属；`anchor.artifactId` → artifacts 解析 `anchorArtifact={label,href}`；组内时间升序、replies 完整）；对齐节点判定 = key 含「需求对齐」（过渡）；sqlite 组装链（m8 §3.4.4/§11.2）为迁移目标，sessionsByNode 对应 SQL：`issues WHERE requirement_id=? ORDER BY node_id, created_at`（按 node_id 分组，`issue_type` 全含，`anchor_artifact_id` LEFT JOIN artifacts），mode 判定切换为 `flow_template_nodes.mode`。**会话不另产物化到 artifacts**（不新增文档、不登记 artifact 行），文档锚定会话仍是 issues 行、返回时解析产物引用；对话本体唯一载体 = issues。
 
@@ -94,7 +96,7 @@ bash workbench-sql/init.sh
 
 | 类别 | 语义 | 字段示例 |
 |---|---|---|
-| 模板缺省 | 该能力无产出模板（评审/决策类），空串无意义 | capabilities.products = `'[]'`（v0.28 起 JSON 数组表达，不再用 NULL 列；产物项内 template_path/demo_path 为 JSON null=模板未固化） |
+| 模板缺省 | 该能力无产出模板（评审/决策类），空串无意义 | capabilities.products = `'[]'`（v0.28 起 JSON 数组表达，不再用 NULL 列；v0.29 起产物项内 demo_path 为 JSON null=示例未固化） |
 | 无产出能力 | 需求对齐等无产物节点不绑产出能力，NULL 表示「无产出能力」且与 mode='align' 配套 | flow_template_nodes.capability_id |
 | 未发生 | 事件尚未发生（时间/状态），空串对 INTEGER 无意义、0 不是合法时间戳 | flows.current_node_id、flow_nodes.feature_branch/entered_at/last_decision/pending_scope、tasks.root_issue_id/last_reply_at/last_ack/last_progress/resume_hint/dispatch_at/done_at/closed_at、issues.resolve_* 族、issues.anchor_* 族（kind 不适用）、audit_log.field/old_value/new_value（action 不适用） |
 | 引用缺省 | 逻辑引用目标尚未确定，空串会与真实业务主键冲突 | issues.anchor_artifact_id / assignee / reviewer_role |
@@ -148,8 +150,8 @@ bash workbench-sql/init.sh
 | `capabilities` | 19 | 见 §4.1（how 均 4 步：读输入→产出/评审→自检→登记；role_id 唯一归属；v0.28 QA 合并后 19 项） |
 | `flow_templates` | 4 | business / tech / task / plan（scope_options） |
 | `flow_template_nodes` | 33 | business 13（含待启动）+ tech 9 + task 6 + plan 5 |
-| `capabilities` | 11 个产出能力 | 产出能力 products 有 doc_path + template_path/demo_path（指向 docs/templates/，**已建 9 组**：prd / backend-design-doc / frontend-design-doc / qa-acceptance / qa-defect-management / qa-testcase-review / arch-version-scope-align / arch-version-design / research-open-source-tech；已建组 template+demo 成对）；backend-dev / frontend-dev / plan-cap 3 项模板未固化（products 项内 template/demo 为 JSON null）；评审/决策 8 项 products='[]'；acceptance-test 挂 2 产物 |
-| `meta` | 1 | schema_version=28 |
+| `capabilities` | 11 个产出能力 | 产出能力 products 有 doc_path + demo_path（v0.29 起无 template_path——产出标准按能力→skill 寻址，**已建 skill 4 类**：to-brd / to-prd / to-rd-techdesign / to-fe-techdesign；无 skill 的产物暂由 docs/templates/*-template.md 承载「skill 待建」，索引见 docs/templates/README.md）；backend-dev / frontend-dev / plan-cap 3 项示例未固化（products 项内 demo 为 JSON null）；评审/决策 8 项 products='[]'；acceptance-test 挂 2 产物 |
+| `meta` | 1 | schema_version=29 |
 
 ### 5.1 flow_template_nodes 分布（按 m6 / m8 节点定义）
 
@@ -191,7 +193,7 @@ JOIN flow_templates t ON t.flow_templates_id = n.flow_templates_id
 JOIN capabilities c ON c.capability_id = n.capability_id
 WHERE n.role_id != c.role_id AND n.role_id != 'executor';
 
--- 产出能力模板完整性：products 非空的产出能力，其第 1 项产物应有 doc_path（模板是否固化另查 template_path）
+-- 产出能力 products 完整性：products 非空的产出能力，其第 1 项产物应有 doc_path（示例是否固化另查 demo_path）
 SELECT count(*) FROM capabilities WHERE json_array_length(products) > 0 AND json_extract(products, '$[0].doc_path') IS NULL;
 
 -- align 节点检查：mode='align' 应无能力、无产物（应 0 行）

@@ -26,14 +26,28 @@ import (
 // escalationITThreshold IT 注入小阈值（AC「注入小阈值跑通」，避免 5 轮 reopen 拉锯）。
 const escalationITThreshold = 2
 
-// escalationIssue 建一条 open issue（arch 提评、显式指派 pm）。
-func escalationIssue(t *testing.T, router *gin.Engine, reqID string, text string) (string, testResp) {
+// escalationIssue 建一条 open issue（arch 提评、显式指派 pm；2026-09-10 BUG-013
+// 拍板：评审上下文 issue 评论必须锚产物——夹具登记上游产物并携 document 锚）。
+func escalationIssue(t *testing.T, router *gin.Engine, handles *database.DB, reqID string, text string) (string, testResp) {
 	t.Helper()
+	seedUpstreamArtifact(t, handles, reqID, "art-it-esc", "n-03")
 	resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/comments", map[string]any{
 		"nodeId": "n-04", "author": "arch", "roleId": "arch", "assignee": "pm", "text": text,
+		"anchor": map[string]any{"kind": "document", "artifactId": "art-it-esc"},
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	return item(t, resp, "issue").str("issueId"), resp
+}
+
+// escalationNoticeAnchor 读该需求最新一条通知行的 anchor_kind 与跳转锚
+// （BUG-008 投影口径断言数据源）。
+func escalationNoticeAnchor(t *testing.T, handles *database.DB, reqID string, sourceIssueID string) (string, string) {
+	t.Helper()
+	var kind, anchor string
+	assert.NilError(t, handles.Gorm.WithContext(context.Background()).Raw(
+		"SELECT anchor_kind, COALESCE(anchor_artifact_id, '') FROM issues WHERE requirement_id = ? AND issue_type = 'notification' AND text LIKE ? ORDER BY id DESC LIMIT 1",
+		reqID, "%"+sourceIssueID+"%").Row().Scan(&kind, &anchor))
+	return kind, anchor
 }
 
 // jsonInt64 protojson 出参 int64 字段读取（字符串/数字双形态）。
@@ -93,7 +107,7 @@ func repliesEntries(t *testing.T, raw string) []map[string]any {
 func TestIntegration_EscalationChain_RealMySQL(t *testing.T) {
 	router, handles := openScratchWithThreshold(t, escalationITThreshold)
 	reqID := setupReviewNode(t, router, handles, "1", "n-04")
-	issueID, _ := escalationIssue(t, router, reqID, "边界场景未覆盖，需补测试用例")
+	issueID, _ := escalationIssue(t, router, handles, reqID, "边界场景未覆盖，需补测试用例")
 
 	// 1. 阈值自动 escalate（注入阈值 2）：reopen 计数=2 时置位 + 通知位行
 	// （完整拉锯：reply→reopen×2——reopen 操作者=提评者 arch）
@@ -126,6 +140,11 @@ func TestIntegration_EscalationChain_RealMySQL(t *testing.T) {
 		"SELECT COUNT(*) FROM issues WHERE requirement_id = ? AND issue_type = 'notification' AND assignee = 'user' AND text LIKE ?",
 		reqID, "%"+issueID+"%").Scan(&noticeCount).Error)
 	assert.Equal(t, noticeCount, int64(1), "自动上升应写 notification 通知位行")
+	// 通知行投影口径（BUG-008）：anchor_kind 落七类词表 escalation + anchor=源
+	// issueId（跳转锚）——收件箱「冲突待裁决←escalation」投影不断链
+	noticeKind, noticeAnchor := escalationNoticeAnchor(t, handles, reqID, issueID)
+	assert.Equal(t, noticeKind, "escalation", "自动上升通知行 anchor_kind 应为 escalation")
+	assert.Equal(t, noticeAnchor, issueID, "跳转锚=源 issueId")
 	assert.Equal(t, auditCount(t, handles, "issues", issueID, "UPDATE") >= 1, true, "escalate 置位审计")
 
 	// 2. wb_escalate 拉起裁决 session：sessions 建绑（node 关联 / role=user / dsh_ref 占位）
@@ -231,7 +250,7 @@ func TestIntegration_EscalationUpholdAndBlocked_RealMySQL(t *testing.T) {
 	reqID := setupReviewNode(t, router, handles, "1", "n-04")
 
 	// 0. 未 escalate 拉裁决 → blocked（escalate=0 无 session）
-	plainID, _ := escalationIssue(t, router, reqID, "普通议题")
+	plainID, _ := escalationIssue(t, router, handles, reqID, "普通议题")
 	resp := reqJSON(t, router, http.MethodPost, "/api/comments/"+plainID+"/adjudicate", map[string]any{
 		"verdict": "uphold", "conclusion": "x", "decided_by": "user",
 	})
@@ -258,7 +277,7 @@ func TestIntegration_EscalationUpholdAndBlocked_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusNotFound)
 
 	// 2. 终态不可上升：resolved issue 上 escalate → 409
-	agreeID, _ := escalationIssue(t, router, reqID, "协商一致议题")
+	agreeID, _ := escalationIssue(t, router, handles, reqID, "协商一致议题")
 	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+agreeID+"/resolve", map[string]any{
 		"path": "agree", "operator": "pm", "note": "已对齐",
 	})
@@ -278,7 +297,7 @@ func TestIntegration_EscalationUpholdAndBlocked_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.str("code"), "INVALID_TRANSITION")
 
 	// 3. uphold 全链：手动 escalate（未达阈值）→ session → 裁决维持 → 状态保持
-	upholdID, _ := escalationIssue(t, router, reqID, "拉锯议题（维持）")
+	upholdID, _ := escalationIssue(t, router, handles, reqID, "拉锯议题（维持）")
 	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+upholdID+"/escalate", map[string]any{
 		"operator": "arch", "reason": "手动上升",
 	})
@@ -292,6 +311,11 @@ func TestIntegration_EscalationUpholdAndBlocked_RealMySQL(t *testing.T) {
 		"SELECT COUNT(*) FROM issues WHERE requirement_id = ? AND issue_type = 'notification' AND text LIKE ?",
 		reqID, "%"+upholdID+"%").Scan(&noticeCount).Error)
 	assert.Equal(t, noticeCount, int64(1), "手动上升写通知位行")
+	// 通知行投影口径（BUG-008）：手动路径 anchor_kind 落 escalation（旧口径 document
+	// 使收件箱 escalation 投影断链）+ anchor=源 issueId
+	noticeKind, noticeAnchor := escalationNoticeAnchor(t, handles, reqID, upholdID)
+	assert.Equal(t, noticeKind, "escalation", "手动上升通知行 anchor_kind 应为 escalation")
+	assert.Equal(t, noticeAnchor, upholdID, "跳转锚=源 issueId")
 
 	// 未拉起 session 的上升 issue 裁决 → blocked（无上升条目场景由终态/越集分支覆盖；
 	// 此处直接验证重复裁决分支：先首裁 uphold）

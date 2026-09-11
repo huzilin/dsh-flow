@@ -188,7 +188,7 @@ func TestUnit_ActiveActionsFor(t *testing.T) {
 	active, err := domain.ActiveActionsFor("pm", repo.PhaseExec, nodeActions, capabilities)
 	assert.NilError(t, err)
 	assert.Equal(t, len(active), 2)
-	assert.Equal(t, active[0].ActionID, "produce")
+	assert.Equal(t, active[0].ActionID, "product-design.produce", "BUG-006 口径：capability 动作全名回显")
 	assert.Equal(t, active[0].Skill, "to-prd")
 
 	// 相位不命中（entry 无 capability 动作）→ node action 命中

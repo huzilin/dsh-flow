@@ -62,12 +62,10 @@
       "products": [
         {
           "doc_path": "docs/<版本号>/<需求名>/qa/test.md",
-          "template_path": "docs/templates/qa-acceptance-template.md",
           "demo_path": "docs/templates/qa-acceptance-demo.md"
         },
         {
           "doc_path": "docs/<版本号>/<需求名>/qa/defect.md",
-          "template_path": "docs/templates/qa-defect-management-template.md",
           "demo_path": "docs/templates/qa-defect-management-demo.md"
         }
       ]
@@ -85,7 +83,6 @@
       "products": [
         {
           "doc_path": "docs/<版本号>/align.md",
-          "template_path": "docs/templates/arch-version-scope-align-template.md",
           "demo_path": "docs/templates/arch-version-scope-align-demo.md"
         }
       ]
@@ -97,6 +94,7 @@
       "how": [
         "读输入：被评审设计文档（rd-design/fe-design/case-design）",
         "按 focus 评审：技术路线/架构一致/重构影响/调研建议合理性（评审维度见 how 结尾）",
+        "按产出 skill（to-rd-techdesign）自检节核对：接口/数据设计与架构方向约束一致",
         "评论 wb_comment(reviewerRole=arch) → wb_review 表态",
         "复核：意见闭环后确认（resolve）"
       ],
@@ -115,7 +113,6 @@
       "products": [
         {
           "doc_path": "docs/<版本号>/arch_design.md",
-          "template_path": "docs/templates/arch-version-design-template.md",
           "demo_path": "docs/templates/arch-version-design-demo.md"
         }
       ]
@@ -126,14 +123,13 @@
       "role_id": "rd",
       "how": [
         "读输入：prd/prd.md（产品设计）+ 版本 arch_design.md（大方向）",
-        "产出《RD 技术设计》：按模板 backend-design-doc 章节骨架逐节编写",
-        "自检质量门禁：接口/数据设计对照 prd/prd.md+arch_design.md 一致",
+        "产出《RD 技术设计》：按产出 skill（to-rd-techdesign）标准逐节撰写，章节骨架/门禁/准出以 skill 为权威",
+        "按 skill 自检节自检：接口/数据设计对照 prd/prd.md+arch_design.md 一致，准出 blocker 不过不提评",
         "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=评审归属)"
       ],
       "products": [
         {
           "doc_path": "docs/<版本号>/<需求名>/rd/design.md",
-          "template_path": "docs/templates/backend-design-doc-template.md",
           "demo_path": "docs/templates/backend-design-doc-demo.md"
         }
       ]
@@ -151,7 +147,6 @@
       "products": [
         {
           "doc_path": "docs/<版本号>/<需求名>/rd/dev.md",
-          "template_path": "docs/templates/dev-notes-template.md",
           "demo_path": null
         }
       ]
@@ -169,7 +164,6 @@
       "products": [
         {
           "doc_path": "docs/<版本号>/<需求名>/qa/cases.md",
-          "template_path": "docs/templates/qa-testcase-review-template.md",
           "demo_path": "docs/templates/qa-testcase-review-demo.md"
         }
       ]
@@ -205,6 +199,7 @@
       "how": [
         "读输入：被评审设计文档（rd-design/fe-design/case-design）",
         "按 focus 评审：接口契约可对接/前端口径（各审各的，评审维度见 how 结尾）",
+        "按产出 skill（to-fe-techdesign）自检节逐条核对：准出 blocker（逐字段对齐 rd 契约/序列化口径随 rd）不过即打回",
         "评论 wb_comment(reviewerRole=fe) → wb_review 表态",
         "复核：意见闭环后确认（resolve）"
       ],
@@ -228,14 +223,13 @@
       "role_id": "fe",
       "how": [
         "读输入：prd/prd.md（产品方案）+ rd/design.md（接口契约）",
-        "产出《FE 技术设计》：按模板 frontend-design-doc 章节骨架逐节编写",
-        "自检质量门禁：接口消费与 rd 契约一致、关键路径可验证",
+        "产出《FE 技术设计》：按产出 skill（to-fe-techdesign）标准逐节撰写，章节骨架/门禁/准出以 skill 为权威",
+        "按 skill 自检节自检：接口消费与 rd 契约逐字段一致、关键路径可验证，准出 blocker 不过不提评",
         "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=QA)"
       ],
       "products": [
         {
           "doc_path": "docs/<版本号>/<需求名>/fe/design.md",
-          "template_path": "docs/templates/frontend-design-doc-template.md",
           "demo_path": "docs/templates/frontend-design-doc-demo.md"
         }
       ]
@@ -253,7 +247,6 @@
       "products": [
         {
           "doc_path": "docs/<版本号>/<需求名>/fe/dev.md",
-          "template_path": "docs/templates/dev-notes-template.md",
           "demo_path": null
         }
       ]
@@ -271,7 +264,6 @@
       "products": [
         {
           "doc_path": "docs/<版本号>/<需求名>/plan.md",
-          "template_path": "docs/templates/plan-template.md",
           "demo_path": null
         }
       ]
@@ -283,6 +275,7 @@
       "how": [
         "读输入：prd/prd.md（价值/优先级/范围）+ rd/design.md（工期依赖）",
         "按 focus 评审：需求价值/优先级/范围/工期依赖（各审各的，评审维度见 how 结尾）",
+        "按产出 skill（to-prd）自检节核对：目标/范围/AC 无歧义，下游可无歧义消费",
         "评论 wb_comment(reviewerRole=pm) → wb_review 表态",
         "复核：意见闭环后确认（resolve）"
       ],
@@ -294,14 +287,13 @@
       "role_id": "arch",
       "how": [
         "读输入：需求池需求描述 + 版本架构文档 arch_design.md（大方向）",
-        "产出《产品设计文档》：按 prd 模板章节骨架逐节编写",
-        "自检质量门禁：AC 可验证、范围与架构方向不冲突",
+        "产出《产品设计文档》：按产出 skill（to-prd）标准逐节撰写，章节骨架/门禁/准出以 skill 为权威",
+        "按 skill 自检节自检：AC 可验证、范围与架构方向不冲突，下游可无歧义消费",
         "登记产物 wb_add_artifact(nodeId=当前节点) → 提评 wb_comment(to=PM)"
       ],
       "products": [
         {
           "doc_path": "docs/<版本号>/<需求名>/prd/prd.md",
-          "template_path": "docs/templates/prd-template.md",
           "demo_path": "docs/templates/prd-demo.md"
         }
       ]
@@ -313,6 +305,7 @@
       "how": [
         "读输入：被评审设计文档（rd-design/fe-design/case-design）",
         "按 focus 评审：可测性/联调口径/用例覆盖（各审各的，评审维度见 how 结尾）",
+        "按产出 skill（to-rd-techdesign / to-fe-techdesign）自检节核对：数据可测性、边界态处理说明齐备",
         "评论 wb_comment(reviewerRole=qa) → wb_review 表态",
         "复核：意见闭环后确认（resolve）"
       ],
@@ -325,6 +318,7 @@
       "how": [
         "读输入：被评审设计文档（rd-design/case-design）+ prd/prd.md",
         "按 focus 评审：设计完整性/自测方案/后端口径（各审各的，评审维度见 how 结尾）",
+        "按产出 skill（to-rd-techdesign）自检节逐条核对：准出 blocker（接口与契约真相源一致/序列化口径一致/覆盖无遗漏）不过即打回",
         "评论 wb_comment(reviewerRole=rd) → wb_review 表态",
         "复核：意见闭环后确认（resolve）"
       ],
@@ -343,7 +337,6 @@
       "products": [
         {
           "doc_path": "docs/<版本号>/research.md",
-          "template_path": "docs/templates/research-open-source-tech-template.md",
           "demo_path": "docs/templates/research-open-source-tech-demo.md"
         }
       ]
@@ -1138,7 +1131,7 @@
   "meta": [
     {
       "meta_key": "schema_version",
-      "meta_value": "28"
+      "meta_value": "29"
     }
   ]
 }

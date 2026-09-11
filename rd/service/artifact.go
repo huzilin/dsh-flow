@@ -114,6 +114,27 @@ func (s *ArtifactService) Add(ctx context.Context, req *api.AddArtifactReq) (*ap
 	if node == nil {
 		return nil, notFound("节点 %q 不存在于需求 %q", req.NodeId, req.RequirementId)
 	}
+	// 注记-L2（BUG-016）：done=离场终态，禁止挂载产物（防事后补挂绕过 exec 判据）；
+	// 返工走 rejected 打回重入。
+	if node.State == repo.PhaseDone {
+		return nil, policyRejected("节点 %q 已完成离场（done），禁止挂载产物；如需返工请 rejected 打回重入", node.NodeID)
+	}
+
+	// BUG-015 守卫（产物入库约束，spec 注记-K）：节点 expected_outputs 对该
+	// product_type 有期望且期望为入库文档（kind=document）时，不得以 link 登记——
+	// 外链冒充入库文档会在阅读器断链（无正文/无锚定评论）。
+	// 期望外 product_type（如 code_mr 补充外链）不受限。
+	expected, err := defExpectedOutputs(ctx, s.repo, node.DefNodeID)
+	if err != nil {
+		return nil, err
+	}
+	for _, exp := range expected {
+		if exp.ProductType == req.ProductType &&
+			domain.NormalizeArtifactKind(exp.Kind) == domain.ArtifactKindDocument &&
+			kind == domain.ArtifactKindLink {
+			return nil, policyRejected("产物 %q 在节点期望中为入库文档（kind=document），不得以 link 登记", req.ProductType)
+		}
+	}
 
 	row, err := withIDAllocRetry(func() (*repo.Artifact, bool, error) {
 		return s.addOnce(ctx, req, kind)

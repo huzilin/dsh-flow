@@ -25,16 +25,19 @@ type CommentAPI interface {
 	Confirm(ctx context.Context, req *api.ConfirmReviewReq) (*api.ConfirmReviewResp, error)
 	// Reopen wb_reopen（澄清 reopen / 修复 revise，loop_count++）
 	Reopen(ctx context.Context, req *api.ReopenReq) (*api.ReopenResp, error)
+	// OverrideRole wb_override_role（注记-L1 强权通道：User 整角色批量 overridden）
+	OverrideRole(ctx context.Context, req *api.OverrideRoleReq) (*api.OverrideRoleResp, error)
 }
 
 // RegisterIssueRoutes 注册评论/issue 路由：requirements 组挂需求侧建评
-// （POST /:reqId/comments），comments 组挂线程侧四端点。
+// （POST /:reqId/comments），comments 组挂线程侧四端点 + 强权通道。
 func RegisterIssueRoutes(requirements *gin.RouterGroup, comments *gin.RouterGroup, svc CommentAPI) {
 	requirements.POST("/:reqId/comments", Comment(svc))
 	comments.POST("/:commentId/replies", Reply(svc))
 	comments.POST("/:commentId/resolve", Resolve(svc))
 	comments.POST("/:commentId/confirm", Confirm(svc))
 	comments.POST("/:commentId/reopen", Reopen(svc))
+	comments.POST("/override-role", OverrideRole(svc))
 }
 
 // Comment POST /api/requirements/:reqId/comments（body 绑定，路径 id 优先）。
@@ -119,6 +122,23 @@ func Reopen(svc CommentAPI) gin.HandlerFunc {
 		}
 		req.CommentId = c.Param("commentId")
 		resp, err := svc.Reopen(c.Request.Context(), req)
+		if err != nil {
+			AbortWithErr(c, err)
+			return
+		}
+		respondProto(c, http.StatusOK, resp)
+	}
+}
+
+// OverrideRole POST /api/comments/override-role（注记-L1 强权通道）。
+func OverrideRole(svc CommentAPI) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		req := &api.OverrideRoleReq{}
+		if err := bindProtoBody(c, req); err != nil {
+			AbortWithErr(c, err)
+			return
+		}
+		resp, err := svc.OverrideRole(c.Request.Context(), req)
 		if err != nil {
 			AbortWithErr(c, err)
 			return

@@ -10,13 +10,17 @@ const (
 	ScopeFE   = "fe"
 )
 
-// 可配动作相位（node.state 4 值 + 空=未进入编排）。
+// 可配动作相位（node.state 值 + 空=未进入编排；done=离场终态，注记-L2）。
 const (
 	PhaseEmpty   = ""
 	PhaseEntry   = "entry"
 	PhaseExec    = "exec"
 	PhaseReview  = "review"
 	PhaseRespond = "respond"
+	// PhaseDone 业务终态（BUG-016 拍板，注记-L2）：节点被推进离场时置入——
+	// 语义=「已通过/已完成」（老模型 state='已通过' 的 v1.0 对应物）；done 节点
+	// 禁止挂载产物/任务，打回重入时由回退核复位重进。
+	PhaseDone = "done"
 )
 
 // 节点类型（flow_def_nodes.node_type 4 类）。
@@ -72,12 +76,11 @@ type ActionDef struct {
 	OutputProductTypes []string `json:"outputProductTypes"`
 }
 
-// ProductDef capabilities.products 条目：产物登记清单（模板外置真相源，路径占位符沿用 docs 约定）。
+// ProductDef capabilities.products 条目：产物登记清单（路径占位符沿用 docs 约定）。
+// v0.29 起无 template_path：产出标准以产出 skill 为权威，DB 不存标准指针。
 type ProductDef struct {
 	// DocPath 产物文档相对路径
 	DocPath string `json:"docPath"`
-	// TemplatePath 模板路径；未固化为空
-	TemplatePath string `json:"templatePath,omitempty"`
 	// DemoPath 示例路径；未固化为空
 	DemoPath string `json:"demoPath,omitempty"`
 }
@@ -172,6 +175,29 @@ type TaskContext struct {
 	// Supplement 调用方补充上下文 JSON 文本（AssignTaskReq.context 原样透传；
 	// 空=无补充）。双字节原文存储，不做键级合并（装配键位不被覆盖）
 	Supplement string `json:"supplement,omitempty"`
+	// DependencyDocs 评审任务的依赖文档（tasks.context.dependencyDocs 落实现，
+	// BUG-011③：被评审产物=直接上游连续 produce 段已登记产物，派发即随行——
+	// agent 零跳转；仅 task_type=review 注入，空=无）
+	DependencyDocs []TaskContextDependencyDoc `json:"dependencyDocs,omitempty"`
+}
+
+// TaskContextDependencyDoc 依赖文档条目（被评审产物摘要，my-task relatedArtifacts
+// 同口径子集 + 锚定所需 nodeId）。
+type TaskContextDependencyDoc struct {
+	// ArtifactID 产物业务 id（评论锚 artifactId 取此值）
+	ArtifactID string `json:"artifactId"`
+	// NodeID 产物所在节点（上游 produce 实例节点）
+	NodeID string `json:"nodeId"`
+	// NodeKey 节点名
+	NodeKey string `json:"nodeKey"`
+	// ProductType 产物受控类型
+	ProductType string `json:"productType"`
+	// Label 产物显示名
+	Label string `json:"label"`
+	// Kind document | link
+	Kind string `json:"kind"`
+	// Href 相对项目路径或外链
+	Href string `json:"href"`
 }
 
 // TaskContextRequirement 需求摘要。

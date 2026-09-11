@@ -59,6 +59,9 @@ func TestIntegration_TaskAssign_RealMySQL(t *testing.T) {
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "创建失败: %v", resp.body)
 	reqID := item(t, resp, "requirement").str("requirementId")
+	// 相位守卫（2026-09-10 BUG-005 口径：未进入编排的节点不可派发）——派发用例
+	// 节点先播种激活相位（n-02=bus-01 对齐 node action、n-03=bus-02 能力动作）
+	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec' WHERE node_id IN ('n-02', 'n-03')")
 
 	// 1. 入参拦截：缺必填 → 400
 	for _, body := range []map[string]any{
@@ -150,6 +153,8 @@ func TestIntegration_TaskAssign_RealMySQL(t *testing.T) {
 	taskReqID := item(t, resp, "requirement").str("requirementId")
 	resp = reqJSON(t, router, http.MethodGet, "/api/requirements/"+taskReqID, nil)
 	devNodeID := arr(t, resp, "flowNodes")[4].str("nodeId")
+	// 相位守卫（BUG-005 口径）：开发节点先播种 exec
+	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec' WHERE node_id = ?", devNodeID)
 	resp = assignTask(t, router, taskReqID, devNodeID, "backend-dev.dev", "rd")
 	assert.Equal(t, resp.code, http.StatusOK, "task×rd 开发派发: %v", resp.body)
 	assert.Equal(t, item(t, resp, "task").str("branch"), "rd", "rd 泳道 branch=rd")
@@ -216,6 +221,9 @@ func TestIntegration_TaskUpdate_RealMySQL(t *testing.T) {
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
 	reqID := item(t, resp, "requirement").str("requirementId")
+	// 相位守卫（BUG-005 口径）：produce/accept 派发节点先播种 exec
+	// （n-03=bus-02 产物、n-11=bus-10 QA 验收；n-04 由 review/respond 族用例自播种）
+	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec' WHERE node_id IN ('n-03', 'n-11')")
 
 	// 入参拦截：event 非法/缺失 → 400；任务不存在 → 404
 	resp = reqJSON(t, router, http.MethodPatch, "/api/tasks/t-1-001", map[string]any{"event": "no-such"})

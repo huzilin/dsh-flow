@@ -34,6 +34,10 @@
 --     - flow_template_nodes.reviewers 统一为 [{role, capability_id, scope?}]（评审者集合，
 --       各审各的；capability_id=该评审者所用评审能力；scope 按需评审位）——C 点；
 --       focus 移除（评审维度已在评审能力自身 how 内，v0.23 拍板）
+--   * v0.29（产出标准权威迁 skill，User 拍板 D4，semantica 47c53ed9）：products 项删
+--     template_path，现值 [{doc_path, demo_path}]——标准指针不入 DB：产出/评审端经
+--     产出 skill 寻址（docs/templates/skills/，frontmatter 声明动作绑定），评审端按
+--     skill 自检节核对；无 skill 的产物暂由 docs/templates/*-template.md 承载（待建）
 -- 执行：sqlite3 workbench.db < schema.sql
 -- =====================================================================
 
@@ -44,18 +48,19 @@ PRAGMA foreign_keys = OFF;
 -- 1. 能力注册表（全局一份；how 承载能力本体——"我是谁、输入后如何做出合格产出"）
 --    roles → capabilities 1 对多：role_id 唯一归属（一个角色拥有多个能力；
 --    每个能力只属于一个角色，能力不共享——同一评审节点上各角色用各自的能力）
--- 产物（v0.23 起模板文件外置 + v0.28 合并为 products 数组）：
+-- 产物（v0.23 模板外置 + v0.28 合并 products 数组 + v0.29 删 template_path）：
 --   products（JSON 数组）= 产出物清单，一能力可多产物（如 qa-acceptance 合并后
 --   挂 qa/test.md + qa/defect.md 两项）；每项：doc_path（产出文档存放路径，
---   含 <版本号>/<需求名> 占位）、template_path（章节骨架+质量门槛模板文件，
---   docs/templates/xxx-template.md）、demo_path（填充示例，docs/templates/xxx-demo.md）。
---   模板文件外置（v0.23）：章节骨架/质量门禁由文件承载，不内联 DB。
+--   含 <版本号>/<需求名> 占位）、demo_path（填充示例，docs/templates/xxx-demo.md）。
+--   产出标准（v0.29 起）：有产出 skill 的产物以 skill 为权威（docs/templates/skills/，
+--   章节骨架/门禁/准出内联），demo 仅示例参照；无 skill 的产物暂由
+--   docs/templates/*-template.md 承载（skill 待建，见 docs/templates/README.md）。
 -- v0.23 收缩：reviewer_focus / inputs / quality_gates 三个字段已删除——
 --   评审维度并入"评审能力"自身的 how；依赖文档由派发时的 task.context 承载；
---   质量门槛由模板文件承载。能力表只描述归属 + 行为 + 产出模板。
+--   质量门槛由模板文件承载（v0.29 起：有 skill 产物改由 skill 自检节承载）。
 -- v0.28（§10 A 点，User 拍板）：doc_path/template_path/demo_path 三列 → 单列 products。
 --   NULL 策略变化：products 用 '[]' 表示无产出（评审/决策类能力），不再用 NULL 列——
---   模板未固化的产物项其 template_path/demo_path 为 JSON null（如 backend-dev）。
+--   示例未固化的产物项其 demo_path 为 JSON null（如 backend-dev；v0.29 起无 template_path）。
 -- ---------------------------------------------------------------------
 CREATE TABLE capabilities (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,10 +72,10 @@ CREATE TABLE capabilities (
                  --   如何与 prd 对齐 / 如何设计接口满足前端页面 / 如何与架构文档保持大方向一致 /
                  --   如何保证可测性 / 自检要点（评审类能力在此写明评审维度与表态流程）
   products         TEXT NOT NULL DEFAULT '[]',
-                 -- JSON: [{doc_path, template_path, demo_path}]（产出物清单，v0.28 合并三列）
+                 -- JSON: [{doc_path, demo_path}]（产出物清单；v0.28 合并三列，v0.29 删 template_path）
                  --   一能力可多产物（QA 验收能力 = 2 项：qa/test.md + qa/defect.md）；
-                 --   评审/决策类能力 = '[]'（只输出意见/决策，不产出文档、无模板）；
-                 --   产物项内 template_path/demo_path=null 表示该产物模板未固化
+                 --   评审/决策类能力 = '[]'（只输出意见/决策，不产出文档）；
+                 --   产物项内 demo_path=null 表示填充示例未固化
   created_at       INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),  -- unix ms
   updated_at       INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000)   -- unix ms
 );
@@ -233,7 +238,9 @@ CREATE TABLE artifacts (
 -- 9. 评论/问题/线程（单表 v0.20：根评论 + replies JSON 内嵌回复，issue_replies 已并入）
 --    含锚点/指派/双路径状态；回复为不可变 JSON 数组（m7：只 append，不编辑/删除）
 -- NULL 策略：
---   anchor_artifact_id 锚点未指向具体产物=NULL（document 级锚点，空串与真实 artifact_id 冲突）
+--   anchor_artifact_id 锚点未指向具体产物=NULL（document 级锚点，空串与真实 artifact_id 冲突）；
+--     注记-J8 起新写入的评审上下文 issue 类评论恒带值（NULL 仍合法=历史数据）；
+--     notification 行（anchor_kind=通知类别，如 escalation）本列=源 issueId 跳转锚（注记-J4）
 --   anchor_line/start_line/end_line/block_start/block_end/lang：仅对应 anchor_kind 适用时填写，
 --     其余 NULL（如 line 锚点无 block_start；document 锚点全 NULL）——用 NULL 表示「该锚点类型不适用」，
 --     空串对 INTEGER 列无意义
@@ -246,8 +253,8 @@ CREATE TABLE issues (
   issue_id     TEXT NOT NULL UNIQUE,     -- cm-<ts>（业务可读）
   requirement_id TEXT NOT NULL,           -- 逻辑引用 flows.requirement_id
   node_id      TEXT NOT NULL,            -- 逻辑引用 flow_nodes.node_id
-  anchor_kind  TEXT NOT NULL DEFAULT 'document',  -- document|line|range|block
-  anchor_artifact_id TEXT,               -- 锚定产物（逻辑引用 artifacts.artifact_id；NULL=未锚定具体产物）
+  anchor_kind  TEXT NOT NULL DEFAULT 'document',  -- 评论行：document|line|range|block；notification 行：通知类别七类词表（注记-J4）
+  anchor_artifact_id TEXT,               -- 评论行=锚定产物（逻辑引用 artifacts.artifact_id；NULL=历史数据）；notification 行=源 issueId 跳转锚（注记-J4）
   anchor_line       INTEGER,             -- 单行号（仅 kind=line）
   anchor_start_line INTEGER,             -- 范围起行（仅 kind=range）
   anchor_end_line   INTEGER,             -- 范围终行（仅 kind=range）

@@ -15,6 +15,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	"github.com/huzilin/wbflow/rd/database"
+	"github.com/huzilin/wbflow/rd/repo"
 )
 
 // TestIntegration_FlowInstantiation_RealMySQL 实例化矩阵：节点集与序号符合渲染矩阵
@@ -183,7 +184,7 @@ func TestIntegration_MyTask_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.str("currentPhase"), "exec")
 	active := arr(t, resp, "activeActions")
 	assert.Equal(t, len(active), 1, "exec 首产配置 produce（revise 按 rbc=0 剔除，T9）")
-	assert.Equal(t, active[0].str("actionId"), "produce")
+	assert.Equal(t, active[0].str("actionId"), "product-design.produce", "BUG-006 口径：与 assign 入参同口径全名")
 	assert.Equal(t, active[0].str("skill"), "to-prd")
 	assert.Equal(t, active[0].str("capabilityId"), "product-design")
 
@@ -221,12 +222,52 @@ func TestIntegration_MyTask_RealMySQL(t *testing.T) {
 		map[string]any{"role": "pm", "nodeId": "n-04"})
 	active = arr(t, resp, "activeActions")
 	assert.Equal(t, len(active), 1, "respond 相位 clarify 归 product-design(pm)")
-	assert.Equal(t, active[0].str("actionId"), "clarify")
+	assert.Equal(t, active[0].str("actionId"), "product-design.clarify")
 
 	// 节点维度不中：nodeId 不存在 → 404
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/my-task",
 		map[string]any{"role": "pm", "nodeId": "n-99"})
 	assert.Equal(t, resp.code, http.StatusNotFound)
+}
+
+// TestIntegration_MyTaskReviewArtifacts_RealMySQL BUG-011（2026-09-10 拍板）：评审
+// 节点 wb_my_task relatedArtifacts 注入被评审产物——直接上游 produce 节点已登记
+// 产物置前，本节点产物殿后；非评审节点不注入上游。
+func TestIntegration_MyTaskReviewArtifacts_RealMySQL(t *testing.T) {
+	router, handles := openScratch(t)
+	reqID := createBusinessFullReq(t, router)
+
+	// 夹具：上游 produce n-03（bus-02 产品设计）登记被评审产物；评审 n-04（bus-03）
+	// 本节点登记一份
+	for _, art := range []repo.Artifact{
+		{ArtifactID: "art-it-rv-up", RequirementID: reqID, NodeID: "n-03",
+			ProductType: "product_doc", Label: "《产品设计文档》", Href: "docs/product.md",
+			Kind: "document", AddedBy: "pm"},
+		{ArtifactID: "art-it-rv-own", RequirementID: reqID, NodeID: "n-04",
+			ProductType: "product_doc", Label: "《评审纪要》", Href: "docs/review.md",
+			Kind: "document", AddedBy: "arch"},
+	} {
+		row := art
+		assert.NilError(t, handles.Gorm.Create(&row).Error)
+	}
+
+	// 评审节点：被评审产物（上游）置前 + 本节点产物殿后
+	resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/my-task",
+		map[string]any{"role": "arch", "nodeId": "n-04"})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	assert.Equal(t, item(t, resp, "node").str("nodeType"), "review")
+	artifacts := arr(t, resp, "relatedArtifacts")
+	assert.Equal(t, len(artifacts), 2, "上游被评审产物 + 本节点产物: %v", resp.body["relatedArtifacts"])
+	assert.Equal(t, artifacts[0].str("artifactId"), "art-it-rv-up", "被评审产物置前（零跳转读上游文档）")
+	assert.Equal(t, artifacts[1].str("artifactId"), "art-it-rv-own", "本节点产物殿后")
+
+	// 非 review 节点（n-03 produce）只回本节点产物
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/my-task",
+		map[string]any{"role": "pm", "nodeId": "n-03"})
+	assert.Equal(t, resp.code, http.StatusOK)
+	artifacts = arr(t, resp, "relatedArtifacts")
+	assert.Equal(t, len(artifacts), 1)
+	assert.Equal(t, artifacts[0].str("artifactId"), "art-it-rv-up")
 }
 
 // TestIntegration_DependencyTree_RealMySQL 依赖树：多层展开 + 悬挂边 found=false + 环检测 409。

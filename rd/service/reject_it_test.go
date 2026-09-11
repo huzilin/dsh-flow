@@ -142,8 +142,11 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	reqID := setupReviewNode(t, router, handles, "1", "n-06") // bus-05 RD 技术评审 ug=1
 
 	// —— 评审 unagree → clarify（owner 澄清循环，T8 语义回归）——
+	// BUG-013 口径：评审上下文 issue 评论必须锚产物（夹具登记上游产物 n-05=bus-04）
+	seedUpstreamArtifact(t, handles, reqID, "art-it-reject", "n-05")
 	resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/comments", map[string]any{
 		"nodeId": "n-06", "author": "arch", "roleId": "arch", "text": "技术设计未覆盖回滚场景", "assignee": "rd",
+		"anchor": map[string]any{"kind": "document", "artifactId": "art-it-reject"},
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	issueID := item(t, resp, "issue").str("issueId")
@@ -177,6 +180,15 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, item(t, resp, "issue").str("state"), "to-fix", "确认真问题")
+	// 注记-L1：arch agree 前置=名下评论闭环——修复申报（to-fix→fixed）+ 提评者复核（→resolved）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
+		"commentId": issueID, "path": "fix", "operator": "rd", "note": "4.3 节修复申报",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	assert.Equal(t, item(t, resp, "issue").str("state"), "fixed", "修复申报")
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/confirm", map[string]any{"operator": "arch"})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	assert.Equal(t, item(t, resp, "issue").str("state"), "resolved", "复核确认闭环")
 	assert.Equal(t, review(reqID, "n-06", "arch", "arch.rd-design-review", "agree").code, http.StatusOK)
 	for _, p := range positions[1:] {
 		assert.Equal(t, review(reqID, "n-06", p.role, p.capabilityID, "agree").code, http.StatusOK)
@@ -232,8 +244,8 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	for _, a := range actions {
 		actionIDs = append(actionIDs, a.str("actionId"))
 	}
-	assert.Assert(t, contains(actionIDs, "revise"), "重入出返工配置: %v", actionIDs)
-	assert.Assert(t, !contains(actionIDs, "produce"), "首产配置被剔除: %v", actionIDs)
+	assert.Assert(t, contains(actionIDs, "backend-design.revise"), "重入出返工配置: %v", actionIDs)
+	assert.Assert(t, !contains(actionIDs, "backend-design.produce"), "首产配置被剔除: %v", actionIDs)
 
 	resp = reqJSON(t, router, http.MethodPost, "/api/tasks", map[string]any{
 		"requirementId": reqID, "nodeId": "n-05", "actionId": "backend-design.revise", "assignee": "rd",
@@ -285,8 +297,8 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	for _, a := range actions {
 		actionIDs = append(actionIDs, a.str("actionId"))
 	}
-	assert.Assert(t, contains(actionIDs, "revise"), "下游重入出返工配置: %v", actionIDs)
-	assert.Assert(t, !contains(actionIDs, "produce"), "下游首产配置被剔除: %v", actionIDs)
+	assert.Assert(t, contains(actionIDs, "frontend-design.revise"), "下游重入出返工配置: %v", actionIDs)
+	assert.Assert(t, !contains(actionIDs, "frontend-design.produce"), "下游首产配置被剔除: %v", actionIDs)
 
 	// —— QA retest（仅 full scope 节点；rbc≥1 选 retest）——
 	now := repo.NowMillis()
@@ -297,7 +309,7 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK)
 	actions = arr(t, resp, "activeActions")
 	assert.Equal(t, len(actions), 1, "QA 重入仅出 retest: %v", actions)
-	assert.Equal(t, actions[0].str("actionId"), "retest")
+	assert.Equal(t, actions[0].str("actionId"), "acceptance-test.retest", "BUG-006 口径：全名回显")
 	resp = reqJSON(t, router, http.MethodPost, "/api/tasks", map[string]any{
 		"requirementId": reqID, "nodeId": "n-11", "actionId": "acceptance-test.retest", "assignee": "qa",
 	})
@@ -320,16 +332,8 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, item(t, resp, "task").str("status"), "completed", "retest 完成判据通过")
 
-	// —— 复验通过 → issue resolved（消费 T7 confirm 路径：to-fix→fixed→resolved）——
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
-		"by": "rd", "roleId": "rd", "text": "回滚场景已修复并复验通过",
-	})
-	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/confirm", map[string]any{
-		"commentId": issueID, "operator": "arch",
-	})
-	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
-	assert.Equal(t, item(t, resp, "issue").str("state"), "resolved", "复验确认闭环")
+	// —— 复验通过 → issue 保持 resolved（注记-L1：打回前已闭环；resolved 上 reply/
+	// confirm 均为非法迁移，重做沟通走新评论）——
 	assert.Equal(t, rowCount(t, handles,
 		"SELECT COUNT(*) FROM issues WHERE issue_id = ? AND state = 'resolved' AND resolved_by = 'arch' AND resolved_at IS NOT NULL",
 		issueID), int64(1))

@@ -68,7 +68,11 @@ func TestIntegration_Migration_RealMySQL(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, report1.ToVersion, migration.LatestVersion())
 	if os.Getenv("WBFLOW_MYSQL_DB") == "" {
-		assert.DeepEqual(t, report1.Applied, []int64{migration.SchemaVersion, migration.SeedVersion, migration.FlowScopeDecisionVersion})
+		// v4（NotifyOutboxVersion，注记-H outbox 化）随 af55c4c 并入——期望序列对齐账本
+		assert.DeepEqual(t, report1.Applied, []int64{
+			migration.SchemaVersion, migration.SeedVersion, migration.FlowScopeDecisionVersion,
+			migration.NotifyOutboxVersion,
+		})
 	}
 
 	report2, err := migration.Run(ctx, g)

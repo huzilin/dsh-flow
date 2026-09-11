@@ -137,6 +137,19 @@ func (s *IssueService) Comment(ctx context.Context, req *api.CommentReq) (*api.C
 	if issueType == "" {
 		issueType = domain.IssueTypeIssue
 	}
+	// 评审上下文锚产物强制（2026-09-10 BUG-013 拍板「所有的评审都是挂在文档上的」）：
+	// 评审上下文（判定见 inReviewContext）的 issue 类评论必须锚产物——document 级
+	// 锚点未携带 anchorArtifactId 即 400 引导挂锚；notification/discussion 类不受限
+	// （内部通知不走此通道）。存量数据不回溯（新评论硬拦）。
+	if issueType == domain.IssueTypeIssue && anchorKind == domain.IssueAnchorDocument && anchorArtifactID == "" {
+		reviewCtx, ctxErr := inReviewContext(node, req.RoleId)
+		if ctxErr != nil {
+			return nil, errs.Trace(ctxErr)
+		}
+		if reviewCtx {
+			return nil, invalidArg("评审上下文的 issue 评论必须锚定产物：请为 anchor 携带 artifactId（如被评审产物，document 级），或使用 line/range/block 级锚点")
+		}
+	}
 	escalate := int64(0)
 	if req.Escalate {
 		escalate = domain.MarkEscalate()
@@ -383,6 +396,61 @@ func (s *IssueService) Reopen(ctx context.Context, req *api.ReopenReq) (*api.Reo
 	return &api.ReopenResp{Ok: true, LoopCount: row.LoopCount, Issue: issueItem(row)}, nil
 }
 
+// OverrideRole wb_override_role（注记-L1 强权通道，2026-09-10 User 拍板）：User 整角色
+// 强权通过——该节点该角色名下全部未闭环 issue 类评论（open/to-fix/fixed/pending-confirm）
+// 批量置 overridden（resolved_by=operator）。「强行通过 X 全部剩余」的原型对应物。
+// 闭环评论与 notification/discussion 行不动。
+//
+// 入参：RequirementId/NodeId/ReviewerRole 必填；Operator 必填且须=user（强权专属）。
+// 出参：本次 overridden 计数。
+//
+// 错误集：ErrInvalidArgument（必填缺失/operator 非 user）；底层 IO 错误经 Trace 上抛。
+func (s *IssueService) OverrideRole(ctx context.Context, req *api.OverrideRoleReq) (*api.OverrideRoleResp, error) {
+	if req.RequirementId == "" || req.NodeId == "" || req.ReviewerRole == "" {
+		return nil, invalidArg("requirement_id/node_id/reviewer_role 必填")
+	}
+	if req.Operator != "user" {
+		return nil, invalidArg("operator 须为 user（强权 override 为 User 专属，注记-L1）")
+	}
+	overridden := 0
+	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
+		var issues []repo.Issue
+		if err := tx.WithContext(ctx).
+			Where("requirement_id = ? AND node_id = ? AND issue_type = 'issue' AND reviewer_role = ?",
+				req.RequirementId, req.NodeId, req.ReviewerRole).
+			Find(&issues).Error; err != nil {
+			return errs.Trace(err)
+		}
+		now := repo.NowMillis()
+		for _, issue := range issues {
+			if domain.IssueClosed(issue.State) {
+				continue
+			}
+			updates := map[string]any{
+				"state":       repo.IssueStateOverridden,
+				"resolved_by": req.Operator,
+				"resolved_at": now,
+				"updated_at":  now,
+			}
+			if err := tx.WithContext(ctx).Model(&repo.Issue{}).
+				Where("id = ? AND updated_at = ?", issue.ID, issue.UpdatedAt).
+				Updates(updates).Error; err != nil {
+				return errs.Trace(err)
+			}
+			audit := issueAudit(issue.IssueID, "state", issue.State, repo.IssueStateOverridden, req.Operator)
+			if err := s.repo.InsertAuditLogWith(tx, &audit); err != nil {
+				return errs.Trace(err)
+			}
+			overridden++
+		}
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+	return &api.OverrideRoleResp{Ok: true, NodeId: req.NodeId, ReviewerRole: req.ReviewerRole, Overridden: int32(overridden)}, nil
+}
+
 // transitionInput 状态迁移统一入参（五端点收敛点：行锁读 → 操作者约束 →
 // 状态机判定 → 列更新 + 同事务审计）。
 type transitionInput struct {
@@ -575,6 +643,27 @@ func retestSpec(row *repo.Issue) (NotificationSpec, bool) {
 		RecipientRole: recipient,
 		Text:          fmt.Sprintf("缺陷 %s 已修复提交（fixed），待你复核", row.IssueID),
 	}, true
+}
+
+// inReviewContext 评审上下文判定（BUG-013 锚产物强制前置条件）：节点相位处于
+// review/respond（评审表态与 owner 响应均为评审对话期），或 author 角色出现在
+// 节点评审位声明（评审者身份——未激活节点上的评论同样受约束）。
+//
+// 错误集：reviewers JSON 非法（实例数据损坏）。
+func inReviewContext(node *repo.FlowNode, roleID string) (bool, error) {
+	if node.State == repo.PhaseReview || node.State == repo.PhaseRespond {
+		return true, nil
+	}
+	var reviewers []repo.ReviewerDef
+	if err := utils.UnmarshalJSONText(node.Reviewers, &reviewers); err != nil {
+		return false, errs.Trace(err)
+	}
+	for _, reviewer := range reviewers {
+		if reviewer.Role == roleID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // issueAudit issue UPDATE 审计行装配（field 级留痕，old/new 文本化）。

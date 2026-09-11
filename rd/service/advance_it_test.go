@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -116,9 +117,20 @@ func startFlowAt(t *testing.T, handles *database.DB, reqID string, nodeID string
 	execSQL(t, handles, "UPDATE flow_nodes SET state = ?, entered_at = ? WHERE node_id = ?", phase, repo.NowMillis(), nodeID)
 }
 
+// writeITDoc 在 IT docsRoot（t.TempDir()）写一份入库 fixture，返回相对 href
+// （注记-K 产物入库约束：期望 document 的产物不得 link 登记——IT 数据同口径）。
+func writeITDoc(t *testing.T, docsRoot string, name string) string {
+	t.Helper()
+	p := filepath.Join(docsRoot, name)
+	if err := os.WriteFile(p, []byte("# IT fixture\n\n"+name+"\n"), 0o644); err != nil {
+		t.Fatalf("写 IT fixture 失败: %v", err)
+	}
+	return name
+}
+
 // assignAckAndRegister 开发节点执行步：派发动作 + ack + 登记期望产物
-// （dev_notes/code_mr，link 类最简），返回 task id。
-func assignAckAndRegister(t *testing.T, router *gin.Engine, reqID string, nodeID string, actionID string, assignee string) string {
+// （dev_notes=期望 document→入库 fixture；code_mr 期望外仍 link），返回 task id。
+func assignAckAndRegister(t *testing.T, router *gin.Engine, reqID string, nodeID string, actionID string, assignee string, docsRoot string) string {
 	t.Helper()
 	resp := reqJSON(t, router, http.MethodPost, "/api/tasks", map[string]any{
 		"requirementId": reqID, "nodeId": nodeID, "actionId": actionID, "assignee": assignee,
@@ -126,13 +138,16 @@ func assignAckAndRegister(t *testing.T, router *gin.Engine, reqID string, nodeID
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	taskID := item(t, resp, "task").str("taskId")
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+taskID, map[string]any{"event": "ack"}).code, http.StatusOK)
-	for _, ptype := range []string{"dev_notes", "code_mr"} {
-		resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/"+nodeID+"/artifacts", map[string]any{
-			"productType": ptype, "label": "《IT-" + ptype + "》",
-			"href": "https://docs.example.local/" + nodeID + "-" + ptype, "kind": "link", "addedBy": assignee,
-		})
-		assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
-	}
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/"+nodeID+"/artifacts", map[string]any{
+		"productType": "dev_notes", "label": "《IT-dev_notes》",
+		"href": writeITDoc(t, docsRoot, "it-"+nodeID+"-dev_notes.md"), "kind": "document", "addedBy": assignee,
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/"+nodeID+"/artifacts", map[string]any{
+		"productType": "code_mr", "label": "《IT-code_mr》",
+		"href": "https://git.example.local/" + nodeID + "-mr", "kind": "link", "addedBy": assignee,
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	return taskID
 }
 
@@ -140,7 +155,7 @@ func assignAckAndRegister(t *testing.T, router *gin.Engine, reqID string, nodeID
 // 未进入编排 blocked / exec 判据未达 blocked / ①跨节点推进（review 相位播种轮 0）/
 // 重复推进幂等 noop / ②dev 节点内 CR 轮转 / 404。
 func TestIntegration_Advance_Phases_RealMySQL(t *testing.T) {
-	router, handles, _ := openAdvanceScratch(t)
+	router, handles, docsRoot := openAdvanceScratch(t)
 	reqID := createFullReq(t, router, "推进端点需求")
 
 	// 1. 未进入编排（state=""）→ blocked
@@ -162,7 +177,7 @@ func TestIntegration_Advance_Phases_RealMySQL(t *testing.T) {
 	taskID := item(t, resp, "task").str("taskId")
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+taskID, map[string]any{"event": "ack"}).code, http.StatusOK)
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-03/artifacts", map[string]any{
-		"productType": "product_doc", "label": "《产品设计》", "href": "https://docs.example.local/pd", "kind": "link", "addedBy": "pm",
+		"productType": "product_doc", "label": "《产品设计》", "href": writeITDoc(t, docsRoot, "it-pd.md"), "kind": "document", "addedBy": "pm",
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
 	// complete 判据通过即内聚触发推进（拍板-B）：current 应已前移 n-04
@@ -190,12 +205,14 @@ func TestIntegration_Advance_Phases_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK)
 	taskID = item(t, resp, "task").str("taskId")
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+taskID, map[string]any{"event": "ack"}).code, http.StatusOK)
-	for _, ptype := range []string{"dev_notes", "code_mr"} {
-		resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-09/artifacts", map[string]any{
-			"productType": ptype, "label": "《RD-" + ptype + "》", "href": "https://docs.example.local/rd-" + ptype, "kind": "link", "addedBy": "rd",
-		})
-		assert.Equal(t, resp.code, http.StatusOK)
-	}
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-09/artifacts", map[string]any{
+		"productType": "dev_notes", "label": "《RD-dev_notes》", "href": writeITDoc(t, docsRoot, "it-rd-dev-notes.md"), "kind": "document", "addedBy": "rd",
+	})
+	assert.Equal(t, resp.code, http.StatusOK)
+	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-09/artifacts", map[string]any{
+		"productType": "code_mr", "label": "《RD-code_mr》", "href": "https://git.example.local/rd-mr", "kind": "link", "addedBy": "rd",
+	})
+	assert.Equal(t, resp.code, http.StatusOK)
 	resp = advanceNode(t, router, reqID, "n-09")
 	assert.Equal(t, resp.code, http.StatusConflict, "判据未达（未 complete）应 blocked: %v", resp.body)
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+taskID, map[string]any{"event": "complete"}).code, http.StatusOK)
@@ -218,12 +235,56 @@ func TestIntegration_Advance_Phases_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusNotFound, "未知节点应 404")
 }
 
+// TestIntegration_Advance_RequirementStatusLink_RealMySQL BUG-001（2026-09-10 拍板，
+// spec §7.3 收尾联动补实现）：requirements.status 推进联动——①首次进入编排
+// （bus-00 拍板激活 bus-01）待启动→进行中；②落位尾节点（bus-12 激活驻留）→
+// 已完成；同值幂等不重复写审计，审计 by_who=推进方（plugin）。
+func TestIntegration_Advance_RequirementStatusLink_RealMySQL(t *testing.T) {
+	router, handles, _ := openAdvanceScratch(t)
+	reqID := createFullReq(t, router, "状态联动需求")
+
+	status := func() string {
+		resp := reqJSON(t, router, http.MethodGet, "/api/requirements/"+reqID, nil)
+		assert.Equal(t, resp.code, http.StatusOK)
+		return item(t, resp, "requirement").str("status")
+	}
+	// 未进入编排：待启动
+	assert.Equal(t, status(), "待启动")
+
+	// ①首次进入编排：bus-00（n-01）拍板 approved → 激活 bus-01 → 进行中
+	resp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-01/decision",
+		map[string]any{"verdict": "approved", "reason": "确认投入资源"})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	assert.Equal(t, status(), "进行中", "首次进入编排（current 空变非空）应联动进行中")
+	assert.Equal(t, auditFieldCount(t, handles, "requirements", reqID, "status"), int64(1))
+	assert.Assert(t, rowCount(t, handles,
+		"SELECT COUNT(*) FROM audit_log WHERE table_name = 'requirements' AND row_id = ? AND field = 'status' AND by_who = 'plugin'", reqID) == 1,
+		"联动审计 by_who=plugin")
+
+	// ②落位尾节点：current 播种 bus-11（n-12）review + last_decision approved →
+	// advance 激活 bus-12（n-13，实例链尾节点）→ 已完成
+	startFlowAt(t, handles, reqID, "n-12", "review")
+	execSQL(t, handles, "UPDATE flow_nodes SET last_decision = ? WHERE node_id = 'n-12'",
+		`{"verdict":"approved","reason":"用户验收通过","at":1730000000000}`)
+	resp = advanceNode(t, router, reqID, "n-12")
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+	assert.Equal(t, resp.str("outcome"), "cross")
+	assert.Equal(t, flowCol(t, handles, reqID, "current_node_id"), "n-13", "尾节点落位")
+	assert.Equal(t, status(), "已完成", "落位尾节点应联动已完成")
+	assert.Equal(t, auditFieldCount(t, handles, "requirements", reqID, "status"), int64(2))
+
+	// 幂等：重复 advance（noop 路径）同值不重复写状态审计
+	resp = advanceNode(t, router, reqID, "n-12")
+	assert.Equal(t, resp.code, http.StatusOK)
+	assert.Equal(t, auditFieldCount(t, handles, "requirements", reqID, "status"), int64(2), "幂等不重复写")
+}
+
 // TestIntegration_Advance_Join_RealMySQL 并行 join（拍板-C①）：RD∥FE 并行开发组
 // （n-09/n-10，bus-08/bus-09）真并行驱动——双侧同时 exec（编排播种）：
 // rd 先 CR approved → 激活对侧交接不越组；fe 后 CR approved → 对侧已 complete →
 // 整组推进 bus-10（QA）。
 func TestIntegration_Advance_Join_RealMySQL(t *testing.T) {
-	router, handles, _ := openAdvanceScratch(t)
+	router, handles, docsRoot := openAdvanceScratch(t)
 	reqID := createFullReq(t, router, "并行 join 需求")
 
 	// 双侧并行播种（真并行驱动：同时 exec、current 驻留 rd 侧）
@@ -231,7 +292,7 @@ func TestIntegration_Advance_Join_RealMySQL(t *testing.T) {
 	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec', entered_at = ? WHERE node_id = 'n-10'", repo.NowMillis())
 
 	// rd 侧完成 → CR 轮转 → cr agree 机械 approved → 激活 fe 侧交接（不越组）
-	rdTask := assignAckAndRegister(t, router, reqID, "n-09", "backend-dev.dev", "rd")
+	rdTask := assignAckAndRegister(t, router, reqID, "n-09", "backend-dev.dev", "rd", docsRoot)
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+rdTask, map[string]any{"event": "complete"}).code, http.StatusOK)
 	assert.Equal(t, nodeCol(t, handles, "n-09", "state"), "review")
 	assert.Equal(t, reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-09/review",
@@ -241,7 +302,7 @@ func TestIntegration_Advance_Join_RealMySQL(t *testing.T) {
 	assert.Assert(t, nodeCol(t, handles, "n-11", "state") == "", "整组未推进：QA 节点应未激活")
 
 	// fe 侧完成 → CR 轮转 → cr agree 机械 approved → 对侧已 complete → 整组推进
-	feTask := assignAckAndRegister(t, router, reqID, "n-10", "frontend-dev.dev", "fe")
+	feTask := assignAckAndRegister(t, router, reqID, "n-10", "frontend-dev.dev", "fe", docsRoot)
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+feTask, map[string]any{"event": "complete"}).code, http.StatusOK)
 	assert.Equal(t, nodeCol(t, handles, "n-10", "state"), "review")
 	assert.Equal(t, reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-10/review",
@@ -262,7 +323,7 @@ func TestIntegration_Advance_Join_RealMySQL(t *testing.T) {
 // fe 侧先 CR approved 而对侧 rd 未完成 → 本侧完成待对侧（current 不动、QA 不激活）；
 // rd 后 CR approved → 其 advance 对称判定整组推进。
 func TestIntegration_Advance_JoinWait_RealMySQL(t *testing.T) {
-	router, handles, _ := openAdvanceScratch(t)
+	router, handles, docsRoot := openAdvanceScratch(t)
 	reqID := createFullReq(t, router, "join 待对侧需求")
 
 	// 双侧并行播种，current 驻留 rd 侧
@@ -270,7 +331,7 @@ func TestIntegration_Advance_JoinWait_RealMySQL(t *testing.T) {
 	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec', entered_at = ? WHERE node_id = 'n-10'", repo.NowMillis())
 
 	// fe 侧（n-10）先完成 → CR 轮转 → cr agree → 对侧未完成 → wait（current 不动）
-	feTask := assignAckAndRegister(t, router, reqID, "n-10", "frontend-dev.dev", "fe")
+	feTask := assignAckAndRegister(t, router, reqID, "n-10", "frontend-dev.dev", "fe", docsRoot)
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+feTask, map[string]any{"event": "complete"}).code, http.StatusOK)
 	assert.Equal(t, nodeCol(t, handles, "n-10", "state"), "review")
 	assert.Equal(t, reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-10/review",
@@ -279,7 +340,7 @@ func TestIntegration_Advance_JoinWait_RealMySQL(t *testing.T) {
 	assert.Equal(t, nodeCol(t, handles, "n-11", "state"), "", "对侧未完成整组不推进")
 
 	// rd 侧（n-09）后完成 → CR 轮转 → cr agree → 对侧已 complete → 整组推进
-	rdTask := assignAckAndRegister(t, router, reqID, "n-09", "backend-dev.dev", "rd")
+	rdTask := assignAckAndRegister(t, router, reqID, "n-09", "backend-dev.dev", "rd", docsRoot)
 	assert.Equal(t, reqJSON(t, router, http.MethodPatch, "/api/tasks/"+rdTask, map[string]any{"event": "complete"}).code, http.StatusOK)
 	assert.Equal(t, nodeCol(t, handles, "n-09", "state"), "review")
 	assert.Equal(t, reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-09/review",

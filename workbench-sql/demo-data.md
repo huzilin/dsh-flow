@@ -17,17 +17,16 @@
   "role_id": "rd",                          // 归属角色（1 对多：rd 拥有多个能力）
   "how": [                                  // JSON: 能力本体=行为步骤（wb_my_task 返回给角色照着做）
     "读输入：prd/prd.md（产品设计）+ 版本 arch_design.md（大方向）",
-    "产出《RD 技术设计》：按模板 backend-design-doc 章节骨架逐节编写",
-    "自检质量门禁：接口/数据设计对照 prd/prd.md+arch_design.md 一致",
+    "产出《RD 技术设计》：按产出 skill（to-rd-techdesign）标准逐节撰写，章节骨架/门禁/准出以 skill 为权威",
+    "按 skill 自检节自检：接口/数据设计对照 prd/prd.md+arch_design.md 一致，准出 blocker 不过不提评",
     "登记产物 wb_add_artifact(nodeId=当前节点) → 提评"
   ],
-  "products": [                             // JSON: 产出物清单（v0.28 起三列合并；一能力可多产物）
+  "products": [                             // JSON: 产出物清单（v0.29 起 [{doc_path, demo_path}]；一能力可多产物）
     {
       "doc_path": "docs/<版本号>/<需求名>/rd/design.md",      // 产出文档存放路径
-      "template_path": "docs/templates/backend-design-doc-template.md", // 模板文件（章节骨架+质量门槛）
       "demo_path": "docs/templates/backend-design-doc-demo.md"         // 填充示例
     }
-  ],                                        // 评审/决策类能力 products=[]；产物项内 template/demo 为 JSON null=模板未固化
+  ],                                        // 评审/决策类能力 products=[]；产物项内 demo 为 JSON null=示例未固化
   "created_at": 1786000000000,              // 行创建时间
   "updated_at": 1786000500000               // 行最后修改时间（模板演进时刷新）
 }
@@ -35,6 +34,7 @@
 
 > **v0.23（User 拍板）**：`structure`/`quality_gates`/`version`/`reviewer_focus`/`inputs` 五个字段已删除——章节骨架与质量门槛改由**模板文件**承载（`template_path`/`demo_path`），评审维度写在**评审能力自身**的 how 里，依赖文档由派发时的 **task.context** 承载。能力表只描述：归属 + 行为（how）+ 产出模板。
 > **v0.28（User 拍板，m8 §10）**：doc_path/template_path/demo_path 三列合并为单列 `products`（JSON 数组，一能力可多产物——如 QA 验收能力 acceptance-test 挂 qa/test.md + qa/defect.md 两产物）。
+> **v0.29（User 拍板 D4）**：products 项删 `template_path`——产出标准以产出 skill 为权威（docs/templates/skills/），DB 不存标准指针；demo 保留为示例参照。
 
 ---
 
