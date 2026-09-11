@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { FlowNodeItem, IssueItem } from "../api/proto/api";
+import type { ArtifactItem, FlowNodeItem, IssueItem, MyTaskResp } from "../api/proto/api";
 import {
   anchorSummary,
   chunkRanges,
   countOpenIssues,
   deriveGateView,
+  inReviewCommentContext,
   inSelection,
   issueReviewerOf,
   parseReplies,
   rejectedReentryHint,
+  reviewAnchorGuardError,
+  reviewArtifactGroups,
   scanFenceBlocks,
   seatStatesOf,
   selectionLabel,
@@ -128,8 +131,8 @@ describe("正文/代码块/分段", () => {
     ]);
   });
   it("inSelection：区间命中", () => {
-    expect(inSelection(3, { kind: "range", start: 2, end: 5 })).toBe(true);
-    expect(inSelection(6, { kind: "range", start: 2, end: 5 })).toBe(false);
+    expect(inSelection(3, { start: 2, end: 5 })).toBe(true);
+    expect(inSelection(6, { start: 2, end: 5 })).toBe(false);
     expect(inSelection(1, null)).toBe(false);
   });
 });
@@ -149,7 +152,11 @@ describe("锚点/评论展示辅助", () => {
     expect(anchorSummary(issue("line"))).toBe("art-1 line 42");
     expect(anchorSummary(issue("range"))).toBe("art-1 line 7-9");
     expect(anchorSummary(issue("block"))).toBe("art-1 block 2-8(sql)");
-    expect(anchorSummary(issue("document"))).toBe("document");
+    // BUG-013 后 document 锚可携带 artifactId：已挂产物呈「id（全文）」，未挂产物维持 "document"
+    expect(anchorSummary(issue("document"))).toBe("art-1（全文）");
+    expect(
+      anchorSummary({ anchorKind: "document", anchorArtifactId: "" } as unknown as IssueItem),
+    ).toBe("document");
   });
   it("issueReviewerOf：reviewerRole 优先缺省 author", () => {
     expect(issueReviewerOf({ reviewerRole: "arch", author: "pm" } as IssueItem)).toBe("arch");
@@ -159,13 +166,10 @@ describe("锚点/评论展示辅助", () => {
     const mk = (state: string) => ({ state }) as IssueItem;
     expect(countOpenIssues([mk("open"), mk("resolved"), mk("overridden"), mk("to-fix")])).toBe(2);
   });
-  it("selectionLabel 三级文案", () => {
+  it("selectionLabel 划词两级文案（注记-L3）", () => {
     expect(selectionLabel(null)).toBe("全文评论（document）");
-    expect(selectionLabel({ kind: "line", start: 42, end: 42 })).toBe("评论第 42 行");
-    expect(selectionLabel({ kind: "range", start: 7, end: 9 })).toBe("评论第 7-9 行区间");
-    expect(selectionLabel({ kind: "block", start: 2, end: 8, lang: "sql" })).toBe(
-      "评论代码块 2-8 行（sql）",
-    );
+    expect(selectionLabel({ start: 42, end: 42 })).toBe("评论第 42 行");
+    expect(selectionLabel({ start: 7, end: 9 })).toBe("评论第 7-9 行区间");
   });
   it("parseReplies：voided 标注保留", () => {
     const replies = parseReplies(
@@ -314,5 +318,152 @@ describe("buildFlowRows 并行泳道行构建（wb_advance join 同口径镜像�
     ];
     const rows = buildFlowRows(nodes);
     expect(rows.map((r) => r.kind)).toEqual(["single", "parallel", "single"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BUG-011 评审产物分组 / BUG-013 评审上下文锚产物（2026-09-10 批注轮）
+// ---------------------------------------------------------------------------
+
+function artifact(overrides: Partial<ArtifactItem>): ArtifactItem {
+  return {
+    artifactId: "art-1",
+    nodeId: "n-02",
+    productType: "rd_design",
+    label: "《RD 技术设计》",
+    href: "docs/rd.md",
+    kind: "document",
+    note: "",
+    addedBy: "rd",
+    createdAt: "1730000000000",
+    ...overrides,
+  };
+}
+
+function myTask(relatedArtifacts: Array<Pick<ArtifactItem, "artifactId" | "productType" | "label" | "kind">>): MyTaskResp {
+  return {
+    ok: true,
+    requirementId: "req-001",
+    role: "user",
+    node: undefined,
+    currentPhase: "review",
+    activeActions: [],
+    reviewSummary: undefined,
+    relatedNodes: [],
+    relatedArtifacts,
+    relatedTasks: [],
+    relatedIssues: [],
+  };
+}
+
+describe("reviewArtifactGroups（BUG-011 评审产物两段视图模型）", () => {
+  it("评审节点：relatedArtifacts 非本节点段=被评审产物（保持 rd 置前装配序），本节点段=快照全集", () => {
+    const n = node({ nodeId: "n-04", nodeType: "review" });
+    const snap = [
+      artifact({ artifactId: "art-up-1", nodeId: "n-02", label: "《RD 技术设计》" }),
+      artifact({ artifactId: "art-up-2", nodeId: "n-03", label: "《架构方案》" }),
+      artifact({ artifactId: "art-own", nodeId: "n-04", label: "《评审纪要》" }),
+    ];
+    const g = reviewArtifactGroups(
+      n,
+      myTask([
+        { artifactId: "art-up-2", productType: "architecture", label: "《架构方案》", kind: "document" },
+        { artifactId: "art-up-1", productType: "rd_design", label: "《RD 技术设计》", kind: "document" },
+        { artifactId: "art-own", productType: "discussion", label: "《评审纪要》", kind: "document" },
+      ]),
+      snap,
+    );
+    expect(g.reviewed.map((a) => a.artifactId)).toEqual(["art-up-2", "art-up-1"]);
+    expect(g.own.map((a) => a.artifactId)).toEqual(["art-own"]);
+  });
+  it("非评审节点不分段（reviewed 恒空，own=本节点全集）", () => {
+    const n = node({ nodeId: "n-02", nodeType: "produce", state: "exec" });
+    const g = reviewArtifactGroups(n, myTask([]), [artifact({ artifactId: "art-own", nodeId: "n-02" })]);
+    expect(g.reviewed).toEqual([]);
+    expect(g.own.map((a) => a.artifactId)).toEqual(["art-own"]);
+  });
+  it("my_task 未加载（undefined）时 reviewed 空集（UI 呈加载态），own 不受影响", () => {
+    const n = node({ nodeId: "n-04", nodeType: "review" });
+    const g = reviewArtifactGroups(n, undefined, [artifact({ artifactId: "art-own", nodeId: "n-04" })]);
+    expect(g.reviewed).toEqual([]);
+    expect(g.own).toHaveLength(1);
+  });
+  it("relatedArtifacts 中快照查不到的条目跳过（防御脏投影）", () => {
+    const n = node({ nodeId: "n-04", nodeType: "review" });
+    const g = reviewArtifactGroups(
+      n,
+      myTask([{ artifactId: "art-ghost", productType: "plan", label: "幽灵产物", kind: "document" }]),
+      [artifact({ artifactId: "art-own", nodeId: "n-04" })],
+    );
+    expect(g.reviewed).toEqual([]);
+  });
+});
+
+describe("inReviewCommentContext（BUG-013；rd inReviewContext 同口径镜像）", () => {
+  it("相位 review / respond 恒为评审上下文", () => {
+    expect(inReviewCommentContext(node({ state: "review" }), "user")).toBe(true);
+    expect(inReviewCommentContext(node({ state: "respond" }), "qa")).toBe(true);
+  });
+  it("非评审相位但发表角色在评审位声明中（未激活节点同受约束）", () => {
+    const n = node({
+      state: "exec",
+      reviewers: '[{"role":"arch","capabilityId":"arch.prd-review"}]',
+    });
+    expect(inReviewCommentContext(n, "arch")).toBe(true);
+    expect(inReviewCommentContext(n, "user")).toBe(false);
+  });
+});
+
+describe("reviewAnchorGuardError（BUG-013 发表前预校验；rd 400 同口径前置）", () => {
+  const ctx = { reviewContext: true, issueType: "issue", anchorKind: "document" };
+  it("评审上下文 issue 类 document 锚缺 artifactId=拦下并给引导文案", () => {
+    const err = reviewAnchorGuardError({ ...ctx, artifactId: "" });
+    expect(err).toContain("必须锚定产物");
+  });
+  it("携带 artifactId 放行", () => {
+    expect(reviewAnchorGuardError({ ...ctx, artifactId: "art-1" })).toBeNull();
+  });
+  it("line/range/block 天然挂产物不受限；非 issue 类不受限；非评审上下文不受限", () => {
+    expect(reviewAnchorGuardError({ ...ctx, anchorKind: "line", artifactId: "" })).toBeNull();
+    expect(reviewAnchorGuardError({ ...ctx, issueType: "discussion", artifactId: "" })).toBeNull();
+    expect(
+      reviewAnchorGuardError({ reviewContext: false, issueType: "issue", anchorKind: "document", artifactId: "" }),
+    ).toBeNull();
+  });
+});
+
+describe("anchorSummary 产物名呈现（BUG-013 评论展示挂产物名）", () => {
+  it("传入 label 映射时以产物名替代裸 id，document 已挂产物呈「名（全文）」", () => {
+    const issue = {
+      anchorKind: "document",
+      anchorArtifactId: "art-1",
+      anchorLine: "0",
+      anchorStartLine: "0",
+      anchorEndLine: "0",
+      anchorBlockStart: "0",
+      anchorBlockEnd: "0",
+      anchorLang: "",
+    } as IssueItem;
+    expect(anchorSummary(issue, (id) => (id === "art-1" ? "《RD 技术设计》" : ""))).toBe(
+      "《RD 技术设计》（全文）",
+    );
+    // 不传映射时回落裸 id（非 "document"——已挂产物与未挂产物可区分）
+    expect(anchorSummary(issue)).toBe("art-1（全文）");
+    expect(
+      anchorSummary({ ...issue, anchorArtifactId: "" }, (id) => (id === "art-1" ? "《RD 技术设计》" : "")),
+    ).toBe("document");
+  });
+  it("line 锚产物名 + 行号形态保持", () => {
+    const issue = {
+      anchorKind: "line",
+      anchorArtifactId: "art-1",
+      anchorLine: "42",
+      anchorStartLine: "0",
+      anchorEndLine: "0",
+      anchorBlockStart: "0",
+      anchorBlockEnd: "0",
+      anchorLang: "",
+    } as IssueItem;
+    expect(anchorSummary(issue, () => "《设计》")).toBe("《设计》 line 42");
   });
 });

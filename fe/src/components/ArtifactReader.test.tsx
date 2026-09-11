@@ -8,7 +8,8 @@ import { jsonResponse, renderWithClient } from "../test-utils";
 
 /**
  * 阅读器锚点装配测试（工单 T15 验收 2/7）：
- * - document 默认态 / 选行（click）/ 选区间（click+shift-click）/ block 选块
+ * - document 默认态 / 划词单击序列（注记-L3：首点=起点、重复点起点=取消、点他行=框选；
+ *   单行=range(n,n)；line/block 锚已废弃，后端 400）
  *   四级锚点装配进 POST /api/requirements/:reqId/comments 请求体
  * - 懒加载分段「加载后续 N 行」按钮 + 锚定评论就位渲染 + link 外链卡
  * - CommentCard 操作矩阵：resolve=assignee、confirm/reopen=提评者、回复恒可见
@@ -132,12 +133,13 @@ describe("ArtifactReader（锚点装配）", () => {
       expect(body).toBeDefined();
     });
     const body = await postCommentBody();
-    expect(body.anchor).toEqual({ kind: "document" });
+    // BUG-013：document 锚携带本文物 artifactId（评审上下文锚产物强制的前置口径）
+    expect(body.anchor).toEqual({ kind: "document", artifactId: "art-1" });
     expect(body.nodeId).toBe("n-04");
     expect(body.text).toBe("整体口径确认");
   });
 
-  it("选行：click 行 → kind=line + line 装配", async () => {
+  it("单击起点：单行选中 → range(n,n) 装配（注记-L3 行锚废弃）", async () => {
     mockContent(DOC_CONTENT);
     const user = userEvent.setup();
     renderWithClient(
@@ -156,11 +158,11 @@ describe("ArtifactReader（锚点装配）", () => {
     await user.click(screen.getByRole("button", { name: "发表评论" }));
     await waitFor(async () => expect((await postCommentBody()).anchor).toBeDefined());
     expect(await postCommentBody()).toMatchObject({
-      anchor: { kind: "line", artifactId: "art-1", line: "7" },
+      anchor: { kind: "range", artifactId: "art-1", startLine: "7", endLine: "7" },
     });
   });
 
-  it("选区间：click + shift-click → kind=range（start<end 反向亦收敛）", async () => {
+  it("单击序列框选：起点 → 点他行=区间 → 再点=重新开始（注记-L3 老交互手感）", async () => {
     mockContent(DOC_CONTENT);
     const user = userEvent.setup();
     renderWithClient(
@@ -173,23 +175,22 @@ describe("ArtifactReader（锚点装配）", () => {
       />,
     );
     await screen.findByText("设计正文第七行");
+    // 起点=第八行；点第六行=框选 6-8；再点第七行=重新开始为单点（老交互语义）
     await user.click(screen.getByText("设计正文第八行").closest(".reader-line")!);
-    // shift+click：fireEvent 直接携带 shiftKey 修饰（React onClick 合成事件可读）
-    fireEvent.click(screen.getByText("设计正文第六行").closest(".reader-line")!, {
-      shiftKey: true,
-    });
+    await user.click(screen.getByText("设计正文第六行").closest(".reader-line")!);
     expect(screen.getByText(/评论第 6-8 行区间/)).toBeInTheDocument();
+    await user.click(screen.getByText("设计正文第七行").closest(".reader-line")!);
+    expect(screen.getByText("评论第 7 行")).toBeInTheDocument();
     await user.type(screen.getByLabelText("评论内容"), "区间问题");
     await user.click(screen.getByRole("button", { name: "发表评论" }));
     await waitFor(async () => expect((await postCommentBody()).anchor).toBeDefined());
     expect(await postCommentBody()).toMatchObject({
-      anchor: { kind: "range", artifactId: "art-1", startLine: "6", endLine: "8" },
+      anchor: { kind: "range", artifactId: "art-1", startLine: "7", endLine: "7" },
     });
   });
 
-  it("block 选块：围栏代码块整块选取 → kind=block + lang", async () => {
+  it("选块按钮已移除（注记-L3 block 锚废弃）", async () => {
     mockContent(DOC_CONTENT);
-    const user = userEvent.setup();
     renderWithClient(
       <ArtifactReader
         requirementId="req-001"
@@ -200,14 +201,7 @@ describe("ArtifactReader（锚点装配）", () => {
       />,
     );
     await screen.findByText("设计正文第七行");
-    await user.click(screen.getByRole("button", { name: /⬚ 选代码块（3-5）/ }));
-    expect(screen.getByText(/评论代码块 3-5 行（sql）/)).toBeInTheDocument();
-    await user.type(screen.getByLabelText("评论内容"), "SQL 建议加索引");
-    await user.click(screen.getByRole("button", { name: "发表评论" }));
-    await waitFor(async () => expect((await postCommentBody()).anchor).toBeDefined());
-    expect(await postCommentBody()).toMatchObject({
-      anchor: { kind: "block", artifactId: "art-1", blockStart: "3", blockEnd: "5", lang: "sql" },
-    });
+    expect(screen.queryByTitle(/选代码块/)).toBeNull();
   });
 
   it("锚定评论就位渲染（line 6 行下方）+ document 级评论在正文末尾", async () => {
@@ -308,5 +302,91 @@ describe("CommentCard（操作矩阵可见性，与 T7 操作者约束同口径�
     expect(screen.queryByRole("button", { name: /修复路径（fix）/ })).not.toBeInTheDocument();
     expect(screen.getByText("已上升裁决")).toBeInTheDocument();
     expect(screen.getByText(/锚点：art-1 line 6/)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BUG-013 评审上下文锚产物（2026-09-10 批注轮）
+// ---------------------------------------------------------------------------
+
+describe("ArtifactReader（BUG-013 评审上下文锚产物）", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  function mockContent() {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).endsWith("/content")) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            ok: true,
+            artifactId: "art-1",
+            nodeId: "n-04",
+            productType: "rd_design",
+            label: "《RD 技术设计》",
+            kind: "document",
+            href: "docs/v1/rd-design.md",
+            content: "设计正文",
+            mimeType: "text/plain",
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(200, { ok: true, issue: { issueId: "cm-new" } }));
+    });
+  }
+
+  it("reviewContext=true：底部常驻引导提示「评论将锚定《…》」", async () => {
+    mockContent();
+    renderWithClient(
+      <ArtifactReader
+        requirementId="req-001"
+        nodeId="n-04"
+        artifact={artifact()}
+        issues={[]}
+        onClose={() => undefined}
+        reviewContext
+        artifactLabels={{ "art-1": "《RD 技术设计》" }}
+      />,
+    );
+    expect(await screen.findByText(/评审上下文：评论将锚定 《RD 技术设计》/)).toBeInTheDocument();
+  });
+
+  it("reviewContext=true 发表 document 级评论：请求体 anchor 携带本文物 artifactId", async () => {
+    mockContent();
+    const user = userEvent.setup();
+    renderWithClient(
+      <ArtifactReader
+        requirementId="req-001"
+        nodeId="n-04"
+        artifact={artifact()}
+        issues={[]}
+        onClose={() => undefined}
+        reviewContext
+      />,
+    );
+    await screen.findByText("设计正文");
+    await user.type(screen.getByLabelText("评论内容"), "评审意见挂产物");
+    await user.click(screen.getByRole("button", { name: "发表评论" }));
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find((c) => String(c[0]).endsWith("/comments"));
+      expect(call).toBeDefined();
+    });
+    const call = fetchMock.mock.calls.find((c) => String(c[0]).endsWith("/comments"));
+    const body = JSON.parse(String(call?.[1]?.body)) as { anchor: { kind: string; artifactId: string } };
+    expect(body.anchor).toEqual({ kind: "document", artifactId: "art-1" });
+  });
+
+  it("CommentCard 传 artifactLabels：锚点摘要呈现产物名而非裸 id", () => {
+    renderWithClient(
+      <CommentCard
+        requirementId="req-001"
+        issue={issue({ anchorKind: "document", anchorArtifactId: "art-1" })}
+        artifactLabels={{ "art-1": "《RD 技术设计》" }}
+      />,
+    );
+    expect(screen.getByText(/锚点：/)).toHaveTextContent("锚点：《RD 技术设计》（全文）");
   });
 });

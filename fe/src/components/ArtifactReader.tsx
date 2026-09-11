@@ -7,6 +7,7 @@ import {
   splitContentLines,
 } from "../domain/flowview";
 import { assembleCommentAnchor, issueAnchorOrder } from "../api/comments";
+import { reviewAnchorGuardError } from "../domain/flowview";
 import { useArtifactContentQuery, useCommentMutation } from "../hooks/queries";
 import { AlertBanner } from "./AlertBanner";
 import { CommentCard } from "./CommentCard";
@@ -31,6 +32,8 @@ export function ArtifactReader({
   artifact,
   issues,
   onClose,
+  reviewContext = false,
+  artifactLabels,
 }: {
   requirementId: string;
   nodeId: string;
@@ -38,6 +41,11 @@ export function ArtifactReader({
   /** 该节点全部评论（阅读器只取本文物锚点 + document 级） */
   issues: IssueItem[];
   onClose: () => void;
+  /** BUG-013：评审上下文（节点相位 review/respond 或发表者在评审位）——document
+   *  级 issue 评论必须挂产物，发表前预校验 + 常驻引导提示（rd 400 同口径前置） */
+  reviewContext?: boolean;
+  /** BUG-013：锚定产物名映射（artifactId→label），评论卡锚点摘要呈现产物名 */
+  artifactLabels?: Record<string, string>;
 }) {
   const isDocument = artifact.kind !== "link";
   const content = useArtifactContentQuery(requirementId, artifact.artifactId, isDocument);
@@ -45,6 +53,7 @@ export function ArtifactReader({
 
   const [selection, setSelection] = useState<SelectionState | null>(null);
   const [text, setText] = useState("");
+  const [guardMsg, setGuardMsg] = useState<string | null>(null);
   const [visibleChunks, setVisibleChunks] = useState(INITIAL_CHUNKS);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -91,7 +100,11 @@ export function ArtifactReader({
               {artifact.href}
             </a>
           </div>
-          <CommentThread issues={documentIssues} requirementId={requirementId} />
+          <CommentThread
+            issues={documentIssues}
+            requirementId={requirementId}
+            artifactLabels={artifactLabels}
+          />
         </div>
       </div>
     );
@@ -126,38 +139,27 @@ export function ArtifactReader({
                       fenceStart ? "fence-start" : "",
                     ].join(" ")}
                     data-line={line.no}
-                    onClick={(e) =>
-                      setSelection((prev) =>
-                        e.shiftKey && prev && (prev.kind === "line" || prev.kind === "range")
-                          ? {
-                              kind: "range",
-                              start: Math.min(prev.start, line.no),
-                              end: Math.max(prev.start, line.no),
-                            }
-                          : { kind: "line", start: line.no, end: line.no },
-                      )
+                    onClick={() =>
+                      // 注记-L3 划词单击序列（OPT-005 对齐老阅读器手感）：首点=起点；
+                      // 重复点起点=取消；起点后点其他行=框选区间（含单行）；已有区间
+                      // 再点任意行=重新开始。行级/块级锚已废弃（后端 400），发表恒为
+                      // range（单行=range(n,n)）或 document。
+                      setSelection((prev) => {
+                        if (!prev) return { start: line.no, end: line.no };
+                        if (prev.start === prev.end && prev.start === line.no) return null;
+                        if (prev.start === prev.end)
+                          return {
+                            start: Math.min(prev.start, line.no),
+                            end: Math.max(prev.start, line.no),
+                          };
+                        return { start: line.no, end: line.no };
+                      })
                     }
                   >
                     <span className="line-no">{line.no}</span>
                     <span className="line-text">{line.text === "" ? " " : line.text}</span>
                   </div>
-                  {fenceStart && (
-                    <button
-                      type="button"
-                      className="pick-block"
-                      title={`整块选取代码块（${fenceStart.lang || "未标注语言"}）发起 block 锚点评论`}
-                      onClick={() =>
-                        setSelection({
-                          kind: "block",
-                          start: fenceStart.startLine,
-                          end: fenceStart.endLine,
-                          lang: fenceStart.lang,
-                        })
-                      }
-                    >
-                      ⬚ 选代码块（{fenceStart.startLine}-{fenceStart.endLine}）
-                    </button>
-                  )}
+                  {fenceStart && <span className="fence-mark" aria-hidden />}
                   <AnchorCommentsAt
                     position={line.no}
                     issues={readerIssues}
@@ -177,7 +179,11 @@ export function ArtifactReader({
               </div>
             )}
           </div>
-          <CommentThread issues={documentIssues} requirementId={requirementId} />
+          <CommentThread
+            issues={documentIssues}
+            requirementId={requirementId}
+            artifactLabels={artifactLabels}
+          />
           <div ref={sentinelRef} />
         </div>
         <div className="reader-footer">
@@ -187,6 +193,11 @@ export function ArtifactReader({
             </button>
           )}
           <span className="reader-selection muted">{selectionLabel(selection)}</span>
+          {reviewContext && (
+            <span className="muted small review-anchor-hint">
+              评审上下文：评论将锚定 {artifact.label}（评审意见必须挂产物）
+            </span>
+          )}
           <textarea
             aria-label="评论内容"
             placeholder={
@@ -200,37 +211,48 @@ export function ArtifactReader({
             type="button"
             className="primary"
             disabled={text.trim() === "" || comment.isPending}
-            onClick={() =>
+            onClick={() => {
+              // BUG-013 预校验：评审上下文 issue 类 document 锚必须带 artifactId
+              // （本阅读器恒锚定本文物，正常路径不触发；防御未来新入口回归）。
+              // 注记-L3：锚点仅 range（划词）/document 两级；line/block 已废弃（后端 400）。
+              const anchor = assembleCommentAnchor(
+                selection
+                  ? {
+                      kind: "range",
+                      artifactId: artifact.artifactId,
+                      startLine: selection.start,
+                      endLine: selection.end,
+                    }
+                  : { kind: "document", artifactId: artifact.artifactId },
+              );
+              const guardError = reviewAnchorGuardError({
+                reviewContext,
+                issueType: "issue",
+                anchorKind: anchor.kind,
+                artifactId: anchor.artifactId,
+              });
+              if (guardError !== null) {
+                setGuardMsg(guardError);
+                return;
+              }
               comment.mutate(
-                {
-                  nodeId,
-                  anchor: assembleCommentAnchor(
-                    selection
-                      ? {
-                          kind: selection.kind,
-                          artifactId: artifact.artifactId,
-                          line: selection.start,
-                          startLine: selection.start,
-                          endLine: selection.end,
-                          blockStart: selection.start,
-                          blockEnd: selection.end,
-                          lang: selection.lang ?? "",
-                        }
-                      : { kind: "document" },
-                  ),
-                  text,
-                },
+                { nodeId, anchor, text },
                 {
                   onSuccess: () => {
                     setText("");
                     setSelection(null);
                   },
                 },
-              )
-            }
+              );
+            }}
           >
             发表评论
           </button>
+          {guardMsg && (
+            <div role="alert" className="field-hint error">
+              {guardMsg}
+            </div>
+          )}
           {comment.error && (
             <div role="alert" className="field-hint error">
               {comment.error instanceof Error ? comment.error.message : String(comment.error)}
@@ -242,12 +264,10 @@ export function ArtifactReader({
   );
 }
 
-/** 选区状态（UI 态；发表时经 assembleCommentAnchor 转契约锚点）。 */
+/** 选区状态（UI 态，注记-L3 划词模型：单行=range(n,n)；发表时转契约 range 锚）。 */
 interface SelectionState {
-  kind: "line" | "range" | "block";
   start: number;
   end: number;
-  lang?: string;
 }
 
 function ReaderHeader({ artifact, onClose }: { artifact: ArtifactItem; onClose: () => void }) {
@@ -298,11 +318,14 @@ export function CommentThread({
   issues,
   requirementId,
   highlightIssueId,
+  artifactLabels,
 }: {
   issues: IssueItem[];
   requirementId: string;
   /** 收件箱跳转锚点高亮（T16：focus=issue 定位） */
   highlightIssueId?: string;
+  /** BUG-013：锚定产物名映射（artifactId→label），评论卡锚点摘要呈现产物名 */
+  artifactLabels?: Record<string, string>;
 }) {
   if (issues.length === 0) return null;
   return (
@@ -316,6 +339,7 @@ export function CommentThread({
             requirementId={requirementId}
             issue={issue}
             highlight={highlightIssueId === issue.issueId}
+            artifactLabels={artifactLabels}
           />
         ))}
     </div>

@@ -93,7 +93,8 @@ export function postReopen(
 }
 
 /** 锚点装配（纯函数，独立导出便于测试）：阅读器选区 → CommentAnchor。
- *  行号 1 起；document 不带行号族字段且 artifactId 空（后端 domain.ValidateIssueAnchor 同口径）。 */
+ *  行号 1 起；document 不带行号族字段；BUG-013 后评审上下文的 document 锚须携带
+ *  artifactId（rd 域校验放行 document+artifact_id 组合），由调用方决定是否携带。 */
 export function assembleCommentAnchor(input: {
   kind: "document" | "line" | "range" | "block";
   artifactId?: string;

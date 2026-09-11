@@ -6,7 +6,7 @@
  * last_decision={"verdict","reason","at","branch"?}——rd/repo/payload.go 单一口径镜像，
  * 字段漂移由后端 Go struct 契约兜底（FE 侧仅展示）。
  */
-import type { FlowNodeItem, IssueItem } from "../api/proto/api";
+import type { ArtifactItem, FlowNodeItem, IssueItem, MyTaskResp } from "../api/proto/api";
 
 /** JSON 文本安全解析（TEXT 列同构载荷；损坏/空返回缺省值不抛——展示层降级）。 */
 export function parseJSONText<T>(text: string, fallback: T): T {
@@ -122,6 +122,71 @@ export function countOpenIssues(issues: IssueItem[]): number {
   return issues.filter((i) => i.state !== "resolved" && i.state !== "overridden").length;
 }
 
+/**
+ * BUG-011 评审产物分组（评审节点产物区两段呈现的视图模型）：
+ * - reviewed=被评审产物（上游）：消费 wb_my_task relatedArtifacts——rd 侧已把直接上游
+ *   produce 节点已登记产物置前（rd/service/flow.go loadRelatedArtifacts 单一口径），
+ *   此处按快照反查归属，取「非本节点」段，顺序保持 rd 装配序（评审者先读被评审文档）；
+ * - own=本节点产物（快照本节点全集，口径不变）。
+ * 评审型节点（node_type=review）才分组；my_task 未加载（in-flight）时 reviewed 空集
+ * 由 UI 呈现加载态。relatedArtifacts 中快照查不到/实为本节点的条目跳过（防御）。
+ */
+export interface ReviewArtifactGroups {
+  reviewed: ArtifactItem[];
+  own: ArtifactItem[];
+}
+
+export function reviewArtifactGroups(
+  node: FlowNodeItem,
+  myTask: MyTaskResp | undefined,
+  artifacts: ArtifactItem[],
+): ReviewArtifactGroups {
+  const own = artifacts.filter((a) => a.nodeId === node.nodeId);
+  if (node.nodeType !== "review" || myTask === undefined) {
+    return { reviewed: [], own };
+  }
+  const byId = new Map(artifacts.map((a) => [a.artifactId, a]));
+  const ownIds = new Set(own.map((a) => a.artifactId));
+  const reviewed: ArtifactItem[] = [];
+  for (const rel of myTask.relatedArtifacts) {
+    if (ownIds.has(rel.artifactId)) continue;
+    const snap = byId.get(rel.artifactId);
+    if (!snap || snap.nodeId === node.nodeId) continue;
+    reviewed.push(snap);
+  }
+  return { reviewed, own };
+}
+
+/**
+ * 评审上下文判定（BUG-013 锚产物强制前置条件；rd/service/comment.go inReviewContext
+ * 同口径镜像）：节点相位 review/respond（评审表态与 owner 响应均为评审对话期），
+ * 或发表角色出现在节点评审位声明（评审者身份——未激活节点上的评论同受约束）。
+ */
+export function inReviewCommentContext(node: FlowNodeItem, roleId: string): boolean {
+  if (node.state === "review" || node.state === "respond") return true;
+  return parseReviewers(node.reviewers).some((r) => r.role === roleId);
+}
+
+/**
+ * BUG-013 发表前预校验（rd 新评论硬拦的 FE 前置同口径）：评审上下文的 issue 类
+ * document 级锚必须携带 artifactId，否则返回引导文案（line/range/block 天然挂产物、
+ * notification/discussion 类不受限）。返回 null=放行。
+ */
+export function reviewAnchorGuardError(input: {
+  reviewContext: boolean;
+  issueType: string;
+  anchorKind: string;
+  artifactId: string;
+}): string | null {
+  if (!input.reviewContext) return null;
+  if (input.issueType !== "issue") return null;
+  if (input.anchorKind !== "document") return null;
+  if (input.artifactId === "") {
+    return "评审上下文的 issue 评论必须锚定产物：请先选定产物（默认为被评审产物）再发表";
+  }
+  return null;
+}
+
 export interface ContentLine {
   /** 1 起行号 */
   no: number;
@@ -170,38 +235,46 @@ export function chunkRanges(totalLines: number, chunkSize: number): Array<[numbe
   return ranges;
 }
 
-/** 行号是否落在选区内（高亮渲染）。 */
+/** 行号是否落在选区内（高亮渲染；注记-L3 划词模型，start≤end 恒成立）。 */
 export function inSelection(
   no: number,
-  sel: { kind: "line" | "range" | "block"; start: number; end: number } | null,
+  sel: { start: number; end: number } | null,
 ): boolean {
   if (!sel) return false;
   return no >= sel.start && no <= sel.end;
 }
 
-/** 锚点摘要文本（与后端 my_task relatedIssues.anchor 同口径："art-1 line 42" 家族）。 */
-export function anchorSummary(issue: IssueItem): string {
-  const art = issue.anchorArtifactId;
+/** 锚点摘要文本（与后端 my_task relatedIssues.anchor 同口径："art-1 line 42" 家族）。
+ *  BUG-013：传入 artifactLabelOf 时以产物显示名替代裸 id（评论展示挂产物名）；document
+ *  级已挂产物显示「《名》全文」，未挂产物维持 "document"。 */
+export function anchorSummary(
+  issue: IssueItem,
+  artifactLabelOf?: (artifactId: string) => string,
+): string {
+  const art = (id: string): string => {
+    if (id === "") return "";
+    const label = artifactLabelOf?.(id) ?? "";
+    return label === "" ? id : label;
+  };
   switch (issue.anchorKind) {
     case "line":
-      return `${art} line ${issue.anchorLine}`;
+      return `${art(issue.anchorArtifactId)} line ${issue.anchorLine}`;
     case "range":
-      return `${art} line ${issue.anchorStartLine}-${issue.anchorEndLine}`;
+      return `${art(issue.anchorArtifactId)} line ${issue.anchorStartLine}-${issue.anchorEndLine}`;
     case "block":
-      return `${art} block ${issue.anchorBlockStart}-${issue.anchorBlockEnd}(${issue.anchorLang})`;
+      return `${art(issue.anchorArtifactId)} block ${issue.anchorBlockStart}-${issue.anchorBlockEnd}(${issue.anchorLang})`;
     default:
-      return "document";
+      return issue.anchorArtifactId !== "" ? `${art(issue.anchorArtifactId)}（全文）` : "document";
   }
 }
 
-/** 阅读器选区 → 锚点描述文案（底部输入框状态文案）。 */
+/** 阅读器选区 → 锚点描述文案（底部输入框状态文案；注记-L3 划词模型）。 */
 export function selectionLabel(
-  sel: { kind: "document" | "line" | "range" | "block"; start: number; end: number; lang?: string } | null,
+  sel: { start: number; end: number } | null,
 ): string {
-  if (!sel || sel.kind === "document") return "全文评论（document）";
-  if (sel.kind === "line") return `评论第 ${sel.start} 行`;
-  if (sel.kind === "range") return `评论第 ${sel.start}-${sel.end} 行区间`;
-  return `评论代码块 ${sel.start}-${sel.end} 行（${sel.lang || "未标注语言"}）`;
+  if (!sel) return "全文评论（document）";
+  if (sel.start === sel.end) return `评论第 ${sel.start} 行`;
+  return `评论第 ${sel.start}-${sel.end} 行区间`;
 }
 
 /** 提评者口径（confirm/reopen 操作者约束：reviewerRole 优先，缺省 author）。 */

@@ -201,3 +201,36 @@ describe("FlowTree（scope 重排快照）", () => {
     expect(screen.getByText(/流程实例尚未生成/)).toBeInTheDocument();
   });
 });
+
+/** BUG-010 点色语义回归：门禁结论优先（绿=已通过/琥珀=待拍板/红=已打回），相位兜底（review 无结论=青，不得占琥珀）。 */
+describe("FlowTree 点色语义（BUG-010）", () => {
+  const dotClass = (node: FlowNodeItem) => {
+    const { container } = renderNodes([node], "full");
+    // SVG 元素 className 是 SVGAnimatedString，取 class 属性字符串
+    return container.querySelector(".phase-dot")!.getAttribute("class") ?? "";
+  };
+
+  it("门禁已通过 → gate-approved（绿）", () => {
+    const n = makeNode("bus-03", 4);
+    n.lastDecision = '{"verdict":"approved","at":1}';
+    expect(dotClass(n)).toContain("gate-approved");
+  });
+
+  it("全员 agree 待拍板 → gate-agreed（琥珀）", () => {
+    const n = makeNode("bus-03", 4, '[{"role":"arch","state":"agree","round":0},{"role":"rd","state":"agree","round":0}]');
+    expect(dotClass(n)).toContain("gate-agreed");
+  });
+
+  it("门禁已打回 → gate-rejected（红）", () => {
+    const n = makeNode("bus-03", 4);
+    n.lastDecision = '{"verdict":"rejected","at":1}';
+    expect(dotClass(n)).toContain("gate-rejected");
+  });
+
+  it("review 相位无结论 → phase-review（青），不得占琥珀", () => {
+    const n = makeNode("bus-03", 4, '[{"role":"arch","state":"agree","round":0},{"role":"rd","state":"reviewing","round":0}]');
+    const cls = dotClass(n);
+    expect(cls).toContain("phase-review");
+    expect(cls).not.toContain("gate-agreed");
+  });
+});

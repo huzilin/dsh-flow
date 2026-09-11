@@ -149,6 +149,10 @@ function NodeCard({
 }) {
   const isCurrent = node.nodeId === currentNodeId;
   const isSelected = node.nodeId === selectedNodeId;
+  // 点色语义（2026-09-10 User 反馈：已通过与待拍板不可同色）——门禁结论优先，
+  // 相位色兜底：绿=已通过 / 琥珀=待拍板 / 红=已打回；无结论时按相位着色。
+  const gateView = deriveGateView(node);
+  const dotVariant = gateView ? `gate-${gateView}` : `phase-${node.state || "none"}`;
   return (
     <g
       role="listitem"
@@ -183,7 +187,7 @@ function NodeCard({
         cx={x + 18}
         cy={top + CARD_H / 2}
         r={5}
-        className={`phase-dot phase-${node.state || "none"}`}
+        className={`phase-dot ${dotVariant}`}
       />
       <text x={x + 34} y={top + 22} className="flow-node-title">
         {node.nodeOrder}. {node.nodeKey}
@@ -230,7 +234,7 @@ function nodeSubLine(node: FlowNodeItem, openIssues: number): string {
 /** 右上角徽标组（SVG 内联文本，避免 foreignObject 兼容负担）。 */
 function NodeMetaText({ node, x, y }: { node: FlowNodeItem; x: number; y: number }) {
   const chips: string[] = [];
-  if (node.state !== "") chips.push(node.state);
+  if (node.state !== "") chips.push(node.state === "done" ? "已完成" : node.state);
   if (node.nodeType !== "") chips.push(node.nodeType);
   if (node.gate === "1") chips.push("gate");
   if (node.userGate === "1") chips.push("user_gate");

@@ -9,6 +9,7 @@ import { useMyTaskQuery, useRequirementHistoryQuery, useRequirementQuery, useVer
 import { AlertBanner } from "../components/AlertBanner";
 import { PriorityBadge, StatusBadge } from "../components/Badges";
 import { FlowScopeBadge, FlowTree } from "../components/FlowTree";
+import { MarkdownView } from "../components/MarkdownView";
 import { NodeDetail } from "../components/NodeDetail";
 import { RequirementModal } from "../components/CreateRequirementDialog";
 import { Modal } from "../components/Modal";
@@ -22,7 +23,9 @@ import { describeHistory } from "../domain/historyview";
  * 选中节点缺省=当前节点（flows.current_node_id；空=未进入编排不预选）。
  * 收件箱跳转定位（T16）：?node=（选中节点）&focus=issue|task&issue=/task=（意见区/任务区锚点高亮）。
  * 原型补齐（ui-interaction-final §6）：detailtop「会话找 X」（N5，scope 动态推导，DSH 嵌入期开放）+
- * 详情页「编辑」（N4：RequirementModal 编辑复用）+ 底部补遗卡（N6：描述折叠+元信息+变更历史）。
+ * 详情页「编辑」（N4：RequirementModal 编辑复用）+ 需求描述卡（BUG-012/OPT-003 归位：
+ * 头部元信息与流程树之间的 Markdown 描述卡，变更历史随卡折叠）。
+ * OPT-001 两栏：左列流程导航（FlowTree 复用）+ 右列 NodeDetail（§6 m2 原型形态）。
  */
 export function RequirementDetailPage() {
   const { reqId = "" } = useParams();
@@ -150,29 +153,33 @@ export function RequirementDetailPage() {
 
       {!detail.isLoading && <AlertBanner error={detail.error} onRetry={() => void detail.refetch()} />}
 
-      <FlowTree
-        flow={flow}
-        nodes={nodes}
-        currentNodeId={currentNodeId}
-        selectedNodeId={effectiveNodeId === "" ? null : effectiveNodeId}
-        issuesByNode={issuesByNode}
-        onSelectNode={setSelectedNodeId}
-      />
+      {/* BUG-012/OPT-003 归位：Markdown 描述卡（有描述默认展开）+ 元信息 + 变更历史，
+          位于头部元信息与流程树之间，不再沉底 */}
+      <RequirementBriefCard item={item} currentNode={nodes.find((n) => n.nodeId === currentNodeId)} />
 
-      <NodeDetail
-        nodeId={effectiveNodeId === "" ? null : effectiveNodeId}
-        node={nodes.find((n) => n.nodeId === effectiveNodeId)}
-        myTask={myTask.data}
-        artifacts={artifacts}
-        issues={issues}
-        sessions={sessions}
-        requirementId={reqId}
-        focusIssueId={focusIssueId}
-        focusTaskId={focusTaskId}
-      />
-
-      {/* 详情补遗卡（§6 N6：与五区分栏并存——描述折叠 + 元信息行 + 变更历史） */}
-      <RequirementFootnoteCard item={item} currentNode={nodes.find((n) => n.nodeId === currentNodeId)} />
+      {/* OPT-001 两栏：左列流程导航常驻（SVG 树缩放复用，颜色样式语义不动）+
+          右列节点详情；窄屏退化上下堆叠（css 断点） */}
+      <div className="flow-detail-columns">
+        <FlowTree
+          flow={flow}
+          nodes={nodes}
+          currentNodeId={currentNodeId}
+          selectedNodeId={effectiveNodeId === "" ? null : effectiveNodeId}
+          issuesByNode={issuesByNode}
+          onSelectNode={setSelectedNodeId}
+        />
+        <NodeDetail
+          nodeId={effectiveNodeId === "" ? null : effectiveNodeId}
+          node={nodes.find((n) => n.nodeId === effectiveNodeId)}
+          myTask={myTask.data}
+          artifacts={artifacts}
+          issues={issues}
+          sessions={sessions}
+          requirementId={reqId}
+          focusIssueId={focusIssueId}
+          focusTaskId={focusTaskId}
+        />
+      </div>
 
       <RequirementModal
         open={editOpen}
@@ -250,8 +257,12 @@ function DeleteRequirementButton({
   );
 }
 
-/** 详情补遗卡（§6 N6 定稿）：描述 Markdown 折叠 + 元信息行 + 变更历史（时间倒序自然语句）。 */
-function RequirementFootnoteCard({
+/**
+ * 需求描述卡（BUG-012/OPT-003 归位版，原沉底补遗卡上移）：Markdown 描述（有描述默认
+ * 展开，轻量渲染不引重库——components/MarkdownView）+ 元信息行 + 变更历史（描述卡下方
+ * 折叠区，时间倒序自然语句，不再单独沉底）。
+ */
+function RequirementBriefCard({
   item,
   currentNode,
 }: {
@@ -259,14 +270,26 @@ function RequirementFootnoteCard({
   currentNode?: FlowNodeItem;
 }) {
   const [histOpen, setHistOpen] = useState(false);
+  // BUG-012：有描述默认展开；空描述收起呈占位
+  const [descOpen, setDescOpen] = useState(item.description !== "");
   const history = useRequirementHistoryQuery(item.requirementId, histOpen);
 
   return (
-    <section className="footnote-card" aria-label="需求详情补遗">
-      <details className="req-description" open={false}>
-        <summary className="muted">描述（Markdown，点击展开）</summary>
-        <pre className="description">{item.description === "" ? "（无描述）" : item.description}</pre>
-      </details>
+    <section className="brief-card" aria-label="需求描述卡">
+      <button
+        type="button"
+        className="button-link brief-toggle"
+        aria-expanded={descOpen}
+        onClick={() => setDescOpen((v) => !v)}
+      >
+        需求说明{descOpen ? " ▴" : " ▾"}
+      </button>
+      {descOpen &&
+        (item.description === "" ? (
+          <div className="muted">（无描述）</div>
+        ) : (
+          <MarkdownView source={item.description} />
+        ))}
       <div className="detail-grid footnote-meta">
         <div>负责人：{item.owner === "" ? "—" : item.owner}</div>
         <div>当前节点：{currentNode ? currentNode.nodeKey : "未进入编排"}</div>

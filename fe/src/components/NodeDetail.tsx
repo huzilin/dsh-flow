@@ -6,12 +6,14 @@ import type {
   MyTaskResp,
   SessionItem,
 } from "../api/proto/api";
-import { NODE_TYPE_LABELS, SESSION_STATUS_LABELS } from "../api/constants";
+import { NODE_TYPE_LABELS, SESSION_STATUS_LABELS, WEB_USER_ROLE } from "../api/constants";
 import {
   countOpenIssues,
   deriveGateView,
+  inReviewCommentContext,
   parseReviewers,
   parseReviewResults,
+  reviewArtifactGroups,
   summarizeReviews,
 } from "../domain/flowview";
 import { ArtifactReader, CommentThread } from "./ArtifactReader";
@@ -78,10 +80,17 @@ export function NodeDetail({
   // 冲突卡聚合（T16）：escalate=1 的 issue 提到意见区顶部，其余按时间线呈现
   const escalatedIssues = nodeIssues.filter((i) => i.escalate === "1");
   const normalIssues = nodeIssues.filter((i) => i.escalate !== "1");
-  const nodeArtifacts = artifacts.filter((a) => a.nodeId === nodeId);
+  // BUG-011：评审节点产物分两段——被评审产物（上游，my_task relatedArtifacts 置前段）+
+  // 本节点产物；非评审节点维持本节点全集（视图模型见 flowview.reviewArtifactGroups）
+  const reviewGroups = reviewArtifactGroups(node, myTask, artifacts);
+  // BUG-013：评审上下文（相位 review/respond 或发表者在评审位）——阅读器评论锚产物强制
+  const reviewCtx = inReviewCommentContext(node, WEB_USER_ROLE);
+  // BUG-013：锚点摘要呈现产物名（artifactId→label 映射）
+  const artifactLabels = Object.fromEntries(artifacts.map((a) => [a.artifactId, a.label]));
   // 快照 sessions 按当前节点过滤（requirementId 恒匹配本需求快照）
   const nodeSessions = sessions.filter((s) => s.nodeId === nodeId);
-  const readerArtifact = nodeArtifacts.find((a) => a.artifactId === readerArtifactId);
+  // BUG-011：被评审产物不在本节点全集内，阅读器查快照全量
+  const readerArtifact = artifacts.find((a) => a.artifactId === readerArtifactId);
 
   return (
     <section className="node-detail" data-node-id={nodeId} aria-label="节点详情五区分栏">
@@ -144,51 +153,23 @@ export function NodeDetail({
         </PanelCard>
 
         <PanelCard no="②" title="评审状态" className="panel-review">
-          <ReviewPills node={node} openCount={countOpenIssues(nodeIssues)} />
+          <ReviewPills
+            node={node}
+            openCount={countOpenIssues(nodeIssues)}
+            issues={nodeIssues}
+            requirementId={requirementId}
+            artifactLabels={artifactLabels}
+          />
         </PanelCard>
 
         <PanelCard no="③" title="产物区" className="panel-artifacts">
-          {nodeArtifacts.length === 0 ? (
-            <div className="muted">本节点暂无登记产物。</div>
-          ) : (
-            <ul className="artifact-list">
-              {nodeArtifacts.map((a) => {
-                const anchorCount = nodeIssues.filter(
-                  (i) => i.anchorArtifactId === a.artifactId,
-                ).length;
-                return (
-                  <li key={a.artifactId} className="artifact-row">
-                    {a.kind === "link" ? (
-                      <a href={a.href} target="_blank" rel="noreferrer" className="artifact-link">
-                        {a.label}
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        className="artifact-open"
-                        onClick={() => setReaderArtifactId(a.artifactId)}
-                      >
-                        {a.label}
-                      </button>
-                    )}
-                    <span className="badge badge-artifact-type">{a.productType}</span>
-                    {a.kind === "link" ? (
-                      <span className="badge badge-kind-link">外链</span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="artifact-open-sub"
-                        onClick={() => setReaderArtifactId(a.artifactId)}
-                      >
-                        💬{anchorCount} 阅读
-                      </button>
-                    )}
-                    {a.note !== "" && <span className="muted small">{a.note}</span>}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <ArtifactGroups
+            node={node}
+            groups={reviewGroups}
+            myTaskLoaded={myTask !== undefined}
+            issues={nodeIssues}
+            onOpen={setReaderArtifactId}
+          />
         </PanelCard>
 
         <PanelCard no="④" title="意见区" className="panel-issues">
@@ -217,6 +198,7 @@ export function NodeDetail({
               issues={normalIssues}
               requirementId={requirementId}
               highlightIssueId={focusIssueId}
+              artifactLabels={artifactLabels}
             />
           )}
           <InFlightTasks myTask={myTask} focusTaskId={focusTaskId} />
@@ -225,7 +207,7 @@ export function NodeDetail({
         <DecisionCard
           node={node}
           issues={nodeIssues}
-          artifacts={nodeArtifacts}
+          artifacts={reviewGroups.own}
           actions={
             gateView === "agreed" ? (
               <DecisionActions requirementId={requirementId} node={node} />
@@ -245,6 +227,8 @@ export function NodeDetail({
           artifact={readerArtifact}
           issues={nodeIssues}
           onClose={() => setReaderArtifactId(null)}
+          reviewContext={reviewCtx}
+          artifactLabels={artifactLabels}
         />
       )}
     </section>
@@ -272,6 +256,96 @@ function PanelCard({
   );
 }
 
+/**
+ * ③ 产物区分组呈现（BUG-011）：评审型节点分「被评审产物（上游）」与「本节点产物」
+ * 两段（上游=my_task relatedArtifacts 置前段，点开即读，零跳转）；非评审节点维持
+ * 本节点全集单段（口径不变）。
+ */
+function ArtifactGroups({
+  node,
+  groups,
+  myTaskLoaded,
+  issues,
+  onOpen,
+}: {
+  node: FlowNodeItem;
+  groups: ReturnType<typeof reviewArtifactGroups>;
+  /** my_task 是否已加载（未加载时上游段呈加载态而非「无产物」误报） */
+  myTaskLoaded: boolean;
+  issues: IssueItem[];
+  onOpen: (artifactId: string) => void;
+}) {
+  if (node.nodeType !== "review") {
+    if (groups.own.length === 0) {
+      return <div className="muted">本节点暂无登记产物。</div>;
+    }
+    return <ArtifactRowList items={groups.own} issues={issues} onOpen={onOpen} />;
+  }
+  return (
+    <>
+      <div className="artifact-group-label">被评审产物（上游）</div>
+      {groups.reviewed.length === 0 ? (
+        <div className="muted small">
+          {myTaskLoaded ? "上游节点暂无被评审产物。" : "被评审产物加载中…"}
+        </div>
+      ) : (
+        <ArtifactRowList items={groups.reviewed} issues={issues} onOpen={onOpen} />
+      )}
+      <div className="artifact-group-label">本节点产物</div>
+      {groups.own.length === 0 ? (
+        <div className="muted small">本节点暂无登记产物。</div>
+      ) : (
+        <ArtifactRowList items={groups.own} issues={issues} onOpen={onOpen} />
+      )}
+    </>
+  );
+}
+
+/** 产物行列表（③ 区行渲染：文件行 + 锚点评论数 + 外链/阅读器入口）。 */
+function ArtifactRowList({
+  items,
+  issues,
+  onOpen,
+}: {
+  items: ArtifactItem[];
+  issues: IssueItem[];
+  onOpen: (artifactId: string) => void;
+}) {
+  return (
+    <ul className="artifact-list">
+      {items.map((a) => {
+        const anchorCount = issues.filter((i) => i.anchorArtifactId === a.artifactId).length;
+        return (
+          <li key={a.artifactId} className="artifact-row">
+            {a.kind === "link" ? (
+              <a href={a.href} target="_blank" rel="noreferrer" className="artifact-link">
+                {a.label}
+              </a>
+            ) : (
+              <button type="button" className="artifact-open" onClick={() => onOpen(a.artifactId)}>
+                {a.label}
+              </button>
+            )}
+            <span className="badge badge-artifact-type">{a.productType}</span>
+            {a.kind === "link" ? (
+              <span className="badge badge-kind-link">外链</span>
+            ) : (
+              <button
+                type="button"
+                className="artifact-open-sub"
+                onClick={() => onOpen(a.artifactId)}
+              >
+                💬{anchorCount} 阅读
+              </button>
+            )}
+            {a.note !== "" && <span className="muted small">{a.note}</span>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** 执行行：当前挂载动作名（my_task activeActions 投影；无激活动作=提示）。 */
 function ExecActionText({ myTask }: { myTask: MyTaskResp | undefined }) {
   const actions = myTask?.activeActions ?? [];
@@ -291,26 +365,75 @@ function ExecActionText({ myTask }: { myTask: MyTaskResp | undefined }) {
   );
 }
 
-/** per-agent 表态药丸（评审位 × 最新表态；同轮同角色覆写取最后口径）。 */
-function ReviewPills({ node, openCount }: { node: FlowNodeItem; openCount: number }) {
+/**
+ * per-agent 表态药丸（评审位 × 最新表态；同轮同角色覆写取最后口径）。
+ * OPT-002：药丸可点，展开该角色在本节点的意见区（issues+replies 过滤该角色——
+ * 提评人归属角色或发表者角色命中即呈现；讨论发送走既有评论通道「回复」，此处只读）。
+ */
+function ReviewPills({
+  node,
+  openCount,
+  issues,
+  requirementId,
+  artifactLabels,
+}: {
+  node: FlowNodeItem;
+  openCount: number;
+  issues: IssueItem[];
+  requirementId: string;
+  artifactLabels?: Record<string, string>;
+}) {
   const seats = useMemo(() => parseReviewers(node.reviewers), [node.reviewers]);
+  const [openSeatKey, setOpenSeatKey] = useState<string | null>(null);
   if (seats.length === 0) {
     return <div className="muted">无评审位（审批行恒 '-'）。</div>;
   }
+  const openSeat = seats.find((s) => `${s.role}:${s.capabilityId}` === openSeatKey);
+  const openSeatIssues =
+    openSeat === undefined
+      ? []
+      : issues.filter((i) => i.reviewerRole === openSeat.role || i.roleId === openSeat.role);
   return (
     <div>
       <div className="review-pills">
-        {seats.map((s) => (
-          <span
-            key={`${s.role}:${s.capabilityId}`}
-            className="review-seat"
-            title={`${s.role} · ${s.capabilityId}${s.scopeExpr ? ` · ${s.scopeExpr}` : ""}`}
-          >
-            <ReviewStatePill state={latestStateOf(node, s.role, s.capabilityId)} />
-          </span>
-        ))}
+        {seats.map((s) => {
+          const key = `${s.role}:${s.capabilityId}`;
+          const expanded = key === openSeatKey;
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`review-seat${expanded ? " is-open" : ""}`}
+              title={`${s.role} · ${s.capabilityId}${s.scopeExpr ? ` · ${s.scopeExpr}` : ""}（点击展开该角色意见）`}
+              aria-label={`${s.role}（${s.capabilityId}）表态药丸`}
+              aria-expanded={expanded}
+              onClick={() => setOpenSeatKey(expanded ? null : key)}
+            >
+              <ReviewStatePill state={latestStateOf(node, s.role, s.capabilityId)} />
+            </button>
+          );
+        })}
       </div>
-      <div className="muted small">未闭合评论 {openCount} 条 · 药丸主态=该评审位最新表态</div>
+      <div className="muted small">未闭合评论 {openCount} 条 · 药丸主态=该评审位最新表态 · 点击药丸看该角色意见</div>
+      {openSeat !== undefined && (
+        <div className="review-seat-thread" data-seat={openSeat.role}>
+          {openSeatIssues.length === 0 ? (
+            <div className="muted small">
+              {openSeat.role} 暂无意见。发表意见请打开被评审产物，在阅读器内锚定产物评论
+              （评审上下文必须挂产物）。
+            </div>
+          ) : (
+            <CommentThread
+              issues={openSeatIssues}
+              requirementId={requirementId}
+              artifactLabels={artifactLabels}
+            />
+          )}
+          <div className="muted small">
+            参与讨论：在意见区/产物阅读器对应评论使用「回复」（讨论发送走既有评论通道）。
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -46,6 +46,7 @@ export const PHASE_LABELS: Record<string, string> = {
   exec: "exec · 执行",
   review: "review · 评审",
   respond: "respond · 响应",
+  done: "done · 已完成",
 };
 
 /** 节点类型（flow_def_nodes.node_type）。 */

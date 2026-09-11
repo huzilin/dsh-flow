@@ -23,6 +23,7 @@ export function CommentCard({
   issue,
   showAnchor = true,
   highlight = false,
+  artifactLabels,
 }: {
   requirementId: string;
   issue: IssueItem;
@@ -30,6 +31,8 @@ export function CommentCard({
   showAnchor?: boolean;
   /** 收件箱跳转锚点高亮（T16：focus=issue 定位） */
   highlight?: boolean;
+  /** BUG-013：锚定产物名映射（artifactId→label），锚点摘要以产物名替代裸 id */
+  artifactLabels?: Record<string, string>;
 }) {
   const reply = useReplyMutation(requirementId);
   const resolve = useResolveMutation(requirementId);
@@ -69,7 +72,15 @@ export function CommentCard({
           {issue.loopCount !== "0" && ` · 回退 ${issue.loopCount}`}
         </span>
       </header>
-      {showAnchor && <div className="comment-anchor muted">锚点：{anchorSummary(issue)}</div>}
+      {showAnchor && (
+        <div className="comment-anchor muted">
+          锚点：
+          {anchorSummary(
+            issue,
+            artifactLabels ? (id) => artifactLabels[id] : undefined,
+          )}
+        </div>
+      )}
       <p className="comment-text">{issue.text}</p>
       {issue.resolvePath !== "" && (
         <div className="comment-resolve muted">
