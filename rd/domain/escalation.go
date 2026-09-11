@@ -56,7 +56,7 @@ const (
 	ReplyKindAdjudication = "adjudication"
 )
 
-// AppendIssueReply replies 不可变追加装配（裁决链通道与 wb_reply 同构：只增不改，
+// AppendIssueReply replies 不可变追加装配（裁决链通道与 wb_clarified 族核心同构：只增不改，
 // 线程内序 r-<n> 续号）。
 //
 // 返回：追加后的 replies JSON 文本与本条目分配到的 replyID。

@@ -76,7 +76,7 @@ type ArtifactsConfig struct {
 type EscalateConfig struct {
 	// LoopThreshold 澄清不收敛自动上升阈值：reopen 计数（澄清期 loop_count 读法）
 	// 达到该值时自动置位 escalate 并写 notification 通知行（spec §2 reopen≥5 口径，
-	// 默认 5；≤0 视为关闭自动上升）。手动上升（comment/resolve +escalate 与
+	// 默认 5；≤0 视为关闭自动上升）。手动上升（comment/settle/qualify +escalate 与
 	// wb_escalate 端点）不受本阈值影响。
 	LoopThreshold int64 `yaml:"loop_threshold"`
 }

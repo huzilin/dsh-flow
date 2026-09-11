@@ -43,7 +43,7 @@ export class ApiError extends Error {
     return this.blocked;
   }
 
-  /** 409 INVALID_TRANSITION：issue 状态机非法迁移（如 resolved 后再 reply/resolve）。 */
+  /** 409 INVALID_TRANSITION：issue 状态机非法迁移（如 resolved 后再申报 clarified/settle）。 */
   get isInvalidTransition(): boolean {
     return this.code === "INVALID_TRANSITION";
   }

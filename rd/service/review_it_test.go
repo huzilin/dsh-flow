@@ -239,7 +239,7 @@ func TestIntegration_ReviewCollectDecision_RealMySQL(t *testing.T) {
 
 // TestIntegration_ReviewClarifyLoop_RealMySQL 澄清循环消费 T7 issue 链最小闭环：
 // unagree → clarify（节点 respond，owner my_task 拿 clarify 上下文与 issue 清单）→
-// respond complete 判据拦截（open issue 未清）→ wb_reply 澄清 → complete 通过 →
+// respond complete 判据拦截（open issue 未清）→ wb_clarified 澄清 → complete 通过 →
 // review 重入新轮（agree 携结论、unagree 复位 reviewing，round+1）→ 重入轮全 agree
 // → 拍板推进。
 func TestIntegration_ReviewClarifyLoop_RealMySQL(t *testing.T) {
@@ -263,8 +263,8 @@ func TestIntegration_ReviewClarifyLoop_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	issueID := item(t, resp, "issue").str("issueId")
 	// 注记-L1：agree 前置=名下评论闭环——owner 协商一致关闭后再表态
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
-		"commentId": issueID, "path": "agree", "operator": "pm", "note": "补充边界场景",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/settle", map[string]any{
+		"commentId": issueID, "operator": "pm", "note": "补充边界场景",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 
@@ -312,7 +312,7 @@ func TestIntegration_ReviewClarifyLoop_RealMySQL(t *testing.T) {
 	assert.Equal(t, nodeCol(t, handles, "n-04", "state"), "respond", "节点停留 respond")
 
 	// owner 澄清回复：open→pending-confirm（open 清零）→ complete 通过 → 评审轮重入
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issue2+"/replies", map[string]any{
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issue2+"/clarified", map[string]any{
 		"by": "pm", "roleId": "pm", "text": "超时策略已在 §6 约定",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)

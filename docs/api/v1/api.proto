@@ -279,7 +279,8 @@ message CommentAnchor {
 }
 
 // ---------------------------------------------------------------------------
-// comments（T7：wb_comment / wb_reply / wb_resolve / wb_confirm_review / wb_reopen）
+// comments（T7：wb_comment / wb_clarified / wb_declare_fixed / wb_settle / wb_qualify /
+// wb_confirm / wb_reopen / wb_revise；NAM-09 契约改名对齐标准领域事件词，消息结构不变）
 // ---------------------------------------------------------------------------
 
 // CommentReq POST /api/requirements/:reqId/comments 入参（wb_comment）。
@@ -314,7 +315,9 @@ message CommentResp {
   IssueItem issue = 2;
 }
 
-// ReplyReq POST /api/comments/:commentId/replies 入参（wb_reply）。
+// ReplyReq POST /api/comments/:commentId/clarified（wb_clarified）/ declare-fixed
+// （wb_declare_fixed）共用入参（NAM-09 拆分，路由名承载调用方意图，服务端不校验
+// from-state）。
 // replies 不可变追加（只增不改）；open→pending-confirm / to-fix→fixed 由状态机判定，
 // 非法迁移 409。
 message ReplyReq {
@@ -330,7 +333,7 @@ message ReplyReq {
   bool voided = 5;
 }
 
-// ReplyResp POST /api/comments/:commentId/replies 出参。
+// ReplyResp POST /api/comments/:commentId/clarified / declare-fixed 出参。
 message ReplyResp {
   // ok 恒 true
   bool ok = 1;
@@ -340,13 +343,15 @@ message ReplyResp {
   IssueItem issue = 3;
 }
 
-// ResolveReq POST /api/comments/:commentId/resolve 入参（wb_resolve）。
-// 操作者须=assignee（arch_design 缺陷闭环口径）；path=fix 修复路径（open/pending-confirm
-// 定性 to-fix，to-fix/fixed 修复关闭申报）；path=agree 协商一致关闭（直落 resolved）。
+// ResolveReq POST /api/comments/:commentId/settle（wb_settle）/ qualify（wb_qualify）
+// 共用入参（NAM-09 拆分，path 参数取消、路由名承载语义）。
+// 操作者须=assignee（arch_design 缺陷闭环口径）；qualify=定性（open/pending-confirm
+// →to-fix，to-fix/fixed 修复关闭申报重申报幂等）；settle=协商一致关闭（直落 resolved）。
 message ResolveReq {
   // comment_id 评论业务 id（commentId 取路径）
   string comment_id = 1;
-  // path 解决路径：fix | agree（必填）
+  // path 兼容保留字段：NAM-09 后由路由入口固定注入（settle=agree、qualify=fix），
+  // 入参不再消费
   string path = 2;
   // operator 操作者角色（必填，须=assignee）
   string operator = 3;
@@ -356,7 +361,7 @@ message ResolveReq {
   bool escalate = 5;
 }
 
-// ResolveResp POST /api/comments/:commentId/resolve 出参。
+// ResolveResp POST /api/comments/:commentId/settle / qualify 出参。
 message ResolveResp {
   // ok 恒 true
   bool ok = 1;
@@ -364,7 +369,8 @@ message ResolveResp {
   IssueItem issue = 2;
 }
 
-// ConfirmReviewReq POST /api/comments/:commentId/confirm 入参（wb_confirm_review）。
+// ConfirmReviewReq POST /api/comments/:commentId/confirm 入参（wb_confirm；NAM-09
+// 改名，原词面 confirm_review）。
 // 提评者复核确认：pending-confirm/fixed→resolved，落 resolve_reviewer_confirmed=1 +
 // resolved_by/at。操作者须=提评者（reviewer_role 优先，缺省 author）。
 message ConfirmReviewReq {
@@ -382,9 +388,11 @@ message ConfirmReviewResp {
   IssueItem issue = 2;
 }
 
-// ReopenReq POST /api/comments/:commentId/reopen 入参（wb_reopen）。
-// 澄清 reopen：pending-confirm→open；修复 revise：fixed→to-fix；均 loop_count++。
-// text 非空时以 reopen 理由追加 replies（不可变追加，裁决回填同通道）。
+// ReopenReq POST /api/comments/:commentId/reopen（wb_reopen）/ revise（wb_revise）
+// 共用入参（NAM-09 拆分）。
+// reopen：复核退回·未解释清楚（pending-confirm→open）；revise：修复侧复核退回
+// （fixed→to-fix）；均 loop_count++。
+// text 非空时以退回理由追加 replies（不可变追加，裁决回填同通道）。
 message ReopenReq {
   // comment_id 评论业务 id（commentId 取路径）
   string comment_id = 1;
@@ -394,7 +402,7 @@ message ReopenReq {
   string text = 3;
 }
 
-// ReopenResp POST /api/comments/:commentId/reopen 出参。
+// ReopenResp POST /api/comments/:commentId/reopen / revise 出参。
 message ReopenResp {
   // ok 恒 true
   bool ok = 1;

@@ -335,10 +335,15 @@ CREATE TABLE versions (
 | POST | /api/versions/:versionId/deprecate | wb_deprecate_version ⚠️ | DeprecateVersionReq/Resp | 条件解绑（2026-09-09 拍板，细则见 §1.2 注记-A）：其下全部需求未开始（流程未进入编排）→ 废弃成功并解绑全部需求回待分配池；任一需求已开始 → 409 blocked |
 | POST | /api/requirements/:reqId/nodes/:nodeId/artifacts | wb_add_artifact | AddArtifactReq/Resp | +product_type 枚举校验 |
 | POST | /api/requirements/:reqId/comments | wb_comment | CommentReq/Resp | anchor 四级；+escalate? |
-| POST | /api/comments/:commentId/replies | wb_reply | ReplyReq/Resp | roundCount++ |
-| POST | /api/comments/:commentId/resolve | wb_resolve | ResolveReq/Resp | path=fix\|agree；+escalate? |
-| POST | /api/comments/:commentId/confirm | wb_confirm_review | ConfirmReviewReq/Resp | 提评者复核 |
-| POST | /api/comments/:commentId/reopen | wb_reopen | ReopenReq/Resp | loop_count++ |
+| POST | /api/comments/:commentId/clarified | wb_clarified | ReplyReq/Resp | owner 澄清完成申报（open→pending-confirm），roundCount++ |
+| POST | /api/comments/:commentId/declare-fixed | wb_declare_fixed | ReplyReq/Resp | owner 修复完成申报（to-fix→fixed） |
+| POST | /api/comments/:commentId/settle | wb_settle | ResolveReq/Resp | 协商一致关闭（确认内嵌直落 resolved）；+escalate? |
+| POST | /api/comments/:commentId/qualify | wb_qualify | ResolveReq/Resp | 复核定性真问题（→to-fix 触发打回；to-fix/fixed 重申报幂等） |
+| POST | /api/comments/:commentId/confirm | wb_confirm | ConfirmReviewReq/Resp | 提评者复核确认（→resolved） |
+| POST | /api/comments/:commentId/reopen | wb_reopen | ReopenReq/Resp | 复核退回·未解释清楚（pending-confirm→open），loop_count++ |
+| POST | /api/comments/:commentId/revise | wb_revise | ReopenReq/Resp | 修复侧复核退回（fixed→to-fix），loop_count++ |
+
+> **NAM-09 契约改名（2026-09-11，decision-timeline REV-08）**：comments 端点路由/工具名对齐标准领域事件词（clarified/settle/qualify/reopen/declare-fixed/confirm/revise，映射见 state-tables-draft「事件命名提案」）。纯词面修复、行为不变：clarified/declare-fixed 共用原 reply 核心、settle/qualify 共用原 resolve 核心（path 参数取消，路由名承载语义，服务端不校验 from-state）、reopen/revise 共用原 reopen 核心。D2「settle 自 to-fix/fixed」与 D3「qualify 自 open」偏差语义保持现状待裁。proto 消息结构与字段不动（不触发 breaking），旧路由不留兼容。
 | POST | /api/comments/:commentId/escalate | wb_escalate | EscalateReq/Resp | 手动上升裁决（裁决 session 建绑） |
 | POST | /api/comments/:commentId/adjudicate | wb_adjudicate | AdjudicateReq/Resp | User 仲裁回填（uphold/override） |
 | POST | /api/requirements/:reqId/nodes/:nodeId/review | wb_review | ReviewReq/Resp | 写 review_results（agent 自判 agree/unagree） |
@@ -361,7 +366,7 @@ CREATE TABLE versions (
 >
 > **-D 原型补齐实现增补（2026-09-09，依据 ui-interaction-final §6 N1–N7 定稿 + ui-prototype-v3 P8–P11；实现层翻译，设计权威仍在 §6 定稿）**：
 >
-> **-D1（N1 retest 通知）**：`re_review`（重新表态请求）触发由单一「澄清闭环 respond complete 重入轮」扩为双触发——②`wb_resolve path=fix` 写入 `fixed` 后，事务外派发 re_review 通知收件=提评者（`issues.reviewer_role`，空则不发）。子型区分口径：澄清子型 `target_id` 恒空串（跳节点详情）；retest 子型 `target_id`=缺陷 issueId（收件人复核锚点，FE 呈现「待复验」并跳意见区）。`notificationTargetTypes` 映射不变（kind→node 定位语义不变，target_id 为锚点增强）。触发以「本次事务实际迁入 fixed」为准（prevState≠fixed）——覆盖 `wb_resolve path=fix` 与「修复完成回复」（reply from to-fix → fixed）两条提交路径；Fixed→Fixed 幂等重入（重复 resolve/reply）不重发（CR 复审 B1 守卫）。
+> **-D1（N1 retest 通知）**：`re_review`（重新表态请求）触发由单一「澄清闭环 respond complete 重入轮」扩为双触发——②修复关闭申报迁入 `fixed` 后（NAM-09 改名前词面 resolve path=fix；现由 wb_qualify 自 to-fix/fixed 或 wb_declare_fixed 承载），事务外派发 re_review 通知收件=提评者（`issues.reviewer_role`，空则不发）。子型区分口径：澄清子型 `target_id` 恒空串（跳节点详情）；retest 子型 `target_id`=缺陷 issueId（收件人复核锚点，FE 呈现「待复验」并跳意见区）。`notificationTargetTypes` 映射不变（kind→node 定位语义不变，target_id 为锚点增强）。触发以「本次事务实际迁入 fixed」为准（prevState≠fixed）——覆盖 wb_qualify（to-fix/fixed 修复关闭申报）与 wb_declare_fixed（修复完成申报）两条提交路径；Fixed→Fixed 幂等重入（重复申报）不重发（CR 复审 B1 守卫）。
 >
 > **-D2（N5 会话 tab 数据源）**：`GetRequirementResp` 增 `repeated SessionItem sessions`（该需求 sessions 行投影：sessionId/requirementId/nodeId/roleId/status/updatedAt；按 requirement_id 全量，FE 按选中节点过滤）。sessions 写路径本期仅裁决链（wb_escalate 拉起）落行，空集合法（FE 呈现「暂无会话」占位）。与 N5 字面偏差：SessionItem 不含「最近消息摘要」字段（本期 dsh_ref 为占位句柄、无消息内容数据源），条目=绑定角色+状态+时间；摘要随 DSH 嵌入期会话端点补齐（偏差由实现交付注记）。
 >

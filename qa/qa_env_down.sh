@@ -2,7 +2,7 @@
 # wbflow QA 环境拆除：按端口杀服务进程 + DROP scratch 库（绝不触 wbflow 库）。
 set -uo pipefail
 source /tmp/wbflow-qa-env.env 2>/dev/null || true
-PIDS=$(lsof -ti tcp:18081 2>/dev/null || true)
+PIDS=$(lsof -ti tcp:6081 2>/dev/null || true)
 if [ -n "${PIDS}" ]; then
   echo "${PIDS}" | xargs kill 2>/dev/null || true
   sleep 1

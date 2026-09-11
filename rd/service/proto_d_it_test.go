@@ -121,19 +121,19 @@ func TestIntegration_ProtoD_RetestNotification(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	issueID := item(t, resp, "issue").str("issueId")
 
-	// 修复闭环：reply（pending-confirm）→ resolve(fix) 定性需修复（to-fix）→
-	// 修复提交 resolve(fix)（fixed → retest 通知，N1「to-fix→fixed」触发口径）
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+	// 修复闭环：wb_clarified（open→pending-confirm）→ wb_qualify 定性需修复（to-fix）→
+	// 再 qualify 修复关闭申报（fixed → retest 通知，N1「to-fix→fixed」触发口径）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/clarified", map[string]any{
 		"by": "pm", "roleId": "pm", "text": "超时分支已补",
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
-		"path": "fix", "operator": "pm",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/qualify", map[string]any{
+		"operator": "pm",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, item(t, resp, "issue").str("state"), "to-fix", "pending-confirm 定性需修复 → to-fix")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
-		"path": "fix", "operator": "pm",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/qualify", map[string]any{
+		"operator": "pm",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, item(t, resp, "issue").str("state"), "fixed")
@@ -153,9 +153,9 @@ func TestIntegration_ProtoD_RetestNotification(t *testing.T) {
 	assert.Assert(t, hit != nil, "retest 子型 target_id=issueId: %v", resp.body)
 	assert.Equal(t, hit.str("recipientRole"), "arch")
 
-	// 幂等：fixed 态重复 resolve(fix)（Fixed→Fixed 重入）不重发 retest（CR B1 守卫）
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
-		"path": "fix", "operator": "pm",
+	// 幂等：fixed 态重复 qualify（Fixed→Fixed 重入）不重发 retest（CR B1 守卫）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/qualify", map[string]any{
+		"operator": "pm",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, item(t, resp, "issue").str("state"), "fixed")
@@ -168,7 +168,7 @@ func TestIntegration_ProtoD_RetestNotification(t *testing.T) {
 	}
 	assert.Equal(t, recount, 1, "Fixed→Fixed 重入不重发 retest（幂等守卫）: %v", resp.body)
 
-	// 非评审评论（reviewer_role 空、assignee 显式指派）：resolve(fix) 不派发 retest
+	// 非评审评论（reviewer_role 空、assignee 显式指派）：qualify 不派发 retest
 	plain := &repo.Issue{
 		IssueID: "cm-it-plain", RequirementID: reqID, NodeID: "n-02",
 		AnchorKind: "document", Author: "user", RoleID: "user",
@@ -177,13 +177,13 @@ func TestIntegration_ProtoD_RetestNotification(t *testing.T) {
 	}
 	assert.NilError(t, handles.Gorm.Create(plain).Error)
 	plainID := plain.IssueID
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+plainID+"/resolve", map[string]any{
-		"path": "fix", "operator": "rd",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+plainID+"/qualify", map[string]any{
+		"operator": "rd",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, item(t, resp, "issue").str("state"), "to-fix")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+plainID+"/resolve", map[string]any{
-		"path": "fix", "operator": "rd",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+plainID+"/qualify", map[string]any{
+		"operator": "rd",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, item(t, resp, "issue").str("state"), "fixed")

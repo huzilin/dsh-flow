@@ -327,7 +327,8 @@ export interface CommentResp {
 }
 
 /**
- * ReplyReq POST /api/comments/:commentId/replies 入参（wb_reply）。
+ * ReplyReq POST /api/comments/:commentId/clarified（wb_clarified）/ declare-fixed
+ * （wb_declare_fixed）共用入参（NAM-09 拆分，路由名承载调用方意图）。
  * replies 不可变追加（只增不改）；open→pending-confirm / to-fix→fixed 由状态机判定，
  * 非法迁移 409。
  */
@@ -344,7 +345,7 @@ export interface ReplyReq {
   voided: boolean;
 }
 
-/** ReplyResp POST /api/comments/:commentId/replies 出参。 */
+/** ReplyResp POST /api/comments/:commentId/clarified / declare-fixed 出参。 */
 export interface ReplyResp {
   /** ok 恒 true */
   ok: boolean;
@@ -355,7 +356,8 @@ export interface ReplyResp {
 }
 
 /**
- * ResolveReq POST /api/comments/:commentId/resolve 入参（wb_resolve）。
+ * ResolveReq POST /api/comments/:commentId/settle（wb_settle）/ qualify（wb_qualify）
+ * 共用入参（NAM-09 拆分，path 参数取消、由路由入口固定注入）。
  * 操作者须=assignee（arch_design 缺陷闭环口径）；path=fix 修复路径（open/pending-confirm
  * 定性 to-fix，to-fix/fixed 修复关闭申报）；path=agree 协商一致关闭（直落 resolved）。
  */
@@ -372,7 +374,7 @@ export interface ResolveReq {
   escalate: boolean;
 }
 
-/** ResolveResp POST /api/comments/:commentId/resolve 出参。 */
+/** ResolveResp POST /api/comments/:commentId/settle / qualify 出参。 */
 export interface ResolveResp {
   /** ok 恒 true */
   ok: boolean;
@@ -381,7 +383,7 @@ export interface ResolveResp {
 }
 
 /**
- * ConfirmReviewReq POST /api/comments/:commentId/confirm 入参（wb_confirm_review）。
+ * ConfirmReviewReq POST /api/comments/:commentId/confirm 入参（wb_confirm；NAM-09 改名）。
  * 提评者复核确认：pending-confirm/fixed→resolved，落 resolve_reviewer_confirmed=1 +
  * resolved_by/at。操作者须=提评者（reviewer_role 优先，缺省 author）。
  */
@@ -401,7 +403,8 @@ export interface ConfirmReviewResp {
 }
 
 /**
- * ReopenReq POST /api/comments/:commentId/reopen 入参（wb_reopen）。
+ * ReopenReq POST /api/comments/:commentId/reopen（wb_reopen）/ revise（wb_revise）
+ * 共用入参（NAM-09 拆分）。
  * 澄清 reopen：pending-confirm→open；修复 revise：fixed→to-fix；均 loop_count++。
  * text 非空时以 reopen 理由追加 replies（不可变追加，裁决回填同通道）。
  */
@@ -414,7 +417,7 @@ export interface ReopenReq {
   text: string;
 }
 
-/** ReopenResp POST /api/comments/:commentId/reopen 出参。 */
+/** ReopenResp POST /api/comments/:commentId/reopen / revise 出参。 */
 export interface ReopenResp {
   /** ok 恒 true */
   ok: boolean;

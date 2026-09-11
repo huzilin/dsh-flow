@@ -30,7 +30,7 @@ go test -tags=e2e ./e2e/ -run TestE2E -v
 共同步骤词汇：`decision`=User 拍板（wb_decision）；`produce`=派发→ack→progress→登记
 期望产物→complete（wb_assign_task / wb_task_update / wb_add_artifact）；`review`=wb_review
 per-agent 表态（agree/unagree，collect 判定）；`clarify`=澄清循环（wb_comment 建意见 →
-owner wb_resolve 闭环 → respond complete → review 重入新轮 re_review）。
+owner wb_settle 闭环 → respond complete → review 重入新轮 re_review）。
 
 ### TestE2E_BusinessFull_Flow（business × full，13 节点 bus-00→bus-12）
 
@@ -68,7 +68,7 @@ gate_pending×2 / clarify_task×1 / re_review×1、TODO 投影不残留。
 | 3 | tsk-c2 技术设计 | produce backend-design.produce（rd_design，scope=rd 激活）→ wb_advance 推进 |
 | 4 | tsk-c3 技术评审 | arch 单位 agree（agreed）→ decision approved |
 | 5 | tsk-c4 开发 | produce backend-dev.dev（dev_notes+code_mr）→ wb_advance 节点内 CR 轮转 → cr agree（机械 approved） |
-| 6 | tsk-c6 用户验收 | **报障直连断言**：issue 挂 exec 节点 tsk-c4（无显式指派）→ assignee=rd（T7 L2 推导）→ rd wb_resolve 闭环 → decision approved |
+| 6 | tsk-c6 用户验收 | **报障直连断言**：issue 挂 exec 节点 tsk-c4（无显式指派）→ assignee=rd（T7 L2 推导）→ rd wb_settle 闭环 → decision approved |
 | 7 | tsk-c7 完成 | 尾节点驻留 |
 
 ## 编排推进口径（2026-09-09 拍板-B）

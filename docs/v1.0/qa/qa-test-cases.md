@@ -49,10 +49,10 @@
 | A-16 | wb_assign_task | 新建 reused=false；同幂等键重放 reused=true 无新行；不可派发 action（align.opening，注记-E） | 200/200 幂等 / 拦截 |
 | A-17 | wb_task_update | ack→in-progress、progress 留痕、complete 判据未过 blocked+missing、非法 event | 状态机正确 |
 | A-18 | wb_comment | anchor 两级（document/range，-L3；line/block 废弃 400 拒绝+存量只读兼容）；escalate=true 直升 | issue 行 state=open |
-| A-19 | wb_reply | roundCount++；to-fix 态回复 → fixed（注记-D1 路径②） | replies 追加 |
-| A-20 | wb_resolve | path=agree open→resolved；path=fix open→to-fix / to-fix→fixed + re_review 通知提评者 | 状态机 + 通知 |
-| A-21 | wb_confirm_review | fixed/pending-confirm → resolved | resolve_reviewer_confirmed=1 |
-| A-22 | wb_reopen | pending-confirm/fixed → open/to-fix，loop_count++；达阈值自动 escalate | loop_count 递增 |
+| A-19 | wb_clarified / wb_declare_fixed | roundCount++；declare-fixed 自 to-fix → fixed（注记-D1 路径②） | replies 追加 |
+| A-20 | wb_settle / wb_qualify | settle open→resolved（协商一致）；qualify open→to-fix / to-fix→fixed + re_review 通知提评者 | 状态机 + 通知 |
+| A-21 | wb_confirm | fixed/pending-confirm → resolved | resolve_reviewer_confirmed=1 |
+| A-22 | wb_reopen / wb_revise | reopen pending-confirm→open / revise fixed→to-fix，loop_count++；达阈值自动 escalate | loop_count 递增 |
 | A-23 | wb_escalate | 置位 + session 建绑（快照 sessions 出行，注记-D2） | session_id 回显 |
 | A-24 | wb_adjudicate | uphold 保持 / override → resolved 终态（resolve_path=override；09-12 裁决废除 overridden） | replies 裁决条目回填 |
 | A-25 | wb_review | pending→approved/clarify；同轮同角色覆写；非 review 相位 blocked | collect 判定正确 |
@@ -82,13 +82,13 @@ user_gate 分流（agreed 停等 vs 机械 approved）、评审轮 round 语义�
 | C-1 | 拒绝打回 | bus-05 拍板 rejected → 回退 bus-04 exec 重入（reopen_source=downstream-reject、rolled_back_count+1、pending_scope 落值）；bus-05 清零（state 空/review_results=[]/last_decision NULL）；下游节点联动重置；current=bus-04 |
 | C-2 | 回退重新 review | C-1 后 rd 重做 rd_design → advance → bus-05 重评（新轮）→ agreed → approved → 迁移恢复 |
 | C-3 | reproject 重定范围 | 打回持有 pending_scope 时 reproject full→rd：下游 fe 节点删行不占位、order 重排、flows.scope 落值、标记清；重复调用 noop；裁上游 blocked；scope 越界 400 |
-| C-4 | 澄清循环 | unagree→respond 相位 + clarify_task 通知；owner resolve(agree)+respond complete → 重入新轮 + re_review 通知 unagree 位；复核 agree→gate_pending |
-| C-5 | QA retest | 缺陷 issue（reviewer_role 落值）→ resolve(fix) → fixed + re_review 通知提评者（target_id=issueId，retest 子型）→ 提评者 confirm → resolved；fixed→fixed 幂等不重发通知 |
+| C-4 | 澄清循环 | unagree→respond 相位 + clarify_task 通知；owner settle+respond complete → 重入新轮 + re_review 通知 unagree 位；复核 agree→gate_pending |
+| C-5 | QA retest | 缺陷 issue（reviewer_role 落值）→ qualify → declare-fixed → fixed + re_review 通知提评者（target_id=issueId，retest 子型）→ 提评者 confirm → resolved；fixed→fixed 幂等不重发通知 |
 | C-6 | 冲突上升 | 手动 escalate → sessions 行 + escalation 通知 → adjudicate uphold（保持/复位）/ override（resolved 终态，resolve_path=override；09-12 裁决废除 overridden）双路径 |
 | C-7 | reopen 自动上升 | loop_count 1→4 正常 reopen；第 5 次（阈值）自动 escalate=1 + escalation 通知 |
 | C-8 | 并行 join 双序 | rd 先 complete（wait 待对侧）→ fe 完成 → 整组推进；fe 先序在 B-3；双侧完成重复 advance 幂等 |
 | C-9 | 版本条件解绑联动 | 未开始需求绑定版本 → deprecate 成功解绑回池（version_id NULL + 逐行审计）；需求进入编排后 → deprecate 409 |
-| C-10 | 幂等族 | 重复派发/重复表态（覆写取最后）/重复 advance noop/重复 complete/重复 resolve(fixed→fixed) |
+| C-10 | 幂等族 | 重复派发/重复表态（覆写取最后）/重复 advance noop/重复 complete/重复申报（qualify fixed→fixed） |
 | C-11 | 通知族 | gate_pending/clarify_task/re_review（澄清子型 target_id 空 + retest 子型 target_id=issueId）/escalation 投影正确（stall_followup/need_intervene 慢路径标注 skip——扫描器 5/10min 阈值不.waitFor） |
 | C-12 | 审计对账 | requirements/flows/flow_nodes/tasks/artifacts INSERT 与步骤计数对账；拍板/回退/推进 UPDATE by_who 归属（user/plugin/system） |
 

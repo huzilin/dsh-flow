@@ -15,8 +15,9 @@ import { IssueStateBadge } from "./Badges";
  * 评论卡（issue 状态机 v2 展示 + 操作矩阵）。
  * 操作者约束与后端 T7 同口径收敛可见性（后端仍是真相源，409 INVALID_TRANSITION 兜底）：
  * - 回复：任何身份可回（Web 身份=WEB_USER_ROLE）；误发 reply 可标注作废。
- * - resolve：须=assignee；path=fix（修复关闭申报）| agree（协商一致关闭）。
- * - confirm / reopen：须=提评者（reviewerRole 优先，缺省 author）。
+ *   （NAM-09 拆分路由：澄清侧 clarified / 修复侧 declare-fixed，由 issue.state 选择）
+ * - settle / qualify：须=assignee；qualify 定性打回，settle 协商一致关闭。
+ * - confirm / reopen / revise：须=提评者（reviewerRole 优先，缺省 author）。
  */
 export function CommentCard({
   requirementId,
@@ -46,8 +47,8 @@ export function CommentCard({
   const replies = parseReplies(issue.replies);
   const isAssignee = issue.assignee === WEB_USER_ROLE;
   const isReviewer = issueReviewerOf(issue) === WEB_USER_ROLE;
-  // resolve 双路径入口状态域：open/pending-confirm 定性 to-fix；to-fix/fixed 修复关闭申报；
-  // agree 直落 resolved（后端裁决，UI 按 domain 口径收敛；09-12 裁决 overridden 态废除）
+  // settle/qualify 入口状态域：open/pending-confirm 定性 to-fix；to-fix/fixed 重申报修复关闭；
+  // settle 直落 resolved（后端裁决，UI 按 domain 口径收敛；09-12 裁决 overridden 态废除）
   const canResolve = isAssignee && issue.state !== "resolved";
   const canConfirm = isReviewer && (issue.state === "pending-confirm" || issue.state === "fixed");
   const canReopen = isReviewer && (issue.state === "pending-confirm" || issue.state === "fixed");
@@ -113,18 +114,18 @@ export function CommentCard({
             <button
               type="button"
               disabled={busy}
-              title="修复路径：定性 to-fix 或申报修复关闭"
+              title="qualify：定性 to-fix 或重申报修复关闭"
               onClick={() => resolve.mutate({ issue, path: "fix", note })}
             >
-              修复路径（fix）
+              定性打回（qualify）
             </button>
             <button
               type="button"
               disabled={busy}
-              title="协商一致：直接落 resolved"
+              title="settle：协商一致直接落 resolved"
               onClick={() => resolve.mutate({ issue, path: "agree", note })}
             >
-              协商一致关闭（agree）
+              协商一致关闭（settle）
             </button>
           </>
         )}

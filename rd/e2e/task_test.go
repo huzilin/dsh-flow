@@ -94,7 +94,7 @@ func TestE2E_Task_Flow(t *testing.T) {
 
 	// ---- rd 澄清闭环（协商一致）→ User 终拍板 → tsk-c7 完成 ----
 	t.Log("rd 报障澄清闭环 → tsk-c6 User 拍板 approved → tsk-c7 完成")
-	s.resolveAgree(issueID, "rd")
+	s.settle(issueID, "rd")
 	s.decide("tsk-c6", "approved", "报障已澄清，用户验收通过")
 	s.assertCurrent("tsk-c7")
 	s.assertNode("tsk-c7", "entry")

@@ -9,26 +9,30 @@
 //	open（待澄清）→ pending-confirm（已澄清待复核）→ resolved | to-fix | open（澄清 reopen，loop_count++）
 //	to-fix（待修复）→ fixed（已修复待复核）→ 复核 → resolved | to-fix（修复 revise，loop_count++）
 //
-// 迁移与端点映射（五端点，spec §1.2 路由表 comments 五行）：
-//   - wb_reply：open→pending-confirm（CONTEXT「已处理」=「评论被提交者修订/回复完成、
-//     待评审者复核的状态」）；to-fix→fixed（修复完成回复即申报，状态机 to-fix→fixed）；
-//     pending-confirm/fixed 追加回复不回退状态（多轮澄清/修复说明，状态幂等）；
-//     resolved 拒绝（评论不可编辑/删除、终态不可追加——ui-interaction-final §3；
-//     overridden 态已按 09-12 裁决废除，override 动作置 resolved，semantica 920030de）。
-//   - wb_resolve path=fix（修复路径）：open/pending-confirm→to-fix（定性需修复进入修复期，
-//     状态机 pending-confirm→to-fix）；to-fix/fixed→fixed（修复关闭申报待复核——
-//     arch_design §Issue 示例：resolve_path=fix 且 state 停留待复核、resolved_by=NULL 未闭环）。
+// 迁移与端点映射（NAM-09 契约改名后端点，spec §1.2 路由表 comments 行；纯词面
+// 修复，机内动作键 reply、resolve、confirm、reopen 不变）：
+//   - wb_clarified / wb_declare_fixed（原回复端点 reply，NAM-09 拆分、reply 族核心共用）：
+//     clarified open→pending-confirm（CONTEXT「已处理」=「评论被提交者修订/回复完成、
+//     待评审者复核的状态」）；declare-fixed to-fix→fixed（修复完成申报，状态机
+//     to-fix→fixed）；pending-confirm/fixed 追加回复不回退状态（多轮澄清/修复说明，
+//     状态幂等）；resolved 拒绝（评论不可编辑/删除、终态不可追加——ui-interaction-final
+//     §3；overridden 态已按 09-12 裁决废除，override 动作置 resolved，semantica 920030de）。
+//   - wb_settle（协商一致关闭，原解决端点 resolve path=agree）：open/pending-confirm/to-fix/
+//     fixed→resolved（D2：自 to-fix/fixed settle 偏差待裁，行为保持现状）；协商一致即
+//     双方确认（CONTEXT「已解决：评审者确认接受处理后的评论终态」——确认内嵌于协商
+//     一致，无独立复核步），resolve 族 + resolved_by/at + resolve_reviewer_confirmed=1
+//     同步落值。
+//   - wb_qualify（复核定性真问题，原解决端点 resolve path=fix）：open/pending-confirm→to-fix
+//     （定性需修复进入修复期，状态机 pending-confirm→to-fix；D3：自 open qualify 偏差
+//     待裁，行为保持现状）；to-fix/fixed→fixed（修复关闭申报待复核——arch_design §Issue
+//     示例：resolve_path=fix 且 state 停留待复核、resolved_by=NULL 未闭环）。
 //     resolve 族列落值（resolve_by/at/note/path）。
-//   - wb_resolve path=agree（协商一致关闭）：open/pending-confirm/to-fix/fixed→resolved；
-//     协商一致即双方确认（CONTEXT「已解决：评审者确认接受处理后的评论终态」——agree
-//     路径的确认内嵌于协商一致，无独立复核步），resolve 族 + resolved_by/at +
-//     resolve_reviewer_confirmed=1 同步落值。
-//   - wb_confirm_review（提评者复核确认）：pending-confirm→resolved / fixed→resolved
-//     （状态机「复核」侧；resolve→confirm 双路径的确认侧，CONTEXT.md）。
+//   - wb_confirm（提评者复核确认，原词面 confirm_review）：pending-confirm→resolved /
+//     fixed→resolved（状态机「复核」侧；确认侧，CONTEXT.md）。
 //     resolve_reviewer_confirmed=1 + resolved_by/at。
-//   - wb_reopen：pending-confirm→open（澄清 reopen，loop_count++）；fixed→to-fix
-//     （修复 revise，loop_count++）——loop_count 双读法（spec 列注释：澄清期读=reopen
-//     次数，修复期读=revise 次数）。
+//   - wb_reopen：pending-confirm→open（复核退回·未解释清楚，loop_count++）；
+//     wb_revise：fixed→to-fix（修复侧复核退回，loop_count++）——loop_count 双读法
+//     （spec 列注释：澄清期读=reopen 次数，修复期读=revise 次数）。
 //
 // 操作者角色约束（本文件 ValidateIssueActor，依据列各分支 GoDoc）：
 //   - resolve：操作者=assignee（arch_design §agent 交互模式「缺陷闭环」：
@@ -53,8 +57,9 @@ import (
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
-// issue 五端点动作（wb_reply / wb_resolve / wb_confirm_review / wb_reopen；
-// wb_comment 是建行不是迁移）。
+// issue 迁移族动作键（机内状态机键，NAM-09 只改契约词面不改键值：
+// reply=wb_clarified/wb_declare_fixed 族、resolve=wb_settle/wb_qualify 族、
+// confirm=wb_confirm、reopen=wb_reopen/wb_revise；wb_comment 是建行不是迁移）。
 const (
 	IssueActionReply   = "reply"
 	IssueActionResolve = "resolve"
@@ -63,9 +68,10 @@ const (
 )
 
 // resolve 路径词表（issues.resolve_path 列注释：fix=修复关闭 / agree=协商一致关闭 /
-// override=强权仲裁关闭）。fix/agree 是 wb_resolve 入参白名单；override 由服务端
+// override=强权仲裁关闭）。fix/agree 由 settle/qualify 路由入口固定注入（settle=agree、
+// qualify=fix），不再外部入参；override 由服务端
 // override 类动作（wb_override_role 整角色强权 / wb_adjudicate verdict=override 仲裁
-// 推翻）落值，不经 wb_resolve 入参。
+// 推翻）落值，不经外部入参。
 const (
 	IssueResolvePathFix      = "fix"
 	IssueResolvePathAgree    = "agree"
@@ -122,8 +128,8 @@ type IssueEffect struct {
 // issueTransitions 合法迁移表（全量显式枚举，禁止 if-else 隐式分支）。
 // 键缺失 = 非法迁移（ErrInvalidTransition）。
 var issueTransitions = map[IssueTransitionKey]IssueEffect{
-	// wb_reply：澄清回复完成 → 待复核；修复完成回复 → 已修复待复核；
-	// 待复核态追加回复不回退状态（多轮澄清/修复说明）。
+	// reply 族（wb_clarified/wb_declare_fixed）：澄清回复完成 → 待复核；修复完成申报 →
+	// 已修复待复核；待复核态追加回复不回退状态（多轮澄清/修复说明）。
 	{Action: IssueActionReply, From: repo.IssueStateOpen}: {
 		NextState: repo.IssueStatePendingConfirm, RoundCountDelta: 1,
 		AppendReply: true, TouchLastReplyAt: true,
@@ -140,7 +146,7 @@ var issueTransitions = map[IssueTransitionKey]IssueEffect{
 		NextState: repo.IssueStateFixed, RoundCountDelta: 1,
 		AppendReply: true, TouchLastReplyAt: true,
 	},
-	// wb_resolve path=fix：定性需修复进入修复期 / 修复关闭申报（待复核态重申报幂等）。
+	// wb_qualify（resolve path=fix）：定性需修复进入修复期 / 修复关闭申报（待复核态重申报幂等）。
 	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: repo.IssueStateOpen}: {
 		NextState: repo.IssueStateToFix, SetResolveFamily: true,
 	},
@@ -153,7 +159,7 @@ var issueTransitions = map[IssueTransitionKey]IssueEffect{
 	{Action: IssueActionResolve, ResolvePath: IssueResolvePathFix, From: repo.IssueStateFixed}: {
 		NextState: repo.IssueStateFixed, SetResolveFamily: true,
 	},
-	// wb_resolve path=agree：协商一致关闭（确认内嵌于协商一致）。
+	// wb_settle（resolve path=agree）：协商一致关闭（确认内嵌于协商一致）。
 	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: repo.IssueStateOpen}: {
 		NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
 	},
@@ -166,14 +172,14 @@ var issueTransitions = map[IssueTransitionKey]IssueEffect{
 	{Action: IssueActionResolve, ResolvePath: IssueResolvePathAgree, From: repo.IssueStateFixed}: {
 		NextState: repo.IssueStateResolved, SetResolveFamily: true, ConfirmClose: true,
 	},
-	// wb_confirm_review：提评者复核确认（澄清侧 / 修复侧「复核」）。
+	// wb_confirm：提评者复核确认（澄清侧 / 修复侧「复核」）。
 	{Action: IssueActionConfirm, From: repo.IssueStatePendingConfirm}: {
 		NextState: repo.IssueStateResolved, ConfirmClose: true,
 	},
 	{Action: IssueActionConfirm, From: repo.IssueStateFixed}: {
 		NextState: repo.IssueStateResolved, ConfirmClose: true,
 	},
-	// wb_reopen：澄清 reopen（loop_count++）/ 修复 revise（loop_count++）——双读法共用列。
+	// wb_reopen（澄清退回）/ wb_revise（修复退回）：loop_count++——双读法共用列。
 	{Action: IssueActionReopen, From: repo.IssueStatePendingConfirm}: {
 		NextState: repo.IssueStateOpen, LoopCountDelta: 1,
 		AppendReply: true,

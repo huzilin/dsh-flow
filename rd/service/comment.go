@@ -1,5 +1,8 @@
-// service 包本文件：评论/issue 状态机 v2 全链路五端点（spec §1.2 路由表 comments 五行）——
-// wb_comment / wb_reply / wb_resolve / wb_confirm_review / wb_reopen。
+// service 包本文件：评论/issue 状态机 v2 全链路端点（spec §1.2 路由表 comments 行）——
+// wb_comment / wb_clarified / wb_declare_fixed / wb_settle / wb_qualify /
+// wb_confirm / wb_reopen / wb_revise。NAM-09 契约改名：路由/工具名对齐标准领域
+// 事件词，纯词面修复、核心逻辑与行为不变（D2「settle 自 to-fix/fixed」与
+// D3「qualify 自 open」偏差语义保持现状待裁）。
 // DTO 以 protoc 生成的 api 包类型承载（proto 为契约真相源，spec §1.3 禁手写漂移）。
 //
 // 写路径统一口径：domain 状态机判定先行（非法迁移 409 INVALID_TRANSITION）→
@@ -250,9 +253,22 @@ func (s *IssueService) commentOnce(ctx context.Context, row *repo.Issue, escalat
 	return false, nil
 }
 
-// Reply wb_reply：replies 不可变追加（只增不改）+ roundCount++ + last_reply_at。
-// 状态迁移由 domain 状态机判定：open→pending-confirm（澄清回复完成待复核）/
-// to-fix→fixed（修复完成申报）；pending-confirm/fixed 追加回复状态停留不回退
+// Clarified wb_clarified：owner 澄清完成申报（open→pending-confirm 语义；NAM-09
+// 自原回复端点拆分，路由名即调用方意图）。与 wb_declare_fixed 共用 reply 核心——
+// 服务端不校验 from-state，迁移合法性由 domain 状态机判定（行为不变）。
+func (s *IssueService) Clarified(ctx context.Context, req *api.ReplyReq) (*api.ReplyResp, error) {
+	return s.reply(ctx, req)
+}
+
+// DeclareFixed wb_declare_fixed：owner 修复完成申报（to-fix→fixed 语义；NAM-09
+// 自原回复端点拆分）。与 wb_clarified 共用 reply 核心（行为不变）。
+func (s *IssueService) DeclareFixed(ctx context.Context, req *api.ReplyReq) (*api.ReplyResp, error) {
+	return s.reply(ctx, req)
+}
+
+// reply reply 族核心（NAM-09 前的原回复端点）：replies 不可变追加（只增不改）+ roundCount++ +
+// last_reply_at。状态迁移由 domain 状态机判定：open→pending-confirm（澄清回复完成
+// 待复核）/ to-fix→fixed（修复完成申报）；pending-confirm/fixed 追加回复状态停留不回退
 // （多轮说明幂等）；resolved 拒绝（终态不可追加；overridden 态已按 09-12 裁决废除）。
 //
 // 入参：req.CommentId 必填（commentId 路径）；by/role_id/text 必填；
@@ -262,7 +278,7 @@ func (s *IssueService) commentOnce(ctx context.Context, row *repo.Issue, escalat
 // 错误集：ErrInvalidArgument（必填缺失）；ErrNotFound（评论未命中）；
 // ErrInvalidTransition（状态机拒绝，409）；ErrOptimisticLock（并发更新冲突）；
 // 底层 IO 错误经 Trace 上抛。
-func (s *IssueService) Reply(ctx context.Context, req *api.ReplyReq) (*api.ReplyResp, error) {
+func (s *IssueService) reply(ctx context.Context, req *api.ReplyReq) (*api.ReplyResp, error) {
 	if req.CommentId == "" {
 		return nil, invalidArg("comment_id 必填")
 	}
@@ -293,20 +309,35 @@ func (s *IssueService) Reply(ctx context.Context, req *api.ReplyReq) (*api.Reply
 	return &api.ReplyResp{Ok: true, RoundCount: row.RoundCount, Issue: issueItem(row)}, nil
 }
 
-// Resolve wb_resolve：解决双路径申报（操作者须=assignee）。
-// path=fix（修复关闭路径）：open/pending-confirm→to-fix（定性需修复进入修复期）/
-// to-fix/fixed→fixed（修复关闭申报待复核，重申报状态幂等）；resolve 族列落值。
-// path=agree（协商一致关闭）：非终态→resolved，确认内嵌于协商一致
+// Settle wb_settle：协商一致关闭（原解决端点 agree 语义，resolve path=agree；NAM-09 拆分，
+// path 参数取消、路由名承载语义）。非终态→resolved，确认内嵌于协商一致
 // （resolve 族 + resolve_reviewer_confirmed=1 + resolved_by/at 同步落值）。
+// 允许自 to-fix/fixed settle 为 D2 偏差待裁（行为保持现状）。操作者须=assignee。
+func (s *IssueService) Settle(ctx context.Context, req *api.ResolveReq) (*api.ResolveResp, error) {
+	req.Path = domain.IssueResolvePathAgree
+	return s.resolve(ctx, req)
+}
+
+// Qualify wb_qualify：复核定性真问题、触发打回（原解决端点 fix 语义，resolve path=fix；
+// NAM-09 拆分）。open/pending-confirm→to-fix（定性需修复进入修复期）/
+// to-fix/fixed→fixed（修复关闭申报待复核，重申报状态幂等）；resolve 族列落值。
+// 允许自 open qualify 为 D3 偏差待裁（行为保持现状）。操作者须=assignee。
+func (s *IssueService) Qualify(ctx context.Context, req *api.ResolveReq) (*api.ResolveResp, error) {
+	req.Path = domain.IssueResolvePathFix
+	return s.resolve(ctx, req)
+}
+
+// resolve resolve 族核心（NAM-09 前的原解决端点双路径；此后 path 由路由入口固定注入
+// ——settle=agree、qualify=fix，入参 path 不再外部消费，白名单校验保留为防御）。
 //
-// 入参：req.CommentId 必填；req.Path 必填（fix|agree）；req.Operator 必填（须=assignee）；
+// 入参：req.CommentId 必填；req.Operator 必填（须=assignee）；
 // note 说明（空=不落说明列）；escalate 可选置位。
 // 出参：resolve 后评论行。
 //
 // 错误集：ErrInvalidArgument（必填缺失/path 越集）；ErrNotFound（评论未命中）；
 // ErrInvalidTransition（状态机拒绝/操作者非 assignee/未指派，409）；
 // ErrOptimisticLock；底层 IO 错误经 Trace 上抛。
-func (s *IssueService) Resolve(ctx context.Context, req *api.ResolveReq) (*api.ResolveResp, error) {
+func (s *IssueService) resolve(ctx context.Context, req *api.ResolveReq) (*api.ResolveResp, error) {
 	if req.CommentId == "" {
 		return nil, invalidArg("comment_id 必填")
 	}
@@ -331,8 +362,8 @@ func (s *IssueService) Resolve(ctx context.Context, req *api.ResolveReq) (*api.R
 	return &api.ResolveResp{Ok: true, Issue: issueItem(row)}, nil
 }
 
-// Confirm wb_confirm_review：提评者复核确认（pending-confirm/fixed→resolved；
-// resolve_reviewer_confirmed=1 + resolved_by/at）。
+// Confirm wb_confirm（原词面 confirm_review，NAM-09 改名）：提评者复核确认
+// （pending-confirm/fixed→resolved；resolve_reviewer_confirmed=1 + resolved_by/at）。
 // 操作者须=提评者（reviewer_role 优先，缺省 author——domain.ValidateIssueActor）。
 //
 // 入参：req.CommentId 必填；req.Operator 必填。
@@ -360,11 +391,24 @@ func (s *IssueService) Confirm(ctx context.Context, req *api.ConfirmReviewReq) (
 	return &api.ConfirmReviewResp{Ok: true, Issue: issueItem(row)}, nil
 }
 
-// Reopen wb_reopen：澄清 reopen（pending-confirm→open）/ 修复 revise（fixed→to-fix），
-// 均 loop_count++（双读法：澄清期读 reopen 次数、修复期读 revise 次数）。
+// Reopen wb_reopen：复核退回·未解释清楚（澄清侧 pending-confirm→open；NAM-09
+// 拆分自原 wb_reopen，与 wb_revise 共用 reopen 核心，行为不变）。
 // loop_count 达阈值（config escalate.loop_threshold 注入，spec §2 reopen≥5 口径）
-// 自动标 escalate 并写通知位行（issues notification，T12 裁决链消费）。reopen
-// 理由 text 非空时追加 replies（不可变追加，裁决回填同通道）。操作者须=提评者。
+// 自动标 escalate 并写通知位行（issues notification，T12 裁决链消费）。理由
+// text 非空时追加 replies（不可变追加，裁决回填同通道）。操作者须=提评者。
+func (s *IssueService) Reopen(ctx context.Context, req *api.ReopenReq) (*api.ReopenResp, error) {
+	return s.reopen(ctx, req)
+}
+
+// Revise wb_revise：修复侧复核退回（fixed→to-fix；NAM-09 拆分自原 wb_reopen）。
+// loop_count++（修复期读=revise 次数），其余副作用与 wb_reopen 同核。
+func (s *IssueService) Revise(ctx context.Context, req *api.ReopenReq) (*api.ReopenResp, error) {
+	return s.reopen(ctx, req)
+}
+
+// reopen reopen 族核心（原 wb_reopen 双读法）：澄清 reopen（pending-confirm→open）/
+// 修复 revise（fixed→to-fix），均 loop_count++（双读法：澄清期读 reopen 次数、
+// 修复期读 revise 次数）。
 //
 // 入参：req.CommentId 必填；req.Operator 必填；text 可选理由。
 // 出参：追加后 loop_count + 评论行。
@@ -372,7 +416,7 @@ func (s *IssueService) Confirm(ctx context.Context, req *api.ConfirmReviewReq) (
 // 错误集：ErrInvalidArgument（必填缺失）；ErrNotFound（评论未命中）；
 // ErrInvalidTransition（状态机拒绝/操作者非提评者，409）；ErrOptimisticLock；
 // 底层 IO 错误经 Trace 上抛。
-func (s *IssueService) Reopen(ctx context.Context, req *api.ReopenReq) (*api.ReopenResp, error) {
+func (s *IssueService) reopen(ctx context.Context, req *api.ReopenReq) (*api.ReopenResp, error) {
 	if req.CommentId == "" {
 		return nil, invalidArg("comment_id 必填")
 	}
@@ -459,7 +503,7 @@ func (s *IssueService) OverrideRole(ctx context.Context, req *api.OverrideRoleRe
 	return &api.OverrideRoleResp{Ok: true, NodeId: req.NodeId, ReviewerRole: req.ReviewerRole, Resolved: int32(resolved)}, nil
 }
 
-// transitionInput 状态迁移统一入参（五端点收敛点：行锁读 → 操作者约束 →
+// transitionInput 状态迁移统一入参（迁移族端点收敛点：行锁读 → 操作者约束 →
 // 状态机判定 → 列更新 + 同事务审计）。
 type transitionInput struct {
 	// issueID 评论业务 id
@@ -474,13 +518,13 @@ type transitionInput struct {
 	actorRole string
 	// note resolve 说明（resolve 动作）
 	note string
-	// escalate 可选置位（comment/resolve 动作）
+	// escalate 可选置位（comment/settle/qualify 动作）
 	escalate bool
 	// reply 追加回复条目（reply 恒填；reopen 携带理由时填 by/roleId/text）
 	reply repo.IssueReply
 }
 
-// transitionIssue 五端点写路径收敛：单事务内行锁读取（并发 reply 不丢行）→
+// transitionIssue 迁移族端点写路径收敛：单事务内行锁读取（并发 reply 不丢行）→
 // 操作者角色约束（domain.ValidateIssueActor）→ 状态机判定（domain.IssueTransition，
 // 非法迁移 409）→ 乐观锁更新 + 同事务审计（逐字段留痕）。
 //
@@ -614,9 +658,9 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 			}
 		}
 		// 修复提交 → retest 通知（spec §1.2 注记-D1/N1：re_review retest 子型）。
-		// 触发=本次事务实际迁入 fixed（prevState≠fixed）——覆盖 resolve(fix) 与
-		// 「修复完成回复」（reply from to-fix）两条提交路径；Fixed→Fixed 幂等重入
-		// （重复 resolve/reply）不重发。
+		// 触发=本次事务实际迁入 fixed（prevState≠fixed）——覆盖 wb_qualify（to-fix/
+		// fixed 修复关闭申报）与「修复完成申报」wb_declare_fixed 两条提交路径；
+		// Fixed→Fixed 幂等重入（重复申报）不重发。
 		if prevState != repo.IssueStateFixed && row.State == repo.IssueStateFixed {
 			if spec, ok := retestSpec(row); ok {
 				if err := EnqueueNotificationTx(ctx, tx, spec); err != nil {
@@ -633,7 +677,7 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 	return row, nil
 }
 
-// retestSpec 修复提交通知装配（注记-D1/N1：resolve path=fix 写入 fixed 后）——
+// retestSpec 修复提交通知装配（注记-D1/N1：qualify/declare-fixed 写入 fixed 后）——
 // re_review retest 子型：请提评者回到评审循环复核（target_id=缺陷 issueId 复核
 // 锚点，FE「待复验」投影按 target_id 非空区分子型）。收件=提评者角色
 // （issues.reviewer_role）；非评审评论（reviewer_role 空）返回 false 不派发——

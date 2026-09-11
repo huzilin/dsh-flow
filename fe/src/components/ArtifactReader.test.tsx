@@ -273,7 +273,7 @@ describe("CommentCard（操作矩阵可见性，与 T7 操作者约束同口径�
     );
     expect(screen.getByRole("button", { name: "复核确认关闭" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "reopen" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /修复路径（fix）/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /定性打回（qualify）/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "回复" })).toBeInTheDocument();
   });
 
@@ -284,8 +284,8 @@ describe("CommentCard（操作矩阵可见性，与 T7 操作者约束同口径�
         issue={issue({ state: "open", reviewerRole: "arch", author: "arch", roleId: "arch", assignee: "user" })}
       />,
     );
-    expect(screen.getByRole("button", { name: /修复路径（fix）/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /协商一致关闭（agree）/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /定性打回（qualify）/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /协商一致关闭（settle）/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "复核确认关闭" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "reopen" })).not.toBeInTheDocument();
   });
@@ -299,7 +299,7 @@ describe("CommentCard（操作矩阵可见性，与 T7 操作者约束同口径�
     );
     expect(screen.getByRole("button", { name: "回复" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "复核确认关闭" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /修复路径（fix）/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /定性打回（qualify）/ })).not.toBeInTheDocument();
     expect(screen.getByText("已上升裁决")).toBeInTheDocument();
     expect(screen.getByText(/锚点：art-1 line 6/)).toBeInTheDocument();
   });

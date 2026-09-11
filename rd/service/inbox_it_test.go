@@ -118,11 +118,11 @@ func TestIntegration_InboxRealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	issueID := item(t, resp, "issue").str("issueId")
 	// owner 先响应（回复不改变 open 态），再协商一致闭环（注记-L1：agree 前置=闭环）
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/clarified",
 		map[string]any{"by": "pm", "roleId": "pm", "text": "附录 C 已覆盖"})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
-		"commentId": issueID, "path": "agree", "operator": "pm", "note": "已补充边界",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/settle", map[string]any{
+		"commentId": issueID, "operator": "pm", "note": "已补充边界",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, review(req2, "n-17", "arch", "arch.prd-review", "agree").code, http.StatusOK)

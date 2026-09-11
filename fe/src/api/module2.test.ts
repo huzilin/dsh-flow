@@ -5,18 +5,21 @@ import { getArtifactContent } from "./artifacts";
 import {
   assembleCommentAnchor,
   issueAnchorOrder,
+  postClarified,
   postComment,
   postConfirmReview,
+  postDeclareFixed,
+  postQualify,
   postReopen,
-  postReply,
-  postResolve,
+  postRevise,
+  postSettle,
 } from "./comments";
 import { postDecision, postReview } from "./reviews";
 import { jsonResponse } from "../test-utils";
 
 /**
  * 模块 II API 封装分支覆盖（工单 T15 验收 7）：
- * artifact content（document/link）· wb_review / wb_decision · 评论五端点 ·
+ * artifact content（document/link）· wb_review / wb_decision · 评论端点（NAM-09 拆分路由）·
  * 锚点装配（document/line/range/block）· 409 INVALID_TRANSITION。
  */
 
@@ -107,37 +110,53 @@ describe("评论五端点（T7）", () => {
     expect(body.nodeId).toBe("n-03");
   });
 
-  it("wb_reply：409 INVALID_TRANSITION（resolved 后再回复）", async () => {
+  it("wb_clarified：409 INVALID_TRANSITION（resolved 后再申报）", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(409, { ok: false, error: "issue 已 resolved，禁止回复", code: "INVALID_TRANSITION" }),
     );
-    const err = await postReply(client, "cm-1", { by: "user", roleId: "user", text: "x", voided: false }).catch(
+    const err = await postClarified(client, "cm-1", { by: "user", roleId: "user", text: "x", voided: false }).catch(
       (e) => e,
     );
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/comments/cm-1/replies");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/comments/cm-1/clarified");
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).isInvalidTransition).toBe(true);
     expect((err as ApiError).status).toBe(409);
   });
 
-  it("wb_resolve：path=agree + operator 走路径参数", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true, issue: { state: "resolved" } }));
-    await postResolve(client, "cm-2", {
-      path: "agree",
+  it("wb_declare_fixed：POST declare-fixed（修复完成申报）", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true, issue: { state: "fixed" } }));
+    await postDeclareFixed(client, "cm-4", { by: "user", roleId: "user", text: "已修复", voided: false });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/comments/cm-4/declare-fixed");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      commentId: "cm-4",
+      by: "user",
+      roleId: "user",
+      text: "已修复",
+    });
+  });
+
+  it("wb_settle / wb_qualify：路由承载语义（path 参数取消）", async () => {
+    fetchMock.mockImplementation(() => jsonResponse(200, { ok: true, issue: {} }));
+    await postSettle(client, "cm-2", {
       operator: "user",
       note: "口径一致",
       escalate: false,
     });
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/comments/cm-2/resolve");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/comments/cm-2/settle");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       commentId: "cm-2",
-      path: "agree",
       operator: "user",
       note: "口径一致",
     });
+    await postQualify(client, "cm-2", {
+      operator: "user",
+      note: "",
+      escalate: false,
+    });
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/comments/cm-2/qualify");
   });
 
-  it("wb_confirm_review / wb_reopen：POST confirm / reopen", async () => {
+  it("wb_confirm / wb_reopen / wb_revise：POST confirm / reopen / revise", async () => {
     fetchMock.mockImplementation(() => jsonResponse(200, { ok: true, issue: {} }));
     await postConfirmReview(client, "cm-3", { operator: "user" });
     expect(fetchMock.mock.calls[0][0]).toBe("/api/comments/cm-3/confirm");
@@ -148,6 +167,8 @@ describe("评论五端点（T7）", () => {
       operator: "user",
       text: "仍未修复",
     });
+    await postRevise(client, "cm-3", { operator: "user", text: "" });
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/comments/cm-3/revise");
   });
 });
 

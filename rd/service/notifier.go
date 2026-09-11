@@ -20,7 +20,7 @@
 //	re_review        respond complete 澄清闭环重入轮（T11 已接）      reviewer 节点
 //	stall_followup   扫描器 5min 未表态（T10 触发点，枚举位预留）      reviewer 任务
 //	need_intervene   扫描器 10min 未推进（T10 触发点，枚举位预留）     user     任务
-//	escalation       escalate 置位（comment/resolve/reopen 自动阈值，T11 已接） reviewer 裁决 issue
+//	escalation       escalate 置位（comment/settle/qualify/reopen 自动阈值，T11 已接） reviewer 裁决 issue
 //	session_message  按需会话通道（T12+，枚举位预留）                 绑定角色  session
 package service
 

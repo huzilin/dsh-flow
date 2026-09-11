@@ -9,11 +9,14 @@ import { listVersions } from "../api/versions";
 import { myTask } from "../api/flows";
 import { getArtifactContent } from "../api/artifacts";
 import {
+  postClarified,
   postComment,
   postConfirmReview,
+  postDeclareFixed,
+  postQualify,
   postReopen,
-  postReply,
-  postResolve,
+  postRevise,
+  postSettle,
 } from "../api/comments";
 import { listInbox, postAdjudicate, postEscalate } from "../api/inbox";
 import type { ListInboxParams } from "../api/inbox";
@@ -102,30 +105,41 @@ export function useCommentMutation(requirementId: string) {
   });
 }
 
+/** 回复申报（NAM-09 拆分路由）：澄清侧（open/pending-confirm）走 wb_clarified，
+ *  修复侧（to-fix/fixed）走 wb_declare_fixed；服务端不校验 from-state，仅路由名承载意图。 */
 export function useReplyMutation(requirementId: string) {
   const invalidate = useInvalidateRequirement();
   return useMutation({
-    mutationFn: (input: { issue: IssueItem; text: string; voided?: boolean }) =>
-      postReply(api, input.issue.issueId, {
+    mutationFn: (input: { issue: IssueItem; text: string; voided?: boolean }) => {
+      const req = {
         by: WEB_USER_ROLE,
         roleId: WEB_USER_ROLE,
         text: input.text,
         voided: input.voided ?? false,
-      }),
+      };
+      const fixSide = input.issue.state === "to-fix" || input.issue.state === "fixed";
+      return fixSide
+        ? postDeclareFixed(api, input.issue.issueId, req)
+        : postClarified(api, input.issue.issueId, req);
+    },
     onSuccess: () => invalidate(requirementId),
   });
 }
 
+/** 解决申报（NAM-09 拆分路由）：agree 意图走 wb_settle、fix 意图走 wb_qualify（path 参数取消）。 */
 export function useResolveMutation(requirementId: string) {
   const invalidate = useInvalidateRequirement();
   return useMutation({
-    mutationFn: (input: { issue: IssueItem; path: "fix" | "agree"; note?: string }) =>
-      postResolve(api, input.issue.issueId, {
-        path: input.path,
+    mutationFn: (input: { issue: IssueItem; path: "fix" | "agree"; note?: string }) => {
+      const req = {
         operator: WEB_USER_ROLE,
         note: input.note ?? "",
         escalate: false,
-      }),
+      };
+      return input.path === "agree"
+        ? postSettle(api, input.issue.issueId, req)
+        : postQualify(api, input.issue.issueId, req);
+    },
     onSuccess: () => invalidate(requirementId),
   });
 }
@@ -139,14 +153,20 @@ export function useConfirmReviewMutation(requirementId: string) {
   });
 }
 
+/** 复核退回（NAM-09 拆分路由）：澄清侧（pending-confirm）走 wb_reopen，
+ *  修复侧（fixed）走 wb_revise。 */
 export function useReopenMutation(requirementId: string) {
   const invalidate = useInvalidateRequirement();
   return useMutation({
-    mutationFn: (input: { issue: IssueItem; text?: string }) =>
-      postReopen(api, input.issue.issueId, {
+    mutationFn: (input: { issue: IssueItem; text?: string }) => {
+      const req = {
         operator: WEB_USER_ROLE,
         text: input.text ?? "",
-      }),
+      };
+      return input.issue.state === "fixed"
+        ? postRevise(api, input.issue.issueId, req)
+        : postReopen(api, input.issue.issueId, req);
+    },
     onSuccess: () => invalidate(requirementId),
   });
 }

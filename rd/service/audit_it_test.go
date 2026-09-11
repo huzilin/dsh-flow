@@ -232,7 +232,7 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 	}
 	issueReply := func(issueID string) {
 		t.Helper()
-		resp := reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+		resp := reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/clarified", map[string]any{
 			"by": "pm", "roleId": "pm", "text": "回复说明",
 		})
 		assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
@@ -242,12 +242,12 @@ func TestIntegration_AuditAllWritePaths_RealMySQL(t *testing.T) {
 	assert.Equal(t, auditWhoCount(t, handles, "issues", issueA, "INSERT", "arch"), int64(1), "评论建行 INSERT 审计 by 提交角色")
 	issueReply(issueA)
 	assert.Equal(t, auditWhoCount(t, handles, "issues", issueA, "UPDATE", "pm"), int64(2), "reply 状态+追加审计 by 回复角色")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueA+"/resolve", map[string]any{
-		"path": "fix", "operator": "pm", "note": "修复申报",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueA+"/qualify", map[string]any{
+		"operator": "pm", "note": "修复申报",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
-	assert.Equal(t, auditFieldCount(t, handles, "issues", issueA, "state"), int64(2), "resolve 状态迁移审计（open→pending-confirm→to-fix）")
-	assert.Equal(t, auditWhoCount(t, handles, "issues", issueA, "UPDATE", "pm"), int64(3), "resolve 审计 by 操作者")
+	assert.Equal(t, auditFieldCount(t, handles, "issues", issueA, "state"), int64(2), "qualify 状态迁移审计（open→pending-confirm→to-fix）")
+	assert.Equal(t, auditWhoCount(t, handles, "issues", issueA, "UPDATE", "pm"), int64(3), "qualify 审计 by 操作者")
 	auditTimestampInvariant(t, handles, "issues", issueA)
 
 	issueB := newIssue("审计问题B（confirm 复核）")
@@ -448,7 +448,7 @@ func TestIntegration_AuditFailureRollback_RealMySQL(t *testing.T) {
 	assert.Equal(t, orphan, int64(0), "同事务流程实例回滚：无孤儿 flows")
 
 	// UPDATE 路径：reply 状态迁移整体回滚（issues 行不变）
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/clarified", map[string]any{
 		"by": "pm", "roleId": "pm", "text": "审计故障回复",
 	})
 	assert.Equal(t, resp.code, http.StatusInternalServerError, "审计不可写应 500: %v", resp.body)

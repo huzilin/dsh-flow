@@ -14,8 +14,9 @@ import {
   ResolveResp,
 } from "./proto/api";
 
-/** 评论/issue 五端点（T7）封装。操作者约束（后端裁决，UI 按同口径收敛可见性）：
- *  resolve 须=assignee；confirm/reopen 须=提评者（reviewerRole 优先，缺省 author）。 */
+/** 评论/issue 端点（T7，NAM-09 契约改名）封装。操作者约束（后端裁决，UI 按同口径
+ *  收敛可见性）：settle/qualify 须=assignee；confirm/reopen/revise 须=提评者
+ *  （reviewerRole 优先，缺省 author）。 */
 
 /** wb_comment：四级锚点评论（anchor 未填充=document 级）。 */
 export function postComment(
@@ -32,8 +33,8 @@ export function postComment(
   });
 }
 
-/** wb_reply：追加回复（roundCount++）；非法状态迁移 409 INVALID_TRANSITION。 */
-export function postReply(
+/** wb_clarified：owner 澄清完成申报（open→pending-confirm，roundCount++）；非法状态迁移 409 INVALID_TRANSITION。 */
+export function postClarified(
   client: ApiClient,
   commentId: string,
   req: Omit<ReplyReq, "commentId">,
@@ -41,28 +42,58 @@ export function postReply(
   const body: ReplyReq = { ...req, commentId };
   return client.request({
     method: "POST",
-    path: `/api/comments/${encodeURIComponent(commentId)}/replies`,
+    path: `/api/comments/${encodeURIComponent(commentId)}/clarified`,
     body: ReplyReq.toJSON(body),
     decode: (raw) => ReplyResp.fromJSON(raw),
   });
 }
 
-/** wb_resolve：path=fix（修复关闭申报）| agree（协商一致直落 resolved）。 */
-export function postResolve(
+/** wb_declare_fixed：owner 修复完成申报（to-fix→fixed，roundCount++）。 */
+export function postDeclareFixed(
   client: ApiClient,
   commentId: string,
-  req: Omit<ResolveReq, "commentId">,
+  req: Omit<ReplyReq, "commentId">,
+): Promise<ReplyResp> {
+  const body: ReplyReq = { ...req, commentId };
+  return client.request({
+    method: "POST",
+    path: `/api/comments/${encodeURIComponent(commentId)}/declare-fixed`,
+    body: ReplyReq.toJSON(body),
+    decode: (raw) => ReplyResp.fromJSON(raw),
+  });
+}
+
+/** wb_settle：协商一致关闭（确认内嵌直落 resolved，operator=assignee）。 */
+export function postSettle(
+  client: ApiClient,
+  commentId: string,
+  req: Omit<ResolveReq, "commentId" | "path">,
 ): Promise<ResolveResp> {
   const body: ResolveReq = { ...req, commentId };
   return client.request({
     method: "POST",
-    path: `/api/comments/${encodeURIComponent(commentId)}/resolve`,
+    path: `/api/comments/${encodeURIComponent(commentId)}/settle`,
     body: ResolveReq.toJSON(body),
     decode: (raw) => ResolveResp.fromJSON(raw),
   });
 }
 
-/** wb_confirm_review：提评者复核（pending-confirm/fixed→resolved）。 */
+/** wb_qualify：复核定性真问题（→to-fix 触发打回；to-fix/fixed 重申报幂等），operator=assignee。 */
+export function postQualify(
+  client: ApiClient,
+  commentId: string,
+  req: Omit<ResolveReq, "commentId" | "path">,
+): Promise<ResolveResp> {
+  const body: ResolveReq = { ...req, commentId };
+  return client.request({
+    method: "POST",
+    path: `/api/comments/${encodeURIComponent(commentId)}/qualify`,
+    body: ResolveReq.toJSON(body),
+    decode: (raw) => ResolveResp.fromJSON(raw),
+  });
+}
+
+/** wb_confirm：提评者复核确认（pending-confirm/fixed→resolved）。 */
 export function postConfirmReview(
   client: ApiClient,
   commentId: string,
@@ -77,7 +108,7 @@ export function postConfirmReview(
   });
 }
 
-/** wb_reopen：澄清 reopen（pending-confirm→open）/ 修复 revise（fixed→to-fix），loopCount++。 */
+/** wb_reopen：复核退回·未解释清楚（pending-confirm→open），loopCount++。 */
 export function postReopen(
   client: ApiClient,
   commentId: string,
@@ -87,6 +118,21 @@ export function postReopen(
   return client.request({
     method: "POST",
     path: `/api/comments/${encodeURIComponent(commentId)}/reopen`,
+    body: ReopenReq.toJSON(body),
+    decode: (raw) => ReopenResp.fromJSON(raw),
+  });
+}
+
+/** wb_revise：修复侧复核退回（fixed→to-fix），loopCount++。 */
+export function postRevise(
+  client: ApiClient,
+  commentId: string,
+  req: Omit<ReopenReq, "commentId">,
+): Promise<ReopenResp> {
+  const body: ReopenReq = { ...req, commentId };
+  return client.request({
+    method: "POST",
+    path: `/api/comments/${encodeURIComponent(commentId)}/revise`,
     body: ReopenReq.toJSON(body),
     decode: (raw) => ReopenResp.fromJSON(raw),
   });

@@ -2,7 +2,7 @@
 
 // T17 剧本驱动框架（小 DSL）：演练者扮演全部 agent/User 角色，按节点剧本用 HTTP
 // 驱动——assign_task → ack/progress/complete（complete 判据须先 add_artifact 登记
-// 期望产物）→ per-agent review 表态 →（unagree 时澄清循环：comment/reply/resolve）→
+// 期望产物）→ per-agent review 表态 →（unagree 时澄清循环：comment/clarified/settle）→
 // collect approved →（user_gate 时 decision 拍板）→ 推进下一节点；并断言节点推进/
 // 相位/review_results/收件箱变化。三条剧本（full / rd-only / task）复用本框架。
 //
@@ -255,11 +255,11 @@ func (s *script) commentIssue(defNodeID string, author string, roleID string, te
 	return issue.str("issueId")
 }
 
-// resolveAgree wb_resolve path=agree：协商一致关闭（operator=assignee）。
-func (s *script) resolveAgree(issueID string, operator string) {
+// settle wb_settle：协商一致关闭（operator=assignee；NAM-09 契约改名）。
+func (s *script) settle(issueID string, operator string) {
 	s.h.t.Helper()
-	r := s.h.ok(s.h.do("POST", "/api/comments/"+issueID+"/resolve", map[string]any{
-		"commentId": issueID, "path": "agree", "operator": operator,
+	r := s.h.ok(s.h.do("POST", "/api/comments/"+issueID+"/settle", map[string]any{
+		"commentId": issueID, "operator": operator,
 	}), "澄清闭环 "+issueID)
 	assert.Equal(s.h.t, r.item(s.h.t, "issue").str("state"), "resolved", "agree 关闭后应 resolved")
 }
@@ -272,7 +272,7 @@ func (s *script) respondClarify(defNodeID string, actionID string, assignee stri
 	taskID := s.assign(defNodeID, actionID, assignee)
 	s.ack(taskID)
 	for _, issueID := range issueIDs {
-		s.resolveAgree(issueID, assignee)
+		s.settle(issueID, assignee)
 	}
 	s.complete(taskID)
 	s.assertNode(defNodeID, "review")

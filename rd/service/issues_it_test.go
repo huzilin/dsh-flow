@@ -106,13 +106,13 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 		"nodeId": "n-99", "author": "arch", "roleId": "arch", "text": "x",
 	})
 	assert.Equal(t, resp.code, http.StatusNotFound)
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/cm-999/replies", map[string]any{
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/cm-999/clarified", map[string]any{
 		"by": "pm", "roleId": "pm", "text": "x",
 	})
 	assert.Equal(t, resp.code, http.StatusNotFound)
 
-	// 4. wb_reply：澄清回复完成 open→pending-confirm，roundCount++、last_reply_at
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+	// 4. wb_clarified：澄清回复完成 open→pending-confirm，roundCount++、last_reply_at
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/clarified", map[string]any{
 		"by": "pm", "roleId": "pm", "text": "超时分支已补 §4.3",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
@@ -122,8 +122,8 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Assert(t, issue.number(t, "lastReplyAt") > 0)
 	assert.Equal(t, len(parseReplies(t, issue)), 1)
 
-	// 5. wb_reply：待复核态追加回复，状态停留不回退（多轮澄清幂等）
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+	// 5. wb_clarified：待复核态追加回复，状态停留不回退（多轮澄清幂等）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/clarified", map[string]any{
 		"by": "arch", "roleId": "arch", "text": "补充追问：重试策略？",
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
@@ -131,14 +131,14 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, issue.str("state"), "pending-confirm")
 	assert.Equal(t, issue.number(t, "roundCount"), int64(2))
 
-	// 6. wb_resolve path=fix：越权（fe 非 assignee）409；assignee pm 定性需修复 → to-fix
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
-		"path": "fix", "operator": "fe", "note": "越权",
+	// 6. wb_qualify：越权（fe 非 assignee）409；assignee pm 定性需修复 → to-fix
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/qualify", map[string]any{
+		"operator": "fe", "note": "越权",
 	})
 	assert.Equal(t, resp.code, http.StatusConflict, "resolve 非 assignee 应 409: %v", resp.body)
 	assert.Equal(t, resp.str("code"), "INVALID_TRANSITION")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
-		"path": "fix", "operator": "pm", "note": "需改时序图并补分支",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/qualify", map[string]any{
+		"operator": "pm", "note": "需改时序图并补分支",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	issue = item(t, resp, "issue")
@@ -147,26 +147,22 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, issue.str("resolveBy"), "pm")
 	assert.Assert(t, issue.number(t, "resolveAt") > 0)
 	assert.Equal(t, issue.str("resolveNote"), "需改时序图并补分支")
-	// path 越集 400
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/resolve", map[string]any{
-		"path": "close", "operator": "pm",
-	})
-	assert.Equal(t, resp.code, http.StatusBadRequest)
+	// （path 越集 400 断言随 NAM-09 取消：path 参数删除、路由名承载语义）
 
-	// 7. wb_reply：修复完成申报 to-fix→fixed
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+	// 7. wb_declare_fixed：修复完成申报 to-fix→fixed
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/declare-fixed", map[string]any{
 		"by": "pm", "roleId": "pm", "text": "时序图已补超时分支",
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
 	issue = item(t, resp, "issue")
 	assert.Equal(t, issue.str("state"), "fixed")
 
-	// 8. wb_reopen：越权（rd 非提评者）409；提评者 arch 修复 revise → to-fix，loop_count++（修复期读=revise 次数）
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/reopen", map[string]any{
+	// 8. wb_revise：越权（rd 非提评者）409；提评者 arch 修复 revise → to-fix，loop_count++（修复期读=revise 次数）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/revise", map[string]any{
 		"operator": "rd", "text": "越权",
 	})
-	assert.Equal(t, resp.code, http.StatusConflict, "reopen 非提评者应 409")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/reopen", map[string]any{
+	assert.Equal(t, resp.code, http.StatusConflict, "revise 非提评者应 409")
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/revise", map[string]any{
 		"operator": "arch", "text": "超时分支重试策略仍缺失",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
@@ -174,8 +170,8 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	issue = item(t, resp, "issue")
 	assert.Equal(t, issue.str("state"), "to-fix")
 
-	// 9. 修复→复核→resolved：reply（fixed）→ confirm（提评者）
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+	// 9. 修复→复核→resolved：declare-fixed（fixed）→ confirm（提评者）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/declare-fixed", map[string]any{
 		"by": "pm", "roleId": "pm", "text": "重试策略已补三次退避",
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
@@ -196,19 +192,22 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Assert(t, issue.number(t, "resolvedAt") > 0)
 	assert.Assert(t, auditCount(t, handles, "issues", issueID, "UPDATE") >= 1, "迁移应有 UPDATE 审计")
 
-	// 10. 终态拦截：resolved 上四类动作全 409（非法迁移哨兵）
+	// 10. 终态拦截：resolved 上七条迁移路由全 409（非法迁移哨兵）
 	for name, path := range map[string]string{
-		"reply":   "/api/comments/" + issueID + "/replies",
-		"resolve": "/api/comments/" + issueID + "/resolve",
-		"confirm": "/api/comments/" + issueID + "/confirm",
-		"reopen":  "/api/comments/" + issueID + "/reopen",
+		"clarified":     "/api/comments/" + issueID + "/clarified",
+		"declare-fixed": "/api/comments/" + issueID + "/declare-fixed",
+		"settle":        "/api/comments/" + issueID + "/settle",
+		"qualify":       "/api/comments/" + issueID + "/qualify",
+		"confirm":       "/api/comments/" + issueID + "/confirm",
+		"reopen":        "/api/comments/" + issueID + "/reopen",
+		"revise":        "/api/comments/" + issueID + "/revise",
 	} {
-		body := map[string]any{"operator": "arch", "path": "agree", "by": "arch", "roleId": "arch", "text": "终态"}
+		body := map[string]any{"operator": "arch", "by": "arch", "roleId": "arch", "text": "终态"}
 		resp = reqJSON(t, router, http.MethodPost, path, body)
 		assert.Equal(t, resp.code, http.StatusConflict, "终态 %s 应 409", name)
 	}
 
-	// 11. wb_resolve path=agree：协商一致关闭（确认内嵌，直落 resolved）
+	// 11. wb_settle：协商一致关闭（确认内嵌，直落 resolved）
 	//     （discussion 类不受 BUG-013 锚产物强制约束）
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+node, map[string]any{
 		"nodeId": "n-04", "anchor": map[string]any{"kind": "document"},
@@ -224,8 +223,8 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, agree.str("issueType"), "discussion")
 	assert.Equal(t, agree.number(t, "escalate"), int64(1), "建评 +escalate 置位")
 	assert.Equal(t, agree.str("anchorKind"), "document")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+agreeID+"/resolve", map[string]any{
-		"path": "agree", "operator": "qa", "note": "已对齐",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+agreeID+"/settle", map[string]any{
+		"operator": "qa", "note": "已对齐",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	agree = item(t, resp, "issue")
@@ -235,7 +234,7 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, agree.str("resolvedBy"), "qa")
 	assert.Equal(t, agree.number(t, "loopCount"), int64(0))
 
-	// 12. 状态幂等无害：fixed 态重申报 resolve path=fix 停留 fixed（重复申报无害；
+	// 12. 状态幂等无害：fixed 态重申报 wb_qualify 停留 fixed（重复申报无害；
 	//     BUG-013 口径：评审上下文 issue 评论携 document 锚须锚产物 art-it-doc）
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+node, map[string]any{
 		"nodeId": "n-04", "anchor": map[string]any{"kind": "document", "artifactId": "art-it-doc"},
@@ -243,15 +242,15 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
 	fixID := item(t, resp, "issue").str("issueId")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+fixID+"/resolve", map[string]any{"path": "fix", "operator": "fe"})
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+fixID+"/qualify", map[string]any{"operator": "fe"})
 	assert.Equal(t, resp.code, http.StatusOK)
 	assert.Equal(t, item(t, resp, "issue").str("state"), "to-fix")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+fixID+"/replies", map[string]any{
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+fixID+"/declare-fixed", map[string]any{
 		"by": "fe", "roleId": "fe", "text": "已修",
 	})
 	assert.Equal(t, resp.code, http.StatusOK)
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+fixID+"/resolve", map[string]any{
-		"path": "fix", "operator": "fe", "note": "修复说明更新",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+fixID+"/qualify", map[string]any{
+		"operator": "fe", "note": "修复说明更新",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "fixed 态重申报应无害: %v", resp.body)
 	issue = item(t, resp, "issue")
@@ -266,7 +265,7 @@ func TestIntegration_IssueEndpoints_RealMySQL(t *testing.T) {
 	assert.Equal(t, resp.code, http.StatusOK)
 	loopID := item(t, resp, "issue").str("issueId")
 	for i := 1; i <= 5; i++ {
-		resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+loopID+"/replies", map[string]any{
+		resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+loopID+"/clarified", map[string]any{
 			"by": "pm", "roleId": "pm", "text": fmt.Sprintf("澄清第 %d 轮", i),
 		})
 		assert.Equal(t, resp.code, http.StatusOK)
@@ -384,7 +383,7 @@ func TestIntegration_IssueConcurrentReply_RealMySQL(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			r := reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+			r := reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/clarified", map[string]any{
 				"by": fmt.Sprintf("pm-%d", i), "roleId": "pm", "text": fmt.Sprintf("并发回复 %d", i),
 			})
 			if r.code != http.StatusOK {

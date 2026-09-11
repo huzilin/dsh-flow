@@ -313,12 +313,18 @@ class Req:
         iid = b.get("issue", {}).get("issueId", "")
         return st, b, iid
 
-    def resolve(self, iid, path, operator):
-        return api("POST", f"/api/comments/{iid}/resolve", {
-            "commentId": iid, "path": path, "operator": operator})
+    def settle(self, iid, operator):
+        return api("POST", f"/api/comments/{iid}/settle", {"commentId": iid, "operator": operator})
 
-    def reply(self, iid, by, role, text):
-        return api("POST", f"/api/comments/{iid}/replies", {
+    def qualify(self, iid, operator):
+        return api("POST", f"/api/comments/{iid}/qualify", {"commentId": iid, "operator": operator})
+
+    def clarified(self, iid, by, role, text):
+        return api("POST", f"/api/comments/{iid}/clarified", {
+            "commentId": iid, "by": by, "roleId": role, "text": text})
+
+    def declare_fixed(self, iid, by, role, text):
+        return api("POST", f"/api/comments/{iid}/declare-fixed", {
             "commentId": iid, "by": by, "roleId": role, "text": text})
 
     def confirm(self, iid, operator):
@@ -590,7 +596,7 @@ def p_business_full():
     st, b, tid = r.assign("bus-03", "product-design.clarify", "pm")
     assert st == 200 and b.get("ok"), f"assign clarify 失败: {b}"
     r.task_update(tid, "ack")
-    st, b = r.resolve(issue_fe, "agree", "pm")
+    st, b = r.settle(issue_fe, "pm")
     ck("C-4d 澄清闭环 resolved", st == 200 and b.get("issue", {}).get("state") == "resolved", f"HTTP {st} {b}")
     rr_before = r.inbox_kinds("fe").get("re_review", 0)
     st, b = r.task_update(tid, "complete")
@@ -638,7 +644,7 @@ def p_business_full():
     # -L1 collect 闭环绑定：评审位名下有 open 评论 → agree 409；resolved 后 agree 200
     st, b = r.review("bus-05", "arch", "arch.rd-design-review", "agree")
     ck("L1a open 评论拦 agree 409", st == 409, f"HTTP {st} {json.dumps(b)[:160]}")
-    st, b = r.resolve(i_arch, "agree", "rd")
+    st, b = r.settle(i_arch, "rd")
     ck("L1a2 协商一致 resolved", st == 200 and b.get("issue", {}).get("state") == "resolved", f"HTTP {st} {json.dumps(b)[:160]}")
     st, b = r.review("bus-05", "arch", "arch.rd-design-review", "agree")
     ck("L1a3 闭环后 agree 200", st == 200 and b.get("ok"), f"HTTP {st} {json.dumps(b)[:160]}")
@@ -937,27 +943,27 @@ def p_task():
     def rr_count():
         return len([x for x in r.inbox("cr").get("notifications", []) if x.get("kind") == "re_review" and x.get("requirementId") == r.id])
     rr0 = rr_count()
-    st, b = r.resolve(defect, "fix", "rd")
+    st, b = r.qualify(defect, "rd")
     ck("C-5b resolve fix open→to-fix", st == 200 and b.get("issue", {}).get("state") == "to-fix", f"HTTP {st} {b}")
     ck("C-5c to-fix 未迁 fixed 不发 re_review", rr_count() == rr0, f"{rr0}→{rr_count()}")
-    st, b = r.resolve(defect, "fix", "rd")
+    st, b = r.qualify(defect, "rd")
     rr1 = rr_count()
     ck("C-5d to-fix→fixed + re_review（retest 子型）", st == 200 and b.get("issue", {}).get("state") == "fixed" and rr1 > rr0,
        f"HTTP {st} state={b.get('issue', {}).get('state')} {rr0}→{rr1}")
     rr_rows = [x for x in r.inbox("cr").get("notifications", []) if x.get("kind") == "re_review" and x.get("requirementId") == r.id]
     ck("C-5e retest 子型 target_id=issueId", bool(rr_rows) and rr_rows[-1].get("targetId") == defect,
        f"targetId={rr_rows[-1].get('targetId') if rr_rows else None} issue={defect}")
-    st, b = r.resolve(defect, "fix", "rd")
+    st, b = r.qualify(defect, "rd")
     ck("C-5f fixed→fixed 幂等不重发", st == 200 and rr_count() == rr1, f"{rr1}→{rr_count()}")
     st, b = r.confirm(defect, "cr")
     ck("C-5g 提评者（角色 cr）confirm → resolved", st == 200 and b.get("issue", {}).get("state") == "resolved", f"HTTP {st} {b}")
 
     # A-19 reply 路径：to-fix 态回复 → fixed（-D1 路径②）
     st, b, iss = r.comment("tsk-c4", "cr-a", "cr", "边界未覆盖（第二处）", "rd", anchor=c4_anchor)
-    r.resolve(iss, "fix", "rd")
+    r.qualify(iss, "rd")
     rr3 = len([x for x in r.inbox("cr").get("notifications", []) if x.get("kind") == "re_review"])
-    st, b = r.reply(iss, "rd-a", "rd", "已补边界用例并修复")
-    st2, b2 = r.resolve(iss, "fix", "rd")
+    st, b = r.declare_fixed(iss, "rd-a", "rd", "已补边界用例并修复")
+    st2, b2 = r.qualify(iss, "rd")
     rr4 = len([x for x in r.inbox("cr").get("notifications", []) if x.get("kind") == "re_review"])
     ck("A-19a reply roundCount++", st == 200, f"HTTP {st} {b}")
     ck("A-19b to-fix 态回复后 resolve fix → fixed + re_review（-D1 路径②）", b2.get("issue", {}).get("state") == "fixed" and rr4 > rr3, f"state={b2.get('issue', {}).get('state')} {rr3}→{rr4}")
@@ -1075,26 +1081,26 @@ def p_issue_branches():
 
     # A-20 resolve agree 双态
     st, b, i2 = r.comment("bus-01", "qa-a", "qa", "待复核意见", "pm")
-    r.reply(i2, "pm-a", "pm", "澄清已补")
+    r.clarified(i2, "pm-a", "pm", "澄清已补")
     st, b = api("GET", f"/api/requirements/{r.id}")
     i2row = next((x for x in b.get("issues", []) if x.get("issueId") == i2), {})
     ck("A-19c reply→pending-confirm", i2row.get("state") == "pending-confirm" and int(i2row.get("roundCount", "0")) >= 1, f"state={i2row.get('state')}")
     st, b = r.reopen(i2, "qa-a")
     ck("A-22a reopen→open loop=1", st == 200 and b.get("loopCount") in ("1", 1), f"HTTP {st} loop={b.get('loopCount')}")
-    st, b = r.resolve(i2, "agree", "pm")
+    st, b = r.settle(i2, "pm")
     ck("A-20a resolve agree→resolved", b.get("issue", {}).get("state") == "resolved", "")
-    st, b = r.resolve(i2, "agree", "pm")
+    st, b = r.settle(i2, "pm")
     ck("A-20b resolved 再 resolve 拦截/幂等", st >= 400 or b.get("issue", {}).get("state") == "resolved", f"HTTP {st}")
 
     # A-21 confirm（pending-confirm → resolved）
     st, b, i3 = r.comment("bus-01", "qa-a", "qa", "复核通道意见", "pm")
-    r.reply(i3, "pm-a", "pm", "已回应")
+    r.clarified(i3, "pm-a", "pm", "已回应")
     st, b = r.confirm(i3, "qa-a")
     ck("A-21 confirm→resolved", st == 200 and b.get("issue", {}).get("state") == "resolved", f"HTTP {st} {b}")
 
     # A-24/C-6 仲裁双路径
     st, b, i4 = r.comment("bus-01", "qa-a", "qa", "上升裁决意见 A", "pm")
-    r.reply(i4, "pm-a", "pm", "不认可")
+    r.clarified(i4, "pm-a", "pm", "不认可")
     st, b = r.escalate(i4, "qa", "双方分歧")
     sess = b.get("sessionId", "")
     ck("C-6a escalate 建 session", st == 200 and b.get("escalated") is True and sess != "", f"HTTP {st} {b}")
@@ -1120,7 +1126,7 @@ def p_issue_branches():
     st, b, i6 = r.comment("bus-01", "qa-a", "qa", "澄清拉锯意见", "pm")
     auto = False
     for i in range(1, 6):
-        r.reply(i6, "pm-a", "pm", f"回应 {i}")
+        r.clarified(i6, "pm-a", "pm", f"回应 {i}")
         st, b = r.reopen(i6, "qa-a")
         loop = int(b.get("loopCount") or 0)
         if loop == 5:
@@ -1135,7 +1141,7 @@ def p_issue_branches():
     # A-23 负路径
     st, b = r.escalate("cm-no-such", "qa")
     ck("A-23a escalate 不存在 404", st == 404, f"HTTP {st}")
-    st, b = r.resolve("cm-no-such", "agree", "pm")
+    st, b = r.settle("cm-no-such", "pm")
     ck("A-23b resolve 不存在 404", st == 404, f"HTTP {st}")
 
 

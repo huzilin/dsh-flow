@@ -112,7 +112,7 @@ func TestIntegration_EscalationChain_RealMySQL(t *testing.T) {
 	// 1. 阈值自动 escalate（注入阈值 2）：reopen 计数=2 时置位 + 通知位行
 	// （完整拉锯：reply→reopen×2——reopen 操作者=提评者 arch）
 	for i := 1; i <= escalationITThreshold; i++ {
-		resp := reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/replies", map[string]any{
+		resp := reqJSON(t, router, http.MethodPost, "/api/comments/"+issueID+"/clarified", map[string]any{
 			"by": "pm", "roleId": "pm", "text": "澄清回复",
 		})
 		assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
@@ -164,7 +164,7 @@ func TestIntegration_EscalationChain_RealMySQL(t *testing.T) {
 	assert.Equal(t, sessions[0]["dshRef"], "pending-dsh-adjudication", "dsh_ref 占位")
 	assert.Equal(t, sessions[0]["status"], "active")
 	// replies 上升条目（issue↔session 关联载体；出参取端点 issue 全量——快照
-	// issues 投影不含 replies/resolve 族，T7 已知口径，勿在其上断言）
+	// issues 投影不含 replies 与 resolve 族列，T7 已知口径，勿在其上断言）
 	entries := repliesEntries(t, item(t, resp, "issue").body["replies"].(string))
 	assert.Assert(t, len(entries) > 0 && entries[len(entries)-1]["kind"] == "escalation" &&
 		entries[len(entries)-1]["sessionId"] == sessionID, "上升条目携 sessionId: %v", entries)
@@ -279,8 +279,8 @@ func TestIntegration_EscalationUpholdAndBlocked_RealMySQL(t *testing.T) {
 
 	// 2. 终态不可上升：resolved issue 上 escalate → 409
 	agreeID, _ := escalationIssue(t, router, handles, reqID, "协商一致议题")
-	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+agreeID+"/resolve", map[string]any{
-		"path": "agree", "operator": "pm", "note": "已对齐",
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+agreeID+"/settle", map[string]any{
+		"operator": "pm", "note": "已对齐",
 	})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+agreeID+"/escalate", map[string]any{
