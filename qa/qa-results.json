@@ -1,0 +1,1027 @@
+{
+ "base": "http://127.0.0.1:18081",
+ "db": "wbflow_qa_1789074177",
+ "results": [
+  {
+   "cid": "A-01",
+   "ok": true,
+   "detail": "healthz HTTP 200 {'ok': True, 'state': 'ok', 'mysql': {'reachable': True, 'version': '8.0.46', 'db_state': 'ok', 'error': ''}}"
+  },
+  {
+   "cid": "A-02a 无 token 401",
+   "ok": true,
+   "detail": "HTTP 401"
+  },
+  {
+   "cid": "A-02b 错 token 401",
+   "ok": true,
+   "detail": "HTTP 401"
+  },
+  {
+   "cid": "A-03a create_version",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-1', 'name': 'QA 版本 A', 'state': '待启动', 'isBacklog': False, 'createdAt': '1789074221131', 'updatedAt': '1789074221131'}}"
+  },
+  {
+   "cid": "A-03b list_versions 含新版本",
+   "ok": true,
+   "detail": "HTTP 200"
+  },
+  {
+   "cid": "A-04a update_version",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-1', 'name': 'QA 版本 A2', 'state': '待启动', 'isBacklog': False, 'createdAt': '1789074221131', 'updatedAt': '1789074221569'}}"
+  },
+  {
+   "cid": "A-04b 乐观锁冲突 409",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 乐观锁冲突（updated_at 不匹配）', 'code': 'OPTIMISTIC_LOCK', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "A-05 advance_version 软提示",
+   "ok": true,
+   "detail": "HTTP 200 unfinished=[{'requirementId': 'req-001', 'title': 'QA 版本发布软约束需求', 'status': '待启动'}]"
+  },
+  {
+   "cid": "A-06a 全未开始 deprecate 成功",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-3', 'name': 'QA 版本 dep', 'state': '已废弃', 'isBacklog': False, 'createdAt': '1789074222760', 'updatedAt': '1789074224050'}}"
+  },
+  {
+   "cid": "A-06b 需求解绑回池 versionId 空",
+   "ok": true,
+   "detail": "versionId="
+  },
+  {
+   "cid": "A-06c 版本态=已废弃",
+   "ok": true,
+   "detail": "state=已废弃"
+  },
+  {
+   "cid": "A-06d 解绑逐行审计",
+   "ok": true,
+   "detail": "audit requirements.versionId"
+  },
+  {
+   "cid": "C-09a 前置：bus-00 拍板进入编排",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-28', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"进入编排\",\"at\":1789074224988}', 'nextNodeId': 'n-29', 'rollbackNodeId': ''}"
+  },
+  {
+   "cid": "C-09b 已开始 deprecate 409 blocked",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 版本 \"v-4\" 存在 1 条已开始推演的需求（编排已进入），废弃被拦截', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "A-07a 缺 title 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: title 必填', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "A-07b 非法 category 拦截",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: 未知类别 \"不存在的类别\"（允许：需求任务/规划审批任务/版本规划任务）', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "A-07c 实例化矩阵",
+   "ok": true,
+   "detail": "defs=['bus-00', 'bus-01', 'bus-02', 'bus-03', 'bus-04', 'bus-05', 'bus-06', 'bus-07', 'bus-08', 'bus-09', 'bus-10', 'bus-11', 'bus-12']"
+  },
+  {
+   "cid": "A-07d currentNodeId 空 / scope=full",
+   "ok": true,
+   "detail": "{'flowDefsId': 'business', 'dependencies': '[]', 'currentNodeId': '', 'createdAt': '1789074225269', 'updatedAt': '1789074225269', 'scope': 'full'}"
+  },
+  {
+   "cid": "A-08a priority 筛选",
+   "ok": true,
+   "detail": "HTTP 200"
+  },
+  {
+   "cid": "A-08b 分页 total/items",
+   "ok": true,
+   "detail": "total=0"
+  },
+  {
+   "cid": "A-08c dependencies 字段存在（注记-D4）",
+   "ok": true,
+   "detail": "items=5 keys=['category', 'createdAt', 'createdBy', 'dependencies', 'description', 'flowDefsId', 'owner', 'priority', 'requirementId', 'status', 'title', 'updatedAt']"
+  },
+  {
+   "cid": "A-09 聚合快照字段齐",
+   "ok": true,
+   "detail": "keys=['artifacts', 'flowNodes', 'flows', 'issues', 'ok', 'requirement', 'reviewResults', 'sessions', 'version']"
+  },
+  {
+   "cid": "A-10a update_requirement",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'requirement': {'requirementId': 'req-005', 'title': 'QA CRUD 主需求 v2', 'description': '', 'category': '需求任务', 'flowDefsId': 'business', 'versionId': '', 'priority': 'P0', 'status': '待启动', 'owner': 'pm', 'createdBy': 'user-a', 'createdAt': '1789074225263', 'updatedAt': '1789074226138', 'dependencies': []}}"
+  },
+  {
+   "cid": "A-10b 陈旧基线 409",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 乐观锁冲突（updated_at 不匹配）', 'code': 'OPTIMISTIC_LOCK', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "BUG-004a 局部更新（仅 title）200",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'requirement': {'requirementId': 'req-005', 'title': 'QA CRUD 局部更新', 'description': '', 'category': '需求任务', 'flowDefsId': 'business', 'versionId': '', 'priority': 'P0', 'status': '待启动', 'owner': 'pm', 'createdBy': 'user-a', 'createdAt': '1789074225263', 'updatedAt': '1789074226455', 'dependencies': []}}"
+  },
+  {
+   "cid": "BUG-004b 显式非法值仍拦截 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: 非法优先级 \"P9\"（允许 P0-P3）', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "A-11 history 有 diff 行且倒序",
+   "ok": true,
+   "detail": "items=4"
+  },
+  {
+   "cid": "A-30 依赖树根节点 found",
+   "ok": true,
+   "detail": "{\"ok\": true, \"root\": {\"requirementId\": \"req-005\", \"title\": \"QA CRUD \\u5c40\\u90e8\\u66f4\\u65b0\", \"status\": \"\\u5f85\\u542f\\u52a8\", \"versionId\": \"\", \"found\": true, \""
+  },
+  {
+   "cid": "A-12a GET 不存在 404",
+   "ok": true,
+   "detail": "HTTP 404"
+  },
+  {
+   "cid": "A-12b 未 confirm 拦截",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 删除需求 \"req-005\" 需 User 明确指令（confirm=true）', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "A-12c confirm 删除成功",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'requirementId': 'req-005'}"
+  },
+  {
+   "cid": "A-12d 删后 404",
+   "ok": true,
+   "detail": "HTTP 404"
+  },
+  {
+   "cid": "A-14a 非法 product_type 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 受控词表越集拦截: product_type \"bogus_type\" 不在受控清单（允许：brd/product_doc/rd_design/fe_design/architecture/research/plan/alignment/dev_notes/code_mr/test_result/defect/discussion）', 'code': 'POLICY_REJECTED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "A-14b 非法 kind 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 受控词表越集拦截: kind \"bogus\" 越出词表（允许：document | link）', 'code': 'POLICY_REJECTED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "A-15a document 产物登记",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'artifact': {'artifactId': 'art-1789074227755', 'nodeId': 'n-42', 'productType': 'brd', 'label': '《业务需求文档》', 'href': 'v1.0/qa/fixtures/brd.md', 'kind': 'document', 'note': '', 'addedBy': 'pm', 'createdAt': '1789074227755'}}"
+  },
+  {
+   "cid": "A-15b 内容回读含 marker",
+   "ok": true,
+   "detail": "HTTP 200 content[:60]=# brd QA fixture\n\nmarker-brd-42\n"
+  },
+  {
+   "cid": "A-15c 产物不存在 404",
+   "ok": true,
+   "detail": "HTTP 404"
+  },
+  {
+   "cid": "A-15d 路径穿越 400 blocked",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 受控词表越集拦截: href resolve 后越出 docs root: \"../../etc/passwd\"', 'code': 'POLICY_REJECTED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "A-15e 文件缺失 404",
+   "ok": true,
+   "detail": "登记期拦截 HTTP 400（可接受）"
+  },
+  {
+   "cid": "A-15f link 类登记",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'artifact': {'artifactId': 'art-1789074228128', 'nodeId': 'n-42', 'productType': 'code_mr', 'label': '《QA-code_mr》', 'href': 'https://git.example.local/n-42/code_mr', 'kind': 'link', 'note': '', 'addedBy': 'rd', 'createdAt': '1789074228128'}}"
+  },
+  {
+   "cid": "A-15g 期望 document 拒绝 link 登记（BUG-015 守卫）",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 受控词表越集拦截: 产物 \"brd\" 在节点期望中为入库文档（kind=document），不得以 link 登记', 'code': 'POLICY_REJECTED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "B-1a 实例化 bus-00..12 连续",
+   "ok": true,
+   "detail": "['bus-00', 'bus-01', 'bus-02', 'bus-03', 'bus-04', 'bus-05', 'bus-06', 'bus-07', 'bus-08', 'bus-09', 'bus-10', 'bus-11', 'bus-12']"
+  },
+  {
+   "cid": "A-27a 空相位 advance 409 blocked",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 节点 \"n-50\" 未进入编排（state 空），无可推进相位', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "A-26a 非法 verdict 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: verdict 须为 approved|rejected，实测 \"maybe\"', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "B-1b bus-00 拍板→bus-01",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-50', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"确认投入资源\",\"at\":1789074228824}', 'nextNodeId': 'n-51', 'rollbackNodeId': ''}"
+  },
+  {
+   "cid": "BUG-001a 首次进编排→进行中",
+   "ok": true,
+   "detail": "status=进行中"
+  },
+  {
+   "cid": "B-1c",
+   "ok": true,
+   "detail": "current want=bus-01(n-51) got=n-51"
+  },
+  {
+   "cid": "B-1d",
+   "ok": true,
+   "detail": "bus-01 相位 want=entry got=entry"
+  },
+  {
+   "cid": "A-26b 重复拍板 noop/幂等",
+   "ok": true,
+   "detail": "HTTP 200 noop=True"
+  },
+  {
+   "cid": "A-13a my-task entry 迎宾 align.opening",
+   "ok": true,
+   "detail": "phase=entry acts=['align.opening']"
+  },
+  {
+   "cid": "A-13b 非本节点角色动作视图可取（三向不越权由 action 归属决定）",
+   "ok": true,
+   "detail": "HTTP 200"
+  },
+  {
+   "cid": "A-16a assign 新建 reused=false",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789074229401-001', 'requirementId': 'req-006', 'nodeId': 'n-51', 'actionId': 'to-brd', 'branch': '', 'roleId': 'pm', 'taskType': 'produce', 'goal': '在节点「需求对齐」执行动作 to-brd（to-brd，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-006\",\"title\":\"QA 主链全栈需求\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-51\",\"defNodeId\":\"bus-01\",\"nodeKey\":\"需求对齐\",\"state\":\"en"
+  },
+  {
+   "cid": "A-16b 同幂等键重放 reused=true",
+   "ok": true,
+   "detail": "HTTP 200 reused=True"
+  },
+  {
+   "cid": "A-17a 未 ack 先 complete 409 stale",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 过期上报: 任务 \"t-1789074229401-001\" 未 ack，拒绝 complete（先上报 ack）', 'code': 'STALE_REPORT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "A-17b 判据未过 blocked+missing+回 in-progress",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 任务 \"t-1789074229401-001\" 完成判据不满足，回 in-progress', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': ['artifact:brd']}"
+  },
+  {
+   "cid": "A-17c 非法 event 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: event 须为 ack|progress|complete，实测 \"bogus\"', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "B-1e bus-01 拍板通过",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-51', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"对齐结论用户确认\",\"at\":1789074230840}', 'nextNodeId': 'n-52', 'rollbackNodeId': ''}"
+  },
+  {
+   "cid": "B-1f",
+   "ok": true,
+   "detail": "current want=bus-02(n-52) got=n-52"
+  },
+  {
+   "cid": "BUG-006a my-task 回显全名 actionId",
+   "ok": true,
+   "detail": "acts=['product-design.produce']"
+  },
+  {
+   "cid": "A-25a 非评审相位表态 409 blocked",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 节点 \"n-52\" 相位 \"exec\" 不接受评审表态（仅 review 相位）', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "A-18a document 锚点建行",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074231269', 'nodeId': 'n-51', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '锚点探针', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789074231270', 'issueType': 'issue', 'reviewerRole': '', 'assignee': 'pm', 'anchorArtifactId': '', 'anchorLine': '0', 'anchorStartLine': '0', 'anchorEndLine'"
+  },
+  {
+   "cid": "A-14a 非法 product_type 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 受控词表越集拦截: product_type \"bogus_type\" 不在受控清单（允许：brd/product_doc/rd_design/fe_design/architecture/research/plan/alignment/dev_notes/code_mr/test_result/defect/discussion）', 'code': 'POLICY_REJECTED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "A-14b 非法 kind 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 受控词表越集拦截: kind \"bogus\" 越出词表（允许：document | link）', 'code': 'POLICY_REJECTED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "B-1g bus-02 提评迁移 bus-03",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'requirementId': 'req-006', 'nodeId': 'n-52', 'nodeState': 'done', 'currentNodeId': 'n-53', 'nextNodeId': '', 'outcome': 'noop', 'noop': True}"
+  },
+  {
+   "cid": "B-1h",
+   "ok": true,
+   "detail": "bus-03 相位 want=review got=review"
+  },
+  {
+   "cid": "BUG-011a 评审节点 my-task 带被评审产物（上游置前）",
+   "ok": true,
+   "detail": "relatedArtifacts=['《产品设计文档》']"
+  },
+  {
+   "cid": "C-4a fe unagree→clarify",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-53', 'role': 'fe', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.prd-review\",\"state\":\"agree\",\"round\":0,\"at\":1789074233137},{\"role\":\"rd\",\"capabilityId\":\"rd.prd-review\",\"state\":\"agree\",\"round\":0,\"at\":1789074233454},{\"role\":\"fe\",\"capabilityId\":\"fe.prd-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789074234062}]', 'collectOutcom"
+  },
+  {
+   "cid": "C-4b",
+   "ok": true,
+   "detail": "bus-03 相位 want=respond got=respond"
+  },
+  {
+   "cid": "C-4c pm 收 clarify_task",
+   "ok": true,
+   "detail": "{'clarify_task': 1}"
+  },
+  {
+   "cid": "A-25b 非评审位表态拦截",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 节点 \"n-53\" 相位 \"respond\" 不接受评审表态（仅 review 相位）', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "BUG-013b 评审上下文无锚 issue 评论 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: 评审上下文的 issue 评论必须锚定产物：请为 anchor 携带 artifactId（如被评审产物，document 级），或使用 line/range/block 级锚点', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "C-4d 澄清闭环 resolved",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074233704', 'nodeId': 'n-53', 'anchorKind': 'document', 'author': 'fe-a', 'roleId': 'fe', 'text': '登录态刷新口径未定义，需澄清', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789074233704', 'issueType': 'issue', 'reviewerRole': 'fe', 'assignee': 'pm', 'anchorArtifactId': 'art-1789074232407', 'anchorLine': '0', 'ancho"
+  },
+  {
+   "cid": "C-4e respond complete 触发重入",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789074235619-003', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789074235619-003', 'requirementId': 'req-006', 'nodeId': 'n-53', 'actionId': 'product-design.clarify', 'branch': '', 'roleId': 'pm', 'taskType': 'respond', 'goal': '在节点「产品设计评审」执行动作 product-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-006\",\"title\":"
+  },
+  {
+   "cid": "C-4f",
+   "ok": true,
+   "detail": "bus-03 相位 want=review got=review"
+  },
+  {
+   "cid": "C-4g fe 收 re_review（澄清子型 target_id 空）",
+   "ok": true,
+   "detail": "0→1"
+  },
+  {
+   "cid": "C-4h 澄清子型 target_id 空",
+   "ok": true,
+   "detail": "{'issueId': 'cm-1789074237305', 'kind': 're_review', 'requirementId': 'req-006', 'nodeId': 'n-53', 'targetType': 'node', 'targetId': '', 'text': '节点 n-53 澄清已回应，请重新表态（新评审轮）', 'sender': 'plugin', 'senderRole': 'plugin', 'recipientRole': 'fe', 'state': 'open', 'createdAt': '1789074237309'}"
+  },
+  {
+   "cid": "C-10a 同轮同角色覆写单条目",
+   "ok": true,
+   "detail": "arch 条目数=1"
+  },
+  {
+   "cid": "C-4i fe 复核 agree→gate_pending",
+   "ok": true,
+   "detail": "HTTP 200 gateState=agreed"
+  },
+  {
+   "cid": "C-4j pm 收 gate_pending",
+   "ok": true,
+   "detail": "{'gate_pending': 1, 'clarify_task': 1}"
+  },
+  {
+   "cid": "B-1i bus-03 拍板→bus-04",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-53', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"产品设计终审通过\",\"at\":1789074239432}', 'nextNodeId': 'n-54', 'rollbackNodeId': ''}"
+  },
+  {
+   "cid": "B-1j",
+   "ok": true,
+   "detail": "current want=bus-04(n-54) got=n-54"
+  },
+  {
+   "cid": "B-1k",
+   "ok": true,
+   "detail": "bus-03 lastDecision.verdict want=approved got=approved"
+  },
+  {
+   "cid": "B-1l",
+   "ok": true,
+   "detail": "bus-05 相位 want=review got=review"
+  },
+  {
+   "cid": "A-18a2 评审上下文 document 锚缺 artifactId 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: 评审上下文的 issue 评论必须锚定产物：请为 anchor 携带 artifactId（如被评审产物，document 级），或使用 line/range/block 级锚点', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "A-18a3 评审意见锚产物 200",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074241405', 'nodeId': 'n-55', 'anchorKind': 'document', 'author': 'arch', 'roleId': 'arch', 'text': '评审意见锚定被评审文档', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789074241405', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'rd', 'anchorArtifactId': 'art-1789074240662', 'anchorLine': '0', 'anchorSt"
+  },
+  {
+   "cid": "L1a open 评论拦 agree 409",
+   "ok": true,
+   "detail": "HTTP 409 {\"ok\": false, \"error\": \"wbflow: \\u95e8\\u7981\\u62e6\\u622a: \\u89d2\\u8272 \\\"arch\\\" \\u540d\\u4e0b 1 \\u6761\\u8bc4\\u8bba\\u672a\\u95ed\\u73af\\uff0cagree \\u524d\\u987b\\u516"
+  },
+  {
+   "cid": "L1a2 协商一致 resolved",
+   "ok": true,
+   "detail": "HTTP 200 {\"ok\": true, \"issue\": {\"issueId\": \"cm-1789074241405\", \"nodeId\": \"n-55\", \"anchorKind\": \"document\", \"author\": \"arch\", \"roleId\": \"arch\", \"text\": \"\\u8bc4\\u5ba1\\u610"
+  },
+  {
+   "cid": "L1a3 闭环后 agree 200",
+   "ok": true,
+   "detail": "HTTP 200 {\"ok\": true, \"nodeId\": \"n-55\", \"role\": \"arch\", \"state\": \"agree\", \"round\": \"0\", \"reviewResults\": \"[{\\\"role\\\":\\\"arch\\\",\\\"capabilityId\\\":\\\"arch.rd-design-review\\\","
+  },
+  {
+   "cid": "B-1m bus-05 拍板→bus-06",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-55', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"技术评审通过\",\"at\":1789074244507}', 'nextNodeId': 'n-56', 'rollbackNodeId': ''}"
+  },
+  {
+   "cid": "L1b-1 补挂评论 200",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074244789', 'nodeId': 'n-55', 'anchorKind': 'document', 'author': 'arch', 'roleId': 'arch', 'text': '强权通过前补挂意见', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789074244790', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'rd', 'anchorArtifactId': 'art-1789074240662', 'anchorLine': '0', 'anchorStar"
+  },
+  {
+   "cid": "L1b-2 非 user 强权 400",
+   "ok": true,
+   "detail": "HTTP 400 {\"ok\": false, \"error\": \"wbflow: \\u5165\\u53c2\\u975e\\u6cd5: operator \\u987b\\u4e3a user\\uff08\\u5f3a\\u6743 override \\u4e3a User \\u4e13\\u5c5e\\uff"
+  },
+  {
+   "cid": "L1b-3 user 整角色 overridden",
+   "ok": true,
+   "detail": "HTTP 200 {\"ok\": true, \"nodeId\": \"n-55\", \"reviewerRole\": \"arch\", \"overridden\": 1}"
+  },
+  {
+   "cid": "B-1n bus-07 机械收口 approved（user_gate=0）",
+   "ok": true,
+   "detail": "gateState=approved"
+  },
+  {
+   "cid": "B-1o",
+   "ok": true,
+   "detail": "current want=bus-08(n-58) got=n-58"
+  },
+  {
+   "cid": "B-1p",
+   "ok": true,
+   "detail": "bus-07 lastDecision.verdict want=approved got=approved"
+  },
+  {
+   "cid": "A-27b 相位不符 advance blocked/noop",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'requirementId': 'req-006', 'nodeId': 'n-52', 'nodeState': 'done', 'currentNodeId': 'n-58', 'nextNodeId': '', 'outcome': 'noop', 'noop': True}"
+  },
+  {
+   "cid": "BUG-005a 未激活节点派发 409 blocked（相位守卫）",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 节点 \"n-59\" 未进入编排（state 空），不可派发任务', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "B-1q",
+   "ok": true,
+   "detail": "bus-08 相位 want=review got=review"
+  },
+  {
+   "cid": "B-1r",
+   "ok": true,
+   "detail": "current want=bus-09(n-59) got=n-59"
+  },
+  {
+   "cid": "B-1s",
+   "ok": true,
+   "detail": "bus-08 lastDecision.verdict want=approved got=approved"
+  },
+  {
+   "cid": "C-8a join 整组推进 bus-10",
+   "ok": true,
+   "detail": "current want=bus-10(n-60) got=n-60"
+  },
+  {
+   "cid": "B-1t",
+   "ok": true,
+   "detail": "current want=bus-11(n-61) got=n-61"
+  },
+  {
+   "cid": "B-1u",
+   "ok": true,
+   "detail": "bus-11 相位 want=entry got=entry"
+  },
+  {
+   "cid": "B-1v bus-11 拍板→bus-12",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-61', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"用户验收通过\",\"at\":1789074253035}', 'nextNodeId': 'n-62', 'rollbackNodeId': ''}"
+  },
+  {
+   "cid": "BUG-001b 落位尾节点→已完成",
+   "ok": true,
+   "detail": "status=已完成"
+  },
+  {
+   "cid": "B-1w",
+   "ok": true,
+   "detail": "current want=bus-12(n-62) got=n-62"
+  },
+  {
+   "cid": "B-1x 尾节点 enteredAt>0",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "L2a 离场节点全量 done=11",
+   "ok": true,
+   "detail": "done=11"
+  },
+  {
+   "cid": "L2b done 节点禁挂产物 400",
+   "ok": true,
+   "detail": "HTTP 400 {\"ok\": false, \"error\": \"wbflow: \\u53d7\\u63a7\\u8bcd\\u8868\\u8d8a\\u96c6\\u62e6\\u622a: \\u8282\\u70b9 \\\"n-51\\\" \\u5df2\\u5b8c\\u6210\\u79bb\\u573a\\uff08"
+  },
+  {
+   "cid": "L2c done 节点禁派任务 409",
+   "ok": true,
+   "detail": "HTTP 409 {\"ok\": false, \"error\": \"wbflow: \\u95e8\\u7981\\u62e6\\u622a: \\u8282\\u70b9 \\\"n-52\\\" \\u5df2\\u5b8c\\u6210\\u79bb\\u573a\\uff08done\\uff09\\uff0c\\u7981\\u"
+  },
+  {
+   "cid": "C-11a gate_pending≥2 / clarify_task=1",
+   "ok": true,
+   "detail": "{'gate_pending': 2, 'clarify_task': 1}"
+  },
+  {
+   "cid": "C-1a rejected 拍板回显 rollbackNodeId",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-68', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"技术方案存在缺陷，打回重做\",\"at\":1789074264590}', 'nextNodeId': '', 'rollbackNodeId': 'n-67'}"
+  },
+  {
+   "cid": "C-1b bus-04 exec 重入",
+   "ok": true,
+   "detail": "state=exec src=downstream-reject rbc=1"
+  },
+  {
+   "cid": "C-1c bus-04 pending_scope 落值（DB）",
+   "ok": true,
+   "detail": "pending_scope=full（注：快照 FlowNodeItem 无 pending_scope 投影字段）"
+  },
+  {
+   "cid": "C-1d bus-05 清零",
+   "ok": true,
+   "detail": "state= rr=[] ld= rbc=1"
+  },
+  {
+   "cid": "C-1e 下游联动 upstream-reject",
+   "ok": true,
+   "detail": "src=upstream-reject rbc=1"
+  },
+  {
+   "cid": "C-1f current 回退 bus-04",
+   "ok": true,
+   "detail": "current want=bus-04(n-67) got=n-67"
+  },
+  {
+   "cid": "C-1g 回退审计",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "C-1h bus-05 无残留结论",
+   "ok": true,
+   "detail": "bus-05 lastDecision.verdict want= got="
+  },
+  {
+   "cid": "C-3a scope 越界 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: scope \"be-only\" 越出可选集 [full rd fe]', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "C-3b 重投影成功 scope=rd",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'scope': 'rd', 'noop': False, 'nodeId': 'n-67', 'reprojectedCount': '9'}"
+  },
+  {
+   "cid": "C-3c 节点集=rd 渲染矩阵 9 节点",
+   "ok": true,
+   "detail": "['bus-00', 'bus-01', 'bus-02', 'bus-03', 'bus-04', 'bus-05', 'bus-08', 'bus-11', 'bus-12']"
+  },
+  {
+   "cid": "C-3d 序号连续不占位",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "C-3e flows.scope=rd + 标记清（DB）",
+   "ok": true,
+   "detail": "scope=rd pending_scope=NULL"
+  },
+  {
+   "cid": "C-3f 重复 reproject noop",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'scope': 'rd', 'noop': True, 'nodeId': '', 'reprojectedCount': '0'}"
+  },
+  {
+   "cid": "C-2a 重做任务派发",
+   "ok": false,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 节点 \"n-67\" 已完成离场（done），禁止挂载任务；如需返工请 rejected 打回重入', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': []}"
+  },
+  {
+   "cid": "C-2b 重做 complete",
+   "ok": false,
+   "detail": "HTTP 404 {'raw': '404 page not found'}"
+  },
+  {
+   "cid": "C-2c",
+   "ok": true,
+   "detail": "bus-05 相位 want=review got=review"
+  },
+  {
+   "cid": "C-2d 重评新轮播种 reviewing",
+   "ok": true,
+   "detail": "[{'role': 'arch', 'capabilityId': 'arch.rd-design-review', 'state': 'reviewing', 'round': 0, 'at': 1789074265627}, {'role': 'qa', 'capabilityId': 'qa.rd-design-"
+  },
+  {
+   "cid": "C-2e 重评拍板→bus-08（rd 重排后继）",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-68', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"重评通过\",\"at\":1789074267465}', 'nextNodeId': 'n-71', 'rollbackNodeId': ''}"
+  },
+  {
+   "cid": "C-2f",
+   "ok": true,
+   "detail": "current want=bus-08(n-71) got=n-71"
+  },
+  {
+   "cid": "C-2g",
+   "ok": true,
+   "detail": "current want=bus-11(n-74) got=n-74"
+  },
+  {
+   "cid": "C-2h",
+   "ok": true,
+   "detail": "current want=bus-12(n-75) got=n-75"
+  },
+  {
+   "cid": "B-2a 9 节点不占位",
+   "ok": true,
+   "detail": "['bus-00', 'bus-01', 'bus-02', 'bus-03', 'bus-04', 'bus-05', 'bus-08', 'bus-11', 'bus-12']"
+  },
+  {
+   "cid": "B-2b bus-03 评审位裁剪",
+   "ok": true,
+   "detail": "[{\"role\":\"arch\",\"capabilityId\":\"arch.prd-review\"},{\"role\":\"rd\",\"capabilityId\":\"rd.prd-review\",\"scopeExpr\":\"rd|full\"}]"
+  },
+  {
+   "cid": "B-2c bus-05 评审位裁剪",
+   "ok": true,
+   "detail": "[{\"role\":\"arch\",\"capabilityId\":\"arch.rd-design-review\"},{\"role\":\"qa\",\"capabilityId\":\"qa.rd-design-review\"},{\"role\":\"pm\","
+  },
+  {
+   "cid": "B-2d",
+   "ok": true,
+   "detail": "current want=bus-11(n-83) got=n-83"
+  },
+  {
+   "cid": "B-2e",
+   "ok": true,
+   "detail": "current want=bus-12(n-84) got=n-84"
+  },
+  {
+   "cid": "B-3a 实例化 11 节点",
+   "ok": true,
+   "detail": "['tec-b0', 'tec-b1', 'tec-b2', 'tec-b3', 'tec-b4', 'tec-b5', 'tec-b8a', 'tec-b8b', 'tec-b9', 'tec-b10', 'tec-b11']"
+  },
+  {
+   "cid": "B-3b tec-b3 拍板",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-88', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"RD 技术评审通过\",\"at\":1789074287799}', 'nextNodeId': 'n-89', 'rollbackNodeId': ''}"
+  },
+  {
+   "cid": "B-3c tec-b5 机械收口",
+   "ok": true,
+   "detail": "gateState=approved"
+  },
+  {
+   "cid": "B-3d",
+   "ok": true,
+   "detail": "current want=tec-b8a(n-91) got=n-91"
+  },
+  {
+   "cid": "B-3e",
+   "ok": true,
+   "detail": "tec-b8a 相位 want=review got=review"
+  },
+  {
+   "cid": "B-3f",
+   "ok": true,
+   "detail": "current want=tec-b8b(n-92) got=n-92"
+  },
+  {
+   "cid": "B-3g",
+   "ok": true,
+   "detail": "tec-b8b 相位 want=exec got=exec"
+  },
+  {
+   "cid": "C-8b fe 先完成 wait 分支",
+   "ok": null,
+   "detail": "API 不可达（fe 侧激活以 rd 侧 approved 为前提，peerApproved 恒 true）——见缺陷清单 BUG-5"
+  },
+  {
+   "cid": "B-3h",
+   "ok": true,
+   "detail": "tec-b8b 相位 want=review got=review"
+  },
+  {
+   "cid": "B-3i fe 侧收口整组推进",
+   "ok": true,
+   "detail": "gateState=approved"
+  },
+  {
+   "cid": "B-3j 整组推进 tec-b9",
+   "ok": true,
+   "detail": "current want=tec-b9(n-93) got=n-93"
+  },
+  {
+   "cid": "B-3k",
+   "ok": true,
+   "detail": "current want=tec-b10(n-94) got=n-94"
+  },
+  {
+   "cid": "B-3l",
+   "ok": true,
+   "detail": "current want=tec-b11(n-95) got=n-95"
+  },
+  {
+   "cid": "B-4a 实例化 7 节点无 QA 验收节点",
+   "ok": true,
+   "detail": "['tsk-c0', 'tsk-c1', 'tsk-c2', 'tsk-c3', 'tsk-c4', 'tsk-c6', 'tsk-c7']"
+  },
+  {
+   "cid": "B-4b tsk-c1 entry 迎宾仅 align.opening",
+   "ok": true,
+   "detail": "acts=['align.opening']"
+  },
+  {
+   "cid": "B-4c",
+   "ok": true,
+   "detail": "current want=tsk-c2(n-98) got=n-98"
+  },
+  {
+   "cid": "A-17d 判据缺产物 blocked+missing",
+   "ok": true,
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 任务 \"t-1789074298836-023\" 完成判据不满足，回 in-progress', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': ['artifact:rd_design']}"
+  },
+  {
+   "cid": "B-4d 补齐产物后 complete",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789074298836-023', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789074298836-023', 'requirementId': 'req-010', 'nodeId': 'n-98', 'actionId': 'backend-design.produce', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「技术设计」执行动作 backend-design.produce（产出后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-010\",\"t"
+  },
+  {
+   "cid": "B-4e",
+   "ok": true,
+   "detail": "current want=tsk-c6(n-101) got=n-101"
+  },
+  {
+   "cid": "C-5a 缺陷 issue 建行",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074303156', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789074303156', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789074301689', 'anchorLine': '0', 'anchorSta"
+  },
+  {
+   "cid": "C-5b resolve fix open→to-fix",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074303156', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'to-fix', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789074303156', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789074301689', 'anchorLine': '0', 'anchorS"
+  },
+  {
+   "cid": "C-5c to-fix 未迁 fixed 不发 re_review",
+   "ok": true,
+   "detail": "0→0"
+  },
+  {
+   "cid": "C-5d to-fix→fixed + re_review（retest 子型）",
+   "ok": true,
+   "detail": "HTTP 200 state=fixed 0→1"
+  },
+  {
+   "cid": "C-5e retest 子型 target_id=issueId",
+   "ok": true,
+   "detail": "targetId=cm-1789074303156 issue=cm-1789074303156"
+  },
+  {
+   "cid": "C-5f fixed→fixed 幂等不重发",
+   "ok": true,
+   "detail": "1→1"
+  },
+  {
+   "cid": "C-5g 提评者（角色 cr）confirm → resolved",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074303156', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789074303156', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789074301689', 'anchorLine': '0', 'ancho"
+  },
+  {
+   "cid": "A-19a reply roundCount++",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'roundCount': '1', 'issue': {'issueId': 'cm-1789074305384', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '边界未覆盖（第二处）', 'state': 'fixed', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789074305385', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789074301689', 'anchorLine'"
+  },
+  {
+   "cid": "A-19b to-fix 态回复后 resolve fix → fixed + re_review（-D1 路径②）",
+   "ok": true,
+   "detail": "state=fixed 1→2"
+  },
+  {
+   "cid": "A-19c 提评者（角色 cr）confirm → resolved",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074305384', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '边界未覆盖（第二处）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789074305385', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789074301689', 'anchorLine': '0', 'anchorSt"
+  },
+  {
+   "cid": "B-4f",
+   "ok": true,
+   "detail": "current want=tsk-c7(n-102) got=n-102"
+  },
+  {
+   "cid": "B-5a 规划审批任务→plan 绑定",
+   "ok": true,
+   "detail": "{'requirementId': 'req-011', 'title': 'QA 规划需求', 'description': '', 'category': '规划审批任务', 'flowDefsId': 'plan', 'versionId': '', 'priority': 'P2', 'status': '待启动', 'owner': '', 'createdBy': 'user-a', 'createdAt': '1789074308111', 'updatedAt': '1789074308111', 'dependencies': []}"
+  },
+  {
+   "cid": "B-5b 实例化 9 节点",
+   "ok": true,
+   "detail": "['pln-d0', 'pln-d1', 'pln-d2', 'pln-d3', 'pln-d4', 'pln-d5', 'pln-d6', 'pln-d7', 'pln-d8']"
+  },
+  {
+   "cid": "B-5c 调研评审机械收口",
+   "ok": true,
+   "detail": "current want=pln-d5(n-108) got=n-108"
+  },
+  {
+   "cid": "B-5d pln-d7 create_reqs 激活",
+   "ok": true,
+   "detail": "acts=['decide-cap.create_reqs']"
+  },
+  {
+   "cid": "B-5e create_reqs 派发",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789074317567-028', 'requirementId': 'req-011', 'nodeId': 'n-110', 'actionId': 'decide-cap.create_reqs', 'branch': '', 'roleId': 'leader', 'taskType': 'create_reqs', 'goal': '在节点「创建需求·启动版本」执行动作 decide-cap.create_reqs（创建需求·启动版本，任务族 create_reqs）', 'context': '{\"requirement\":{\"requirementId\":\"req-011\",\"title\":\"QA 规划需求\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-11"
+  },
+  {
+   "cid": "B-5f create_reqs complete",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789074317567-028', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789074317567-028', 'requirementId': 'req-011', 'nodeId': 'n-110', 'actionId': 'decide-cap.create_reqs', 'branch': '', 'roleId': 'leader', 'taskType': 'create_reqs', 'goal': '在节点「创建需求·启动版本」执行动作 decide-cap.create_reqs（创建需求·启动版本，任务族 create_reqs）', 'context': '{\"requirement\":{\"requiremen"
+  },
+  {
+   "cid": "B-5g pln-d7→pln-d8 推进",
+   "ok": true,
+   "detail": "current want=pln-d8(n-111) got=n-111"
+  },
+  {
+   "cid": "A-18a document 锚",
+   "ok": true,
+   "detail": "document"
+  },
+  {
+   "cid": "A-18b line 锚废弃 400（注记-L3）",
+   "ok": true,
+   "detail": "HTTP 400 {\"ok\": false, \"error\": \"wbflow: \\u5165\\u53c2\\u975e\\u6cd5: \\u951a\\u70b9 kind=\\\"line\\\" \\u5df2\\u5e9f\\u5f03\\uff08\\u4ec5\\u652f\\u6301 range \\u5212\\u8bcd / document \\u"
+  },
+  {
+   "cid": "A-18c range 锚（划词）",
+   "ok": true,
+   "detail": "HTTP 200 {\"issueId\": \"cm-1789074321052\", \"nodeId\": \"n-113\", \"anchorKind\": \"range\", \"author\": \"qa-a\", \"roleId\": \"qa\", \"text\": \"\\u8303\\u56f4\\u610f\\u89c1\", \"state\": \"open\", \"escalate\": \"0\", \"loopCount\": \"0\", \"rou"
+  },
+  {
+   "cid": "A-18d block 锚废弃 400（注记-L3）",
+   "ok": true,
+   "detail": "HTTP 400 {\"ok\": false, \"error\": \"wbflow: \\u5165\\u53c2\\u975e\\u6cd5: \\u951a\\u70b9 kind=\\\"block\\\" \\u5df2\\u5e9f\\u5f03\\uff08\\u4ec5\\u652f\\u6301 range \\u5212\\u8bcd / document \\"
+  },
+  {
+   "cid": "A-18e escalate=true 直升",
+   "ok": true,
+   "detail": "HTTP 200 escalate=1"
+  },
+  {
+   "cid": "A-19c reply→pending-confirm",
+   "ok": true,
+   "detail": "state=pending-confirm"
+  },
+  {
+   "cid": "A-22a reopen→open loop=1",
+   "ok": true,
+   "detail": "HTTP 200 loop=1"
+  },
+  {
+   "cid": "A-20a resolve agree→resolved",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "A-20b resolved 再 resolve 拦截/幂等",
+   "ok": true,
+   "detail": "HTTP 409"
+  },
+  {
+   "cid": "A-21 confirm→resolved",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789074324309', 'nodeId': 'n-113', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '复核通道意见', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789074324310', 'issueType': 'issue', 'reviewerRole': '', 'assignee': 'pm', 'anchorArtifactId': '', 'anchorLine': '0', 'anchorStartLine': '0', 'anchorE"
+  },
+  {
+   "cid": "C-6a escalate 建 session",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'commentId': 'cm-1789074325507', 'escalated': True, 'noop': False, 'sessionId': 'ad-1789074326334', 'issue': {'issueId': 'cm-1789074325507', 'nodeId': 'n-113', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '上升裁决意见 A', 'state': 'pending-confirm', 'escalate': '1', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789074325507', 'issueType': 'issue', 'rev"
+  },
+  {
+   "cid": "BUG-008a wb_escalate 通知行 anchor_kind=escalation（DB）",
+   "ok": true,
+   "detail": "anchor_kind=escalation"
+  },
+  {
+   "cid": "C-6b 快照 sessions 出行（注记-D2）",
+   "ok": true,
+   "detail": "sessions=1"
+  },
+  {
+   "cid": "C-6c escalation 通知（pm 或 user）",
+   "ok": true,
+   "detail": "pm=None user=2"
+  },
+  {
+   "cid": "C-6d uphold 保持",
+   "ok": true,
+   "detail": "HTTP 200 {'ok': True, 'commentId': 'cm-1789074325507', 'verdict': 'uphold', 'sessionId': 'ad-1789074326334', 'reentered': False, 'round': '0', 'issue': {'issueId': 'cm-1789074325507', 'nodeId': 'n-113', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '上升裁决意见 A', 'state': 'pending-confirm', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789074325507', 'issu"
+  },
+  {
+   "cid": "C-6e override→overridden 终态",
+   "ok": true,
+   "detail": "state=overridden"
+  },
+  {
+   "cid": "A-24a 非法 verdict 400",
+   "ok": true,
+   "detail": "HTTP 400 {'ok': False, 'error': 'wbflow: 入参非法: verdict \"bogus\" 非法（uphold|override）', 'code': 'INVALID_ARGUMENT', 'blocked': False, 'missing': []}"
+  },
+  {
+   "cid": "PHASE-CRASH p_issue_branches",
+   "ok": false,
+   "detail": "timeout: timed out"
+  },
+  {
+   "cid": "A-29a inbox kind 筛选",
+   "ok": true,
+   "detail": "HTTP 200"
+  },
+  {
+   "cid": "A-29b todos 字段存在（注记-D5）",
+   "ok": true,
+   "detail": "keys=['notifications', 'ok', 'todos', 'total']"
+  },
+  {
+   "cid": "D-1 产物矩阵 req-006(business×full)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "D-1 产物矩阵 req-007(business×full)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "D-1 产物矩阵 req-008(business×rd)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "D-1 产物矩阵 req-009(tech×full)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "D-1 产物矩阵 req-010(task×rd)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "D-1 产物矩阵 req-011(plan×-)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "cid": "D-2a audit append-only（created=updated）",
+   "ok": true,
+   "detail": "异常行=0"
+  },
+  {
+   "cid": "D-2b audit 非空",
+   "ok": true,
+   "detail": "rows=859"
+  },
+  {
+   "cid": "D-2c requirements 列表/库一致",
+   "ok": true,
+   "detail": "list=12 db=12"
+  }
+ ],
+ "elapsed_sec": 212.3
+}
