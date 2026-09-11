@@ -108,3 +108,15 @@ user_gate 分流（agreed 停等 vs 机械 approved）、评审轮 round 语义�
 - [x] spec §4.1 AC-V-01~12 + §4.2 AC-M-01~04 全数映射（§1「AC 引用」列；AC-V-10=C-11 skip 标注+scanner_it 真库补位；AC-M-01/02/03 的 UI 半边由 fe vitest 覆盖）；机器断言在 qa_drive.py 运行尾（spec 有 AC 而无覆盖声明即 FAIL）
 - [x] 注记 A-H 逐条有用例（A-06/C-9=-A；A-27/B*= -B/-C；A-09/C-5=-D1/-D2；A-11=-D3；A-08=-D4；A-29=-D5；A-16=-E/-F；D-2=-G；C-11 通知 outbox=-H）
 - [x] 负路径：401/404/400/409 blocked/missing 全覆盖
+
+## 7. 补测清单（qa_branch_audit.py 产出，2026-09-11 首跑基线）
+
+`qa/qa_branch_audit.py` 对 seed 40 定义节点的 node_actions 全集（29 条动作）做**可解析性 + 驱动覆盖**审计（驱动语料 = qa_drive.py + rd/e2e/*.go；capability 动作对 capability.actions 列解析、subagent 条目对 docs/templates/skills/ 目录解析；豁免显式化带理由）。首跑差集 14 条 = C 组扩展候选：
+
+| 类 | 条目 | 去向 |
+|---|---|---|
+| 澄清动作 ×6 | backend-design/frontend-design（task 评审）、backend-dev/frontend-dev（tech QA 验收）、arch-cap/research-cap（plan 评审）的 clarify | business 已有 C-4 范本，举一反三落各流程澄清剧本 |
+| 修订动作 ×4 | arch-cap/frontend-design/product-design/research-cap 的 revise（exec 重入修订） | C-1/C-2 打回链路的对应流程扩展 |
+| CR 修复动作 ×4 | backend-dev/frontend-dev 的 diagnosing-bugs / fix_on_review | task 流 CR 打回修复路径剧本 |
+
+处置纪律：逐条落剧本，或确认后转 EXEMPT_ACTIONS/SKILL_EXEMPT 显式豁免（带理由）；`--strict` 模式差集非空即 FAIL，C 组扩齐后可作锁定门禁。现存豁免：SKILL_EXEMPT={to-alignment}（待建 skill，roadmap P4 清单内）。
