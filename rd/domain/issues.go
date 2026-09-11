@@ -13,7 +13,8 @@
 //   - wb_reply：open→pending-confirm（CONTEXT「已处理」=「评论被提交者修订/回复完成、
 //     待评审者复核的状态」）；to-fix→fixed（修复完成回复即申报，状态机 to-fix→fixed）；
 //     pending-confirm/fixed 追加回复不回退状态（多轮澄清/修复说明，状态幂等）；
-//     resolved/overridden 拒绝（评论不可编辑/删除、终态不可追加——ui-interaction-final §3）。
+//     resolved 拒绝（评论不可编辑/删除、终态不可追加——ui-interaction-final §3；
+//     overridden 态已按 09-12 裁决废除，override 动作置 resolved，semantica 920030de）。
 //   - wb_resolve path=fix（修复路径）：open/pending-confirm→to-fix（定性需修复进入修复期，
 //     状态机 pending-confirm→to-fix）；to-fix/fixed→fixed（修复关闭申报待复核——
 //     arch_design §Issue 示例：resolve_path=fix 且 state 停留待复核、resolved_by=NULL 未闭环）。
@@ -61,10 +62,14 @@ const (
 	IssueActionReopen  = "reopen"
 )
 
-// resolve 双路径（issues.resolve_path 列注释：fix=修复关闭 / agree=协商一致关闭）。
+// resolve 路径词表（issues.resolve_path 列注释：fix=修复关闭 / agree=协商一致关闭 /
+// override=强权仲裁关闭）。fix/agree 是 wb_resolve 入参白名单；override 由服务端
+// override 类动作（wb_override_role 整角色强权 / wb_adjudicate verdict=override 仲裁
+// 推翻）落值，不经 wb_resolve 入参。
 const (
-	IssueResolvePathFix   = "fix"
-	IssueResolvePathAgree = "agree"
+	IssueResolvePathFix      = "fix"
+	IssueResolvePathAgree    = "agree"
+	IssueResolvePathOverride = "override"
 )
 
 // 锚点四级（issues.anchor_kind 列注释）。
@@ -281,10 +286,11 @@ func ValidateIssueAnchor(kind string, artifactID string, line int64, startLine i
 	return nil
 }
 
-// IssueClosed 评论闭环判定（注记-L1 拍板口径）：state ∈ {resolved, overridden} 为
-// 闭环；open/to-fix/fixed/pending-confirm 均未闭环（fixed 须复核确认 resolved 才算）。
+// IssueClosed 评论闭环判定（注记-L1 拍板口径；09-12 裁决 overridden 态废除，
+// override 动作置 resolved，semantica 920030de）：state=resolved 为闭环；
+// open/to-fix/fixed/pending-confirm 均未闭环（fixed 须复核确认 resolved 才算）。
 func IssueClosed(state string) bool {
-	return state == repo.IssueStateResolved || state == repo.IssueStateOverridden
+	return state == repo.IssueStateResolved
 }
 
 // RoleCommentsClosure 单评审位的评论闭环判定（注记-L1：collect 表态前置）——
@@ -331,7 +337,7 @@ func ValidIssueType(issueType string) bool {
 // ValidIssueState issue 状态枚举校验（含空=建行默认 open 前的零值）。
 func ValidIssueState(state string) bool {
 	switch state {
-	case repo.IssueStateOpen, repo.IssueStatePendingConfirm, repo.IssueStateToFix, repo.IssueStateFixed, repo.IssueStateResolved, repo.IssueStateOverridden:
+	case repo.IssueStateOpen, repo.IssueStatePendingConfirm, repo.IssueStateToFix, repo.IssueStateFixed, repo.IssueStateResolved:
 		return true
 	}
 	return false

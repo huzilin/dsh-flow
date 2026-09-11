@@ -59,7 +59,8 @@ export const NODE_TYPE_LABELS: Record<string, string> = {
 
 /**
  * issue 状态机 v2 状态展示（与 rd/domain issue 状态机词汇对齐；CONTEXT.md：
- * pending-confirm=已处理待复核、resolved=已解决终态）。
+ * pending-confirm=已处理待复核、resolved=已解决终态；09-12 裁决 overridden 态
+ * 废除，override 动作置 resolved）。
  */
 export const ISSUE_STATE_LABELS: Record<string, string> = {
   open: "待处理",
@@ -67,7 +68,6 @@ export const ISSUE_STATE_LABELS: Record<string, string> = {
   "to-fix": "待修复",
   fixed: "已修复待复核",
   resolved: "已解决",
-  overridden: "已裁决",
 };
 
 /** 评审表态（review_results.state）。 */
@@ -77,10 +77,11 @@ export const REVIEW_STATE_LABELS: Record<string, string> = {
   unagree: "反对",
 };
 
-/** resolve 路径展示（fix=修复关闭 / agree=协商一致关闭）。 */
+/** resolve 路径展示（fix=修复关闭 / agree=协商一致关闭 / override=强权仲裁关闭）。 */
 export const RESOLVE_PATH_LABELS: Record<string, string> = {
   fix: "修复关闭",
   agree: "协商一致关闭",
+  override: "强权仲裁关闭",
 };
 
 /** 版本状态（versions.state，单向 + 终态）。 */

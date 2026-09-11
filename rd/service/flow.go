@@ -210,7 +210,7 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 	}
 
 	// relatedIssues（意见侧上下文注入，T7）：目标节点未闭合 issue 摘要
-	// （state 非 resolved/overridden），集中独立函数。
+	// （state 非 resolved），集中独立函数。
 	if err := s.injectRelatedIssues(ctx, resp, req.RequirementId, node.NodeID); err != nil {
 		return nil, errs.Trace(err)
 	}
@@ -240,7 +240,7 @@ func (s *FlowService) appendRelatedTasks(ctx context.Context, resp *api.MyTaskRe
 }
 
 // injectRelatedIssues my_task 意见侧上下文注入：读目标节点未闭合评论
-// （state NOT IN (resolved, overridden)），投影 RelatedIssueItem 最小摘要
+// （state NOT IN (resolved)），投影 RelatedIssueItem 最小摘要
 // （issueId/state/issueType/assignee/anchor 锚点摘要）。查询失败仅阻断本次
 // my_task（与主链路同错误口径，不降级吞错）。
 //

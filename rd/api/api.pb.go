@@ -892,8 +892,9 @@ func (x *ArtifactItem) GetCreatedAt() int64 {
 	return 0
 }
 
-// IssueItem 评论/问题行（issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved/
-// overridden；快照与五端点出参共用——T7 起详情字段齐备，追加字段向后兼容）。
+// IssueItem 评论/问题行（issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved；
+// 09-12 裁决 overridden 态废除，override 动作置 resolved。快照与五端点出参共用
+// ——T7 起详情字段齐备，追加字段向后兼容）。
 type IssueItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issue_id 评论业务 id，如 cm-1730000000000
@@ -2027,7 +2028,8 @@ func (x *ReopenResp) GetIssue() *IssueItem {
 
 // OverrideRoleReq POST /api/comments/override-role 入参（wb_override_role，注记-L1
 // 强权通道）：User 整角色强权通过——该节点该角色名下全部未闭环 issue 类评论批量置
-// overridden（「强行通过 X 全部剩余」的原型对应物）。闭环评论与 notification/
+// resolved（resolve_path=override；09-12 裁决 overridden 态废除，override 动作=
+// 批量 resolve）。「强行通过 X 全部剩余」的原型对应物。闭环评论与 notification/
 // discussion 行不动。
 type OverrideRoleReq struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2110,8 +2112,8 @@ type OverrideRoleResp struct {
 	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	// reviewer_role 角色回显
 	ReviewerRole string `protobuf:"bytes,3,opt,name=reviewer_role,json=reviewerRole,proto3" json:"reviewer_role,omitempty"`
-	// overridden 本次批量置 overridden 的评论数
-	Overridden    int32 `protobuf:"varint,4,opt,name=overridden,proto3" json:"overridden,omitempty"`
+	// resolved 本次批量置 resolved 的评论数（override 强权动作）
+	Resolved      int32 `protobuf:"varint,4,opt,name=resolved,proto3" json:"resolved,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2167,9 +2169,9 @@ func (x *OverrideRoleResp) GetReviewerRole() string {
 	return ""
 }
 
-func (x *OverrideRoleResp) GetOverridden() int32 {
+func (x *OverrideRoleResp) GetResolved() int32 {
 	if x != nil {
-		return x.Overridden
+		return x.Resolved
 	}
 	return 0
 }
@@ -4299,7 +4301,7 @@ type MyTaskResp struct {
 	RelatedArtifacts []*RelatedArtifactItem `protobuf:"bytes,9,rep,name=related_artifacts,json=relatedArtifacts,proto3" json:"related_artifacts,omitempty"`
 	// related_tasks 该需求该节点在途任务摘要（status 非 completed/rejected/closed）
 	RelatedTasks []*RelatedTaskItem `protobuf:"bytes,10,rep,name=related_tasks,json=relatedTasks,proto3" json:"related_tasks,omitempty"`
-	// related_issues 目标节点未闭合 issue 摘要（意见侧上下文注入，T7；resolved/overridden 不返回）
+	// related_issues 目标节点未闭合 issue 摘要（意见侧上下文注入，T7；resolved 不返回）
 	RelatedIssues []*RelatedIssueItem `protobuf:"bytes,11,rep,name=related_issues,json=relatedIssues,proto3" json:"related_issues,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4413,7 +4415,7 @@ func (x *MyTaskResp) GetRelatedIssues() []*RelatedIssueItem {
 }
 
 // RelatedIssueItem 目标节点未闭合 issue 摘要（my_task relatedIssues；
-// 未闭合=state 非 resolved/overridden）。
+// 未闭合=state 非 resolved）。
 type RelatedIssueItem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issue_id 评论业务 id
@@ -6560,14 +6562,15 @@ func (x *EscalateResp) GetIssue() *IssueItem {
 
 // AdjudicateReq POST /api/comments/:commentId/adjudicate 入参。
 // User 仲裁结论回填（裁决链第 3 拍）：replies 追加裁决条目（数据层留痕、节点可见）
-// → verdict=override 时 wb_override 语义收编落 overridden 终态（resolve_path=ruling
-// + resolve_note 引用结论）→ escalate 复位 → reviewer 重表态（评审轮重入新轮）。
+// → verdict=override 时 wb_override 语义收编落 resolved 终态（resolve_path=override
+// + resolve_note 引用结论；09-12 裁决 overridden 态废除）→ escalate 复位 → reviewer
+// 重表态（评审轮重入新轮）。
 type AdjudicateReq struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// comment_id 评论业务 id（commentId 取路径）
 	CommentId string `protobuf:"bytes,1,opt,name=comment_id,json=commentId,proto3" json:"comment_id,omitempty"`
 	// verdict 仲裁结论：uphold=维持议题（回正常澄清/修复链）| override=仲裁推翻
-	// （issue 落 overridden 终态，wb_override 语义收编）
+	// （issue 落 resolved 终态，resolve_path=override，wb_override 语义收编）
 	Verdict string `protobuf:"bytes,2,opt,name=verdict,proto3" json:"verdict,omitempty"`
 	// conclusion 裁决结论文本（必填；裁决条目 text 与 override 路径 resolve_note 同源）
 	Conclusion string `protobuf:"bytes,3,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
@@ -7369,14 +7372,12 @@ const file_api_proto_rawDesc = "" +
 	"\x0erequirement_id\x18\x01 \x01(\tR\rrequirementId\x12\x17\n" +
 	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12#\n" +
 	"\rreviewer_role\x18\x03 \x01(\tR\freviewerRole\x12\x1a\n" +
-	"\boperator\x18\x04 \x01(\tR\boperator\"\x80\x01\n" +
+	"\boperator\x18\x04 \x01(\tR\boperator\"|\n" +
 	"\x10OverrideRoleResp\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x17\n" +
 	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12#\n" +
-	"\rreviewer_role\x18\x03 \x01(\tR\freviewerRole\x12\x1e\n" +
-	"\n" +
-	"overridden\x18\x04 \x01(\x05R\n" +
-	"overridden\"\xd3\x03\n" +
+	"\rreviewer_role\x18\x03 \x01(\tR\freviewerRole\x12\x1a\n" +
+	"\bresolved\x18\x04 \x01(\x05R\bresolved\"\xd3\x03\n" +
 	"\x12GetRequirementResp\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12@\n" +
 	"\vrequirement\x18\x02 \x01(\v2\x1e.wbflow.api.v1.RequirementItemR\vrequirement\x124\n" +

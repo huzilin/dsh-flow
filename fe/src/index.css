@@ -665,10 +665,6 @@ input.invalid {
   background: #e3f5e5;
   color: #21853a;
 }
-.badge-is-overridden {
-  background: #f2f3f5;
-  color: #646a73;
-}
 .badge-issue-type {
   background: #f2f3f5;
   border-color: #dee0e3;

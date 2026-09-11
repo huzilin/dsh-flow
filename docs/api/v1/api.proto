@@ -187,8 +187,9 @@ message ArtifactItem {
   int64 created_at = 9;
 }
 
-// IssueItem 评论/问题行（issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved/
-// overridden；快照与五端点出参共用——T7 起详情字段齐备，追加字段向后兼容）。
+// IssueItem 评论/问题行（issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved；
+// 09-12 裁决 overridden 态废除，override 动作置 resolved。快照与五端点出参共用
+// ——T7 起详情字段齐备，追加字段向后兼容）。
 message IssueItem {
   // issue_id 评论业务 id，如 cm-1730000000000
   string issue_id = 1;
@@ -405,7 +406,8 @@ message ReopenResp {
 
 // OverrideRoleReq POST /api/comments/override-role 入参（wb_override_role，注记-L1
 // 强权通道）：User 整角色强权通过——该节点该角色名下全部未闭环 issue 类评论批量置
-// overridden（「强行通过 X 全部剩余」的原型对应物）。闭环评论与 notification/
+// resolved（resolve_path=override；09-12 裁决 overridden 态废除，override 动作=
+// 批量 resolve）。「强行通过 X 全部剩余」的原型对应物。闭环评论与 notification/
 // discussion 行不动。
 message OverrideRoleReq {
   // requirement_id 需求 id（必填）
@@ -426,8 +428,8 @@ message OverrideRoleResp {
   string node_id = 2;
   // reviewer_role 角色回显
   string reviewer_role = 3;
-  // overridden 本次批量置 overridden 的评论数
-  int32 overridden = 4;
+  // resolved 本次批量置 resolved 的评论数（override 强权动作）
+  int32 resolved = 4;
 }
 
 // GetRequirementResp 聚合快照出参（基础版：需求 + 版本信息 + 实例集合字段先立住）。
@@ -821,12 +823,12 @@ message MyTaskResp {
   repeated RelatedArtifactItem related_artifacts = 9;
   // related_tasks 该需求该节点在途任务摘要（status 非 completed/rejected/closed）
   repeated RelatedTaskItem related_tasks = 10;
-  // related_issues 目标节点未闭合 issue 摘要（意见侧上下文注入，T7；resolved/overridden 不返回）
+  // related_issues 目标节点未闭合 issue 摘要（意见侧上下文注入，T7；resolved 不返回）
   repeated RelatedIssueItem related_issues = 11;
 }
 
 // RelatedIssueItem 目标节点未闭合 issue 摘要（my_task relatedIssues；
-// 未闭合=state 非 resolved/overridden）。
+// 未闭合=state 非 resolved）。
 message RelatedIssueItem {
   // issue_id 评论业务 id
   string issue_id = 1;
@@ -1264,13 +1266,14 @@ message EscalateResp {
 
 // AdjudicateReq POST /api/comments/:commentId/adjudicate 入参。
 // User 仲裁结论回填（裁决链第 3 拍）：replies 追加裁决条目（数据层留痕、节点可见）
-// → verdict=override 时 wb_override 语义收编落 overridden 终态（resolve_path=ruling
-// + resolve_note 引用结论）→ escalate 复位 → reviewer 重表态（评审轮重入新轮）。
+// → verdict=override 时 wb_override 语义收编落 resolved 终态（resolve_path=override
+// + resolve_note 引用结论；09-12 裁决 overridden 态废除）→ escalate 复位 → reviewer
+// 重表态（评审轮重入新轮）。
 message AdjudicateReq {
   // comment_id 评论业务 id（commentId 取路径）
   string comment_id = 1;
   // verdict 仲裁结论：uphold=维持议题（回正常澄清/修复链）| override=仲裁推翻
-  // （issue 落 overridden 终态，wb_override 语义收编）
+  // （issue 落 resolved 终态，resolve_path=override，wb_override 语义收编）
   string verdict = 2;
   // conclusion 裁决结论文本（必填；裁决条目 text 与 override 路径 resolve_note 同源）
   string conclusion = 3;

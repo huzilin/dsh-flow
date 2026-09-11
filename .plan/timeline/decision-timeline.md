@@ -47,6 +47,7 @@
 | REV-05 | 09-07 23:33~23:48 | zc·Wayfinder | v4：未表态定名 reviewing；approved/rejected 是门禁状态；barrier 不存储；随后用户亲口否定 v4 链「'-'→reviewing→clarifying⇄confirming→agreed 这个是错的」 | superseded-by REV-07 |
 | REV-06 | 09-08 00:11~00:26 | zc·Wayfinder | v5 定稿：review state 是每 agent 轮转（1/10）各自上报 agree/unagree；approved/rejected 由 collect 汇总给定；单字段 JSON 存全部 review agent 结果；Review 复用=整体复审不合理 | superseded-by REV-07 |
 | REV-07 | 09-11 23:08 | zc·ask-matt | 终稿确认：「每个评审位独立 reviewing/agree/unagree，clarifying/confirming/agreed 不再作为存储态——这个我认可」 | 现行权威 |
+| REV-08 | 09-12 | zc·ask-matt | `agreed` 词属裁定：**collect 层内部专用词**（全评审位结论达成一致时 collect 的判定输出，触发进入待确认/拍板等待），**不应扩大**到 collect 之外；不作 reviewState 存储态。API 工具词与标准领域词的 gap（wb_reply/wb_resolve ↔ clarified/settle/qualify 等）修复定序：**先纠正现有文档（保留事件命名提案式映射）→ 代码修复 → 归档旧映射、替换为新代码映射**；先完成可执行 D 类，其余记 todo | 现行权威（REV-07 细化） |
 
 ## 4. node 编排模型（trigger 词表 → 两层属性状态机）
 
@@ -226,17 +227,19 @@
 | NAM-06 | 09-07 10:40 | zc·Wayfinder | 「acceptance-test.复验重测 给个英文名吧，后面 skills 也会参考生成对应英文的 skill」（英文名定名 retest 之说未见于取证原话，见疑义#6） | 现行权威 |
 | NAM-07 | 09-11 22:50 | zc·ask-matt | **overridden 废除**（该动作置 resolved）；「非预期的你改动了已有结论」追责 | 现行权威 |
 | NAM-08 | 09-09 22:39 | dsh·5087 | 实现 to-brd，且 to-prd 参考 to-brd 章节，四文档互相依赖、Focus 对应章节 | 现行权威 |
+| NAM-09 | 09-12 | zc·ask-matt | **API 词 ↔ 领域词 gap 修复立项（todo）**：现行 API 工具词（wb_reply/wb_resolve path/wb_confirm_review/wb_reopen 等）与标准领域事件词（clarified/settle/qualify/reopen/declare-fixed/confirm/revise/override）存在 gap——修复顺序：先纠正现有文档并保留映射表（state-tables-draft 事件命名提案式）→ 代码契约修复（改端点/参数名，过 buf breaking 闸门重生成）→ 归档旧映射、替换为新代码映射。涉 D2（agreed 词面）与 D5 类同批处理 | todo（待代码修复工单） |
 
 ## 21. test-flow→dsh-flow 迁移与 MVP 定稿
 
 | 编号 | 日期时间 | 来源 | 拍板内容 | 状态 |
 |---|---|---|---|---|
-| MIG-01 | 09-03 23:00 | dsh·6f4e | 目标重定义：将 mvp 版本的设计确定下来；不支持能力推演合并进主文档 | 现行权威 |
+| MIG-01 | 09-03 23:00 | dsh·6f4e | 目标重定义：将 mvp 版本的设计确定下来；不支持能力推演合并进主文档 | superseded-by MIG-07（仅「不合并」禁令部分，目标定义部分为历史完成时态） |
 | MIG-02 | 09-06 15:34~16:05 | zc·迁移会话；dsh·92c1 | 工作目录迁至 ~/workdir/dsh-flow（代码已 copy，只调挂载/配置） | 现行权威 |
 | MIG-03 | 09-07 02:24 | zc·Wayfinder | 统一修正记忆锚点，test-flow 迁移到 dsh-flow | 现行权威 |
 | MIG-04 | 09-08 01:54~01:59 | zc·Wayfinder | MVP 设计定稿「完结吧」；历史实现与文档归档 .archive，准备重新实现（此前 UI/流程结论以 .archive 为历史底稿） | 现行权威 |
 | MIG-05 | 09-09 01:22 | zc·继续会话 | 一期先做 web 页面，未来考虑嵌入 dsh（调整目标） | 现行权威 |
 | MIG-06 | 09-10 01:28 | zc·Skill 权威化会话 | 开工令：「可以正式开工了，主线的 plan 已经完成，基于现在 main 直接开工」 | 现行权威 |
+| MIG-07 | 09-12 | zc·ask-matt | **arch_design 合并为单一权威**：「合并吧，保留一份权威的 arch_design」——docs-tmp 五件套现行设计（v5 口径）并入 arch_design.md，docs-tmp 原件转推演底稿归档、动线改指 arch_design；含三板引用核对。推翻 MIG-01 的「不支持合并」（后拍覆盖先拍）。执行排序：D1 返工落地后开专项（合并+词汇刷新一并做，消除 §7-§9 pkg-16 残留） | 现行权威 |
 
 ## 22. 文档纪律、退役机制与响应协议
 

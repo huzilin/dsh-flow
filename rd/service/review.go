@@ -119,9 +119,10 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 		}
 
 		// 注记-L1（2026-09-10 User 拍板：collect 本义=评论闭环表态）：agree 的前提是
-		// 该评审位名下评论全部被响应并澄清（resolved/overridden）——有 open/to-fix/
-		// fixed/pending-confirm 须先解决或保持 unagree。unagree（提异议）不受限。
-		// 强权通道：wb_override_role 整角色批量 overridden（User 专用）。
+		// 该评审位名下评论全部被响应并澄清（resolved；09-12 裁决 overridden 态废除，
+		// override 动作置 resolved）——有 open/to-fix/fixed/pending-confirm 须先解决
+		// 或保持 unagree。unagree（提异议）不受限。
+		// 强权通道：wb_override_role 整角色批量置 resolved（User 专用）。
 		if req.State == repo.ReviewStateAgree {
 			issues, err := s.repo.ListIssuesByRequirement(ctx, req.RequirementId)
 			if err != nil {
@@ -134,7 +135,7 @@ func (s *ReviewService) Review(ctx context.Context, req *api.ReviewReq) (*api.Re
 				}
 			}
 			if closed, unclosed := domain.RoleCommentsClosure(nodeIssues, req.Role); !closed {
-				return gateBlocked("角色 %q 名下 %d 条评论未闭环，agree 前须全部 resolved/overridden（响应并澄清，或 User wb_override_role 强权通过）", req.Role, unclosed)
+				return gateBlocked("角色 %q 名下 %d 条评论未闭环，agree 前须全部 resolved（响应并澄清，或 User wb_override_role 强权通过）", req.Role, unclosed)
 			}
 		}
 
@@ -369,7 +370,7 @@ func (s *ReviewService) Decide(ctx context.Context, req *api.DecisionReq) (*api.
 				}
 			}
 			if closed, unclosed := domain.NodeCommentsClosure(nodeIssues); !closed {
-				return gateBlocked("节点 %q 有 %d 条评论未闭环，approve 前须全部 resolved/overridden（或 rejected 打回）", node.NodeID, unclosed)
+				return gateBlocked("节点 %q 有 %d 条评论未闭环，approve 前须全部 resolved（或 rejected 打回）", node.NodeID, unclosed)
 			}
 		}
 

@@ -25,8 +25,12 @@ _Avoid_: overridden 状态；并行仲裁（发回 open 同时裁）
 _Avoid_: trigger 词表、hook（编排层退役，仅通知扩展位）、collect/reviewed/replied/rework 作相位、re-entry/re-exec（并入 entry/exec，计数位 rolled_back_count 承载）、closing/transform/exit
 
 **reviewState（评审位表态，per-agent 三态）**:
-每个评审位独立轮转 `reviewing（评审+表态中）→ agree / unagree（已表态）`，数据在 review_results[].state；全表态由 collect 瞬时判定（不存储）：全 agree → 门禁 approved（user_gate=1 → gate_pending 等 User 拍板），有 unagree → owner 澄清 → reviewer 回 reviewing 重表态；真问题（qualify）→ rejected 打回。门禁结果由 `last_decision` 承载（approved/rejected）。
-_Avoid_: collecting、clarifying、confirming、unagreed、agreed（作存储态）、pass/block（作表态值）、barrier
+每个评审位独立轮转 `reviewing（评审+表态中）→ agree / unagree（已表态）`，数据在 review_results[].state；全表态由 collect 瞬时判定（不存储），有 unagree → owner 澄清 → reviewer 回 reviewing 重表态；真问题（qualify）→ rejected 打回。门禁结果由 `last_decision` 承载（approved/rejected）。
+_Avoid_: collecting、clarifying、confirming、unagreed、pass/block（作表态值）、barrier
+
+**agreed（collect 层专用词）**:
+全评审位结论达成一致时 collect 的判定输出——「达成一致」的专用词汇；全部进入 agreed → 进入待确认（拍板等待，gate_pending）。仅限 collect 层使用：不作 reviewState 存储态、不扩大到 collect 之外（09-12 裁决）。
+_Avoid_: 作 reviewState 存储态；在 collect 之外（接口/文档/展示）扩大使用
 
 **能力（Capability）与动作（Action）**:
 Capability = role 归属 + inputs 数据可见性的结构壳；Action = 可独立调度单元（`<capabilityId>.<action>`），以 `on` 挂相位、挂 skill 或 inline；节点以激活清单（node_actions）声明。**一个 state 只挂一个动作**（普适约束）。

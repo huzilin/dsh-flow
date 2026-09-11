@@ -647,7 +647,8 @@ def p_business_full():
     st, b = r.decide("bus-05", "approved", "技术评审通过")
     ck("B-1m bus-05 拍板→bus-06", st == 200 and b.get("ok"), f"HTTP {st} {b}")
     r.reload()
-    # -L1b wb_override_role 强权通道（User 专属）：approve 后补挂 open 评论 → 批量 overridden
+    # -L1b wb_override_role 强权通道（User 专属）：approve 后补挂 open 评论 → 批量置 resolved
+    # （09-12 裁决 overridden 态废除：override 动作=批量 resolve，resolve_path=override）
     st, b, i_ov = r.comment("bus-05", "arch", "arch", "强权通过前补挂意见", "rd",
                             anchor={"kind": "document",
                                     "artifactId": sql(f"SELECT artifact_id FROM artifacts WHERE requirement_id='{r.id}' AND product_type='rd_design' LIMIT 1")})
@@ -657,7 +658,9 @@ def p_business_full():
     ck("L1b-2 非 user 强权 400", st == 400, f"HTTP {st} {json.dumps(b)[:140]}")
     st, b = api("POST", "/api/comments/override-role", {
         "requirementId": r.id, "nodeId": r.node("bus-05"), "reviewerRole": "arch", "operator": "user"})
-    ck("L1b-3 user 整角色 overridden", st == 200 and b.get("overridden") in (1, "1"), f"HTTP {st} {json.dumps(b)[:140]}")
+    ck("L1b-3 user 整角色强权批量 resolved", st == 200 and b.get("resolved") in (1, "1"), f"HTTP {st} {json.dumps(b)[:140]}")
+    i_ov_row = sql(f"SELECT state, resolve_path FROM issues WHERE issue_id='{i_ov}'").split("\t") if i_ov else ["", ""]
+    ck("L1b-4 override 后 state=resolved 且 resolve_path=override", i_ov_row == ["resolved", "override"], f"got {i_ov_row}")
 
     # bus-06/07
     r.execute("bus-06", "frontend-design.produce", "fe")
@@ -1109,7 +1112,7 @@ def p_issue_branches():
     st, b = r.adjudicate(i5, "override", "user-a", "仲裁推翻")
     st, b = api("GET", f"/api/requirements/{r.id}")
     i5row = next((x for x in b.get("issues", []) if x.get("issueId") == i5), {})
-    ck("C-6e override→overridden 终态", i5row.get("state") == "overridden", f"state={i5row.get('state')}")
+    ck("C-6e override→resolved 终态（09-12 裁决废除 overridden）", i5row.get("state") == "resolved" and i5row.get("resolvePath") == "override", f"state={i5row.get('state')} resolvePath={i5row.get('resolvePath')}")
     st, b = r.adjudicate(i4, "bogus", "user-a", "")
     ck("A-24a 非法 verdict 400", st == 400, f"HTTP {st} {b}")
 

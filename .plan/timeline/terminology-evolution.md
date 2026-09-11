@@ -33,6 +33,7 @@
 | （代际⚠️）**collecting** | 无用户原话 ⚠️——仅存于 dsh 派单间接快照与 .plan/proposals/state-tables-draft.md 残留 | collecting（v2 期 UI/派单词，09-05 20:21 被 collect 正式词取代） | 退役；现行同义=collect 内置收票 | COL-03；dsh-sessions 疑义1 |
 | （退役）**reviewed** | 「reviewed 可以」（09-05 03:46，作 collect 后状态定名） | reviewed（09-05 03:46 定名→09-05 20:21 进入 v3 审批状态词表→v5 退役） | 退役；职责并入 collect 内置判定与 per-agent 轮转 | NAM-03；REV-06 |
 | （退役）**clarifying / confirming / agreed（unagreed）** | v4 是 assistant 生成、用户 09-07 23:48 亲口否定「这个是错的」——无确认原话 ⚠️ | clarifying⇄confirming→agreed（09-07 23:33~23:48，v4 链）→ unagreed 变体（09-07 23:48 用户口述形状）→ v5 全废（09-08 00:11） | 退役：「clarifying/confirming/agreed 不再作为存储态」（09-11 23:08） | REV-05/06/07 |
+| **agreed（collect 层专用词）** | 09-12 裁决原话：「agreed 是 collect state，对于每一个 reviewer 的结论中，达成一致的专用词汇。当全部进入 agreed 则进入 pending-confirm。所以这个只是 collect 内部的东西。但不应该扩大。」 | v4 曾用作节点级存储态（09-07 链）→ v5 废除存储用法（09-08/09-11）→ 09-12 定格为 collect 层判定输出/门禁展示词 | 全评审位结论一致时 collect 判定输出 → 进入待确认（gate_pending）；仅限 collect 层，不作 reviewState 存储态、不扩大到 collect 之外。API 侧对应词（gate_state/collect.go）按 NAM-09 gap 修复流程待代码修复后统一 | REV-07/08；CONTEXT agreed 词条 |
 
 ### A3 表态/裁决动词域
 

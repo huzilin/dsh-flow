@@ -25,7 +25,8 @@ type CommentAPI interface {
 	Confirm(ctx context.Context, req *api.ConfirmReviewReq) (*api.ConfirmReviewResp, error)
 	// Reopen wb_reopen（澄清 reopen / 修复 revise，loop_count++）
 	Reopen(ctx context.Context, req *api.ReopenReq) (*api.ReopenResp, error)
-	// OverrideRole wb_override_role（注记-L1 强权通道：User 整角色批量 overridden）
+	// OverrideRole wb_override_role（注记-L1 强权通道：User 整角色批量置 resolved
+	// ——09-12 裁决 overridden 态废除，override 动作=批量 resolve，resolve_path=override）
 	OverrideRole(ctx context.Context, req *api.OverrideRoleReq) (*api.OverrideRoleResp, error)
 }
 

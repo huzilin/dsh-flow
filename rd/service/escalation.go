@@ -52,7 +52,7 @@ func NewEscalationService(r *repo.Repo) *EscalationService {
 // Escalate wb_escalate：手动上升裁决（冲突任一方拉起；自动上升只置标 + 通知，
 // 裁决 session 统一经本端点拉起）。
 //
-// 单事务内：issue 行锁读取 → 终态拦截（resolved/overridden 不可上升）→
+// 单事务内：issue 行锁读取 → 终态拦截（resolved 不可上升）→
 // 进行中裁决 session 幂等判定（replies 上升条目 → session 行锁读，active 即
 // noop 返回既有 session）→ session 建绑（ad-<ts> 取号、requirement/node 关联
 // 冲突 issue 挂载节点、role=user 仲裁语义、dsh_ref 占位待 DSH 接入）→
@@ -101,7 +101,7 @@ func (s *EscalationService) escalateOnce(ctx context.Context, req *api.EscalateR
 		if locked == nil {
 			return notFound("评论 %q 不存在", req.CommentId)
 		}
-		if locked.State == repo.IssueStateResolved || locked.State == repo.IssueStateOverridden {
+		if locked.State == repo.IssueStateResolved {
 			return transitionBlocked("评论 %q 已终态（%s），不可上升裁决", locked.IssueID, locked.State)
 		}
 		*row = *locked
@@ -192,7 +192,8 @@ func (s *EscalationService) escalateOnce(ctx context.Context, req *api.EscalateR
 //
 //   - verdict=uphold（维持议题）：issue 状态保持（回正常澄清/修复链），escalate 复位；
 //   - verdict=override（仲裁推翻）：wb_override 语义收编（OverrideIssueTx）——issue 落
-//     overridden 终态（resolve_path=ruling + resolve_note 引用结论 + 确认内嵌）；
+//     resolved 终态（resolve_path=override + resolve_note 引用结论 + 确认内嵌；
+//     09-12 裁决 overridden 态废除，semantica 920030de）；
 //
 // 两路径共同：replies 追加裁决条目（verdict/conclusion/sessionId 数据层留痕）、
 // escalate 复位 0（口径见 domain/escalation.go 包注释——仲裁完成即挂起解除，
@@ -232,7 +233,7 @@ func (s *EscalationService) Adjudicate(ctx context.Context, req *api.AdjudicateR
 		if locked == nil {
 			return notFound("评论 %q 不存在", req.CommentId)
 		}
-		if locked.State == repo.IssueStateResolved || locked.State == repo.IssueStateOverridden {
+		if locked.State == repo.IssueStateResolved {
 			return transitionBlocked("评论 %q 已终态（%s），拒绝裁决回填", locked.IssueID, locked.State)
 		}
 		if locked.Escalate == 0 {
@@ -261,8 +262,8 @@ func (s *EscalationService) Adjudicate(ctx context.Context, req *api.AdjudicateR
 		}
 		row := *locked
 		if req.Verdict == domain.AdjudicationVerdictOverride {
-			// wb_override 语义收编：仲裁推翻落 overridden 终态（含 escalate 复位
-			// 与裁决条目回填，本方法内单次乐观锁更新）
+			// wb_override 语义收编：仲裁推翻落 resolved 终态（09-12 裁决 overridden
+			// 态废除；含 escalate 复位与裁决条目回填，本方法内单次乐观锁更新）
 			if err := s.OverrideIssueTx(ctx, tx, &row, ruling); err != nil {
 				return err
 			}
@@ -338,8 +339,8 @@ type Ruling struct {
 // 裁决链调用落 issue 终态。
 //
 // 单事务内完成（调用方持有事务与 issue 行锁）：replies 追加裁决条目（verdict/
-// conclusion/sessionId）→ escalate 复位 0 → overridden 终态 + resolve 族
-// （resolve_by=仲裁人、resolve_path=ruling、resolve_note=结论）+ 确认内嵌
+// conclusion/sessionId）→ escalate 复位 0 → resolved 终态 + resolve 族
+// （resolve_by=仲裁人、resolve_path=override、resolve_note=结论）+ 确认内嵌
 // （resolve_reviewer_confirmed=1 + resolved_by/at）→ 乐观锁更新 + 逐字段审计。
 // 入参 issue 为行锁读取副本，方法内原位更新（出参口径）。
 //
@@ -354,10 +355,10 @@ func (s *EscalationService) OverrideIssueTx(ctx context.Context, tx *gormio.DB, 
 	updates := map[string]any{
 		"replies":                    repliesJSON,
 		"escalate":                   int64(0),
-		"state":                      repo.IssueStateOverridden,
+		"state":                      repo.IssueStateResolved,
 		"resolve_by":                 ruling.DecidedBy,
 		"resolve_at":                 ruling.At,
-		"resolve_path":               domain.IssueResolvePathRuling,
+		"resolve_path":               domain.IssueResolvePathOverride,
 		"resolve_note":               ruling.Conclusion,
 		"resolve_reviewer_confirmed": int64(1),
 		"resolved_by":                ruling.DecidedBy,
@@ -366,7 +367,7 @@ func (s *EscalationService) OverrideIssueTx(ctx context.Context, tx *gormio.DB, 
 	audits := []repo.AuditLog{
 		issueAudit(issue.IssueID, "replies", "", replyID, ruling.DecidedBy),
 		issueAudit(issue.IssueID, "escalate", "1", "0", ruling.DecidedBy),
-		issueAudit(issue.IssueID, "state", issue.State, repo.IssueStateOverridden, ruling.DecidedBy),
+		issueAudit(issue.IssueID, "state", issue.State, repo.IssueStateResolved, ruling.DecidedBy),
 	}
 	if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.Issue{}, issue.ID, issue.UpdatedAt, updates); err != nil {
 		return err
@@ -379,10 +380,10 @@ func (s *EscalationService) OverrideIssueTx(ctx context.Context, tx *gormio.DB, 
 	// 出参口径同步（updated_at 保持读取基线，与 T7 transitionIssue 一致）
 	issue.Replies = repliesJSON
 	issue.Escalate = 0
-	issue.State = repo.IssueStateOverridden
+	issue.State = repo.IssueStateResolved
 	issue.ResolveBy = &ruling.DecidedBy
 	issue.ResolveAt = &ruling.At
-	issue.ResolvePath = utils.StrPtr(domain.IssueResolvePathRuling)
+	issue.ResolvePath = utils.StrPtr(domain.IssueResolvePathOverride)
 	issue.ResolveNote = &ruling.Conclusion
 	issue.ResolveReviewerConfirmed = 1
 	issue.ResolvedBy = &ruling.DecidedBy

@@ -69,7 +69,7 @@
 
 ## 3. D 类逐条清单（代码/DDL/seed/测试残留 = 返工项）
 
-**D1：`overridden` 全部落点（9-11 裁决=偏差 D1，逐文件列全）**
+**D1：`overridden` 全部落点（9-11 裁决=偏差 D1，逐文件列全）——已返工（本变更，2026-09-12：override 类动作一律置 resolved + resolve_path=override，override 解除）**
 - 契约：`docs/api/v1/api.proto` L191/L408/L429/L824/L829/L1267/L1273；`rd/api/api.pb.go`（生成物随 proto）。
 - DDL/seed：`rd/migration/sql/0001_schema.sql` L183（state 注释）；`.plan/wbflow-impl/spec.md` L191（同源正本）；workbench-sql schema L273/ER L138/README（B 参考区顺带）。
 - repo：`rd/repo/issue.go` L24/L34（常量+未闭合集）、`rd/repo/model.go` L295（注释）。

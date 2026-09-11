@@ -123,7 +123,7 @@ describe("冲突上升裁决链（T12）", () => {
         sessionId: "ses-7",
         reentered: true,
         round: "3",
-        issue: { issueId: "cm-9", state: "overridden", escalate: "0" },
+        issue: { issueId: "cm-9", state: "resolved", escalate: "0" },
       }),
     );
     const resp = await postAdjudicate(client, "cm-9", {
@@ -138,7 +138,7 @@ describe("冲突上升裁决链（T12）", () => {
     expect(body.decidedBy).toBe("user");
     expect(resp.reentered).toBe(true);
     expect(resp.round).toBe("3");
-    expect(resp.issue?.state).toBe("overridden");
+    expect(resp.issue?.state).toBe("resolved");
   });
 
   it("wb_adjudicate：escalate=0 拒绝回填 → 409 GATE_BLOCKED", async () => {

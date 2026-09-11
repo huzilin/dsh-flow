@@ -13,14 +13,13 @@ import (
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
-// issueStates 全状态集（枚举遍历用）。
+// issueStates 全状态集（枚举遍历用；overridden 态已按 09-12 裁决废除）。
 var issueStates = []string{
 	repo.IssueStateOpen,
 	repo.IssueStatePendingConfirm,
 	repo.IssueStateToFix,
 	repo.IssueStateFixed,
 	repo.IssueStateResolved,
-	repo.IssueStateOverridden,
 }
 
 // TestUnit_IssueTransition_Legal 合法迁移逐条：表内每条键断言目标态与副作用
@@ -213,16 +212,16 @@ func TestUnit_AnchorKindDeprecated(t *testing.T) {
 	assert.Assert(t, err != nil && strings.Contains(err.Error(), "已废弃"), "block 锚应报废弃: %v", err)
 }
 
-// TestUnit_CommentsClosure 评论闭环判定表驱动（注记-L1：collect/approve 前置）——
+// TestUnit_CommentsClosure 评论闭环判定表驱动（注记-L1：collect/approve 前置；
+// 09-12 裁决 overridden 态废除，override 动作置 resolved）——
 // 角色过滤（reviewer_role）、类型过滤（notification/discussion 不参与）、
-// 闭环状态集（resolved/overridden；open/to-fix/fixed/pending-confirm 未闭环）、
+// 闭环状态集（resolved；open/to-fix/fixed/pending-confirm 未闭环）、
 // 空集=闭环。
 func TestUnit_CommentsClosure(t *testing.T) {
 	role := func(r string) *string { return &r }
 	issues := []repo.Issue{
 		{IssueType: IssueTypeIssue, ReviewerRole: role("arch"), State: repo.IssueStateOpen},
 		{IssueType: IssueTypeIssue, ReviewerRole: role("arch"), State: repo.IssueStateResolved},
-		{IssueType: IssueTypeIssue, ReviewerRole: role("arch"), State: repo.IssueStateOverridden},
 		{IssueType: IssueTypeIssue, ReviewerRole: role("rd"), State: repo.IssueStateToFix},
 		{IssueType: IssueTypeIssue, ReviewerRole: role("qa"), State: repo.IssueStateFixed},
 		{IssueType: IssueTypeNotification, ReviewerRole: role("arch"), State: repo.IssueStateOpen},
@@ -230,7 +229,7 @@ func TestUnit_CommentsClosure(t *testing.T) {
 		{IssueType: IssueTypeIssue, State: repo.IssueStateOpen},
 	}
 	closed, n := RoleCommentsClosure(issues, "arch")
-	assert.Assert(t, !closed && n == 1, "arch=resolved+overridden+open，1 条未闭环，got %d", n)
+	assert.Assert(t, !closed && n == 1, "arch=resolved+open，1 条未闭环，got %d", n)
 	closed, n = RoleCommentsClosure(issues, "rd")
 	assert.Assert(t, !closed && n == 1, "rd to-fix 未闭环，got %d", n)
 	closed, n = RoleCommentsClosure(issues, "qa")
@@ -300,7 +299,8 @@ func TestUnit_SummarizeIssueAnchor(t *testing.T) {
 	assert.Equal(t, SummarizeIssueAnchor(IssueAnchorBlock, "art-2", 0, 0, 0, 42, 58, "sql"), "art-2 block 42-58(sql)")
 }
 
-// TestUnit_ValidIssueTypeState 枚举校验：issue_type 三值+空默认；state 六值。
+// TestUnit_ValidIssueTypeState 枚举校验：issue_type 三值+空默认；state 五值
+// （09-12 裁决废除 overridden，override 动作置 resolved）。
 func TestUnit_ValidIssueTypeState(t *testing.T) {
 	for _, ok := range []string{"", IssueTypeIssue, IssueTypeNotification, IssueTypeDiscussion} {
 		assert.Assert(t, ValidIssueType(ok), "issue_type %q 合法", ok)
@@ -309,5 +309,6 @@ func TestUnit_ValidIssueTypeState(t *testing.T) {
 	for _, ok := range issueStates {
 		assert.Assert(t, ValidIssueState(ok), "state %q 合法", ok)
 	}
+	assert.Assert(t, !ValidIssueState("overridden"), "overridden 态已废除（09-12 裁决）")
 	assert.Assert(t, !ValidIssueState("closed"))
 }

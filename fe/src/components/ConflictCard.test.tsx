@@ -160,7 +160,7 @@ describe("ConflictCard", () => {
           sessionId: "ses-7",
           reentered: true,
           round: "3",
-          issue: mkIssue({ state: "overridden", escalate: "0" }),
+          issue: mkIssue({ state: "resolved", escalate: "0" }),
         }),
       );
     });

@@ -54,7 +54,7 @@
 | A-21 | wb_confirm_review | fixed/pending-confirm → resolved | resolve_reviewer_confirmed=1 |
 | A-22 | wb_reopen | pending-confirm/fixed → open/to-fix，loop_count++；达阈值自动 escalate | loop_count 递增 |
 | A-23 | wb_escalate | 置位 + session 建绑（快照 sessions 出行，注记-D2） | session_id 回显 |
-| A-24 | wb_adjudicate | uphold 保持 / override → overridden 终态 | replies 裁决条目回填 |
+| A-24 | wb_adjudicate | uphold 保持 / override → resolved 终态（resolve_path=override；09-12 裁决废除 overridden） | replies 裁决条目回填 |
 | A-25 | wb_review | pending→approved/clarify；同轮同角色覆写；非 review 相位 blocked | collect 判定正确 |
 | A-26 | wb_decision | approved/rejected；verdict 越集 400；非 gate 相位 blocked | 结论协议落 last_decision |
 | A-27 | wb_advance | rotate/cross/wait/noop 四 outcome；exec 判据未过 blocked+missing；entry/respond 相位 blocked | 推进语义正确 |
@@ -84,7 +84,7 @@ user_gate 分流（agreed 停等 vs 机械 approved）、评审轮 round 语义�
 | C-3 | reproject 重定范围 | 打回持有 pending_scope 时 reproject full→rd：下游 fe 节点删行不占位、order 重排、flows.scope 落值、标记清；重复调用 noop；裁上游 blocked；scope 越界 400 |
 | C-4 | 澄清循环 | unagree→respond 相位 + clarify_task 通知；owner resolve(agree)+respond complete → 重入新轮 + re_review 通知 unagree 位；复核 agree→gate_pending |
 | C-5 | QA retest | 缺陷 issue（reviewer_role 落值）→ resolve(fix) → fixed + re_review 通知提评者（target_id=issueId，retest 子型）→ 提评者 confirm → resolved；fixed→fixed 幂等不重发通知 |
-| C-6 | 冲突上升 | 手动 escalate → sessions 行 + escalation 通知 → adjudicate uphold（保持/复位）/ override（overridden 终态）双路径 |
+| C-6 | 冲突上升 | 手动 escalate → sessions 行 + escalation 通知 → adjudicate uphold（保持/复位）/ override（resolved 终态，resolve_path=override；09-12 裁决废除 overridden）双路径 |
 | C-7 | reopen 自动上升 | loop_count 1→4 正常 reopen；第 5 次（阈值）自动 escalate=1 + escalation 通知 |
 | C-8 | 并行 join 双序 | rd 先 complete（wait 待对侧）→ fe 完成 → 整组推进；fe 先序在 B-3；双侧完成重复 advance 幂等 |
 | C-9 | 版本条件解绑联动 | 未开始需求绑定版本 → deprecate 成功解绑回池（version_id NULL + 逐行审计）；需求进入编排后 → deprecate 409 |

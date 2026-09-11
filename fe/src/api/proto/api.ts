@@ -196,8 +196,9 @@ export interface ArtifactItem {
 }
 
 /**
- * IssueItem 评论/问题行（issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved/
- * overridden；快照与五端点出参共用——T7 起详情字段齐备，追加字段向后兼容）。
+ * IssueItem 评论/问题行（issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved；
+ * 09-12 裁决 overridden 态废除，override 动作置 resolved。快照与五端点出参共用
+ * ——T7 起详情字段齐备，追加字段向后兼容）。
  */
 export interface IssueItem {
   /** issue_id 评论业务 id，如 cm-1730000000000 */
@@ -423,6 +424,36 @@ export interface ReopenResp {
   issue: IssueItem | undefined;
 }
 
+/**
+ * OverrideRoleReq POST /api/comments/override-role 入参（wb_override_role，注记-L1
+ * 强权通道）：User 整角色强权通过——该节点该角色名下全部未闭环 issue 类评论批量置
+ * resolved（resolve_path=override；09-12 裁决 overridden 态废除，override 动作=
+ * 批量 resolve）。「强行通过 X 全部剩余」的原型对应物。闭环评论与 notification/
+ * discussion 行不动。
+ */
+export interface OverrideRoleReq {
+  /** requirement_id 需求 id（必填） */
+  requirementId: string;
+  /** node_id 节点 id（必填） */
+  nodeId: string;
+  /** reviewer_role 评审位角色（必填） */
+  reviewerRole: string;
+  /** operator 操作者（必填，须=user——强权为 User 专属） */
+  operator: string;
+}
+
+/** OverrideRoleResp POST /api/comments/override-role 出参。 */
+export interface OverrideRoleResp {
+  /** ok 恒 true */
+  ok: boolean;
+  /** node_id 节点 id 回显 */
+  nodeId: string;
+  /** reviewer_role 角色回显 */
+  reviewerRole: string;
+  /** resolved 本次批量置 resolved 的评论数（override 强权动作） */
+  resolved: number;
+}
+
 /** GetRequirementResp 聚合快照出参（基础版：需求 + 版本信息 + 实例集合字段先立住）。 */
 export interface GetRequirementResp {
   /** ok 恒 true */
@@ -542,25 +573,27 @@ export interface CreateRequirementResp {
 }
 
 /**
- * UpdateRequirementReq PUT /api/requirements/:reqId 入参（全字段替换语义；
- * updated_at 为读取基线，冲突返回 409 OPTIMISTIC_LOCK）。
+ * UpdateRequirementReq PUT /api/requirements/:reqId 入参（局部更新语义，2026-09-10
+ * BUG-004 拍板：**空串=不修改**——title/description/category/priority/status/
+ * owner/version_id 非空才校验+diff+写，全空=no-op；owner/version_id 清空不经本
+ * 端点。updated_at 为读取基线，冲突返回 409 OPTIMISTIC_LOCK）。
  */
 export interface UpdateRequirementReq {
   /** requirement_id 需求业务 id（reqId 取路径） */
   requirementId: string;
-  /** title 标题 */
+  /** title 标题（空串=不修改） */
   title: string;
-  /** description Markdown 描述 */
+  /** description Markdown 描述（空串=不修改） */
   description: string;
-  /** category 类别标签（变更后 flow_defs_id 按绑定规则重派生） */
+  /** category 类别标签（空串=不修改；变更后 flow_defs_id 按绑定规则重派生） */
   category: string;
-  /** priority P0-P3 */
+  /** priority P0-P3（空串=不修改） */
   priority: string;
-  /** status 需求状态（待启动/进行中/已完成/已取消） */
+  /** status 需求状态（待启动/进行中/已完成/已取消；空串=不修改） */
   status: string;
-  /** owner 负责人角色；空=未指派 */
+  /** owner 负责人角色（空串=不修改；清空指派不经本端点） */
   owner: string;
-  /** version_id 归属版本；空串=移回待分配池 */
+  /** version_id 归属版本（空串=不修改；解绑回待分配池走版本废弃解绑流） */
   versionId: string;
   /** updated_at 读取基线，unix 毫秒（乐观锁） */
   updatedAt: string;
@@ -724,7 +757,11 @@ export interface MyTaskReq {
  * kind=capability 来自能力动作词表，kind=node 为节点公共动作）。
  */
 export interface MyTaskActionItem {
-  /** action_id 动作标识（kind=capability 为能力内动作 id；kind=node 为 node action id） */
+  /**
+   * action_id 动作标识（kind=capability 为 "<capabilityId>.<action>" 全名，
+   * 2026-09-10 BUG-006 拍板：与 wb_assign_task 入参同口径可直接回填派发；
+   * kind=node 为 node action id，本就带点同口径）
+   */
   actionId: string;
   /** name 动作显示名（kind=node 无独立名，取 action_id） */
   name: string;
@@ -840,13 +877,13 @@ export interface MyTaskResp {
   relatedArtifacts: RelatedArtifactItem[];
   /** related_tasks 该需求该节点在途任务摘要（status 非 completed/rejected/closed） */
   relatedTasks: RelatedTaskItem[];
-  /** related_issues 目标节点未闭合 issue 摘要（意见侧上下文注入，T7；resolved/overridden 不返回） */
+  /** related_issues 目标节点未闭合 issue 摘要（意见侧上下文注入，T7；resolved 不返回） */
   relatedIssues: RelatedIssueItem[];
 }
 
 /**
  * RelatedIssueItem 目标节点未闭合 issue 摘要（my_task relatedIssues；
- * 未闭合=state 非 resolved/overridden）。
+ * 未闭合=state 非 resolved）。
  */
 export interface RelatedIssueItem {
   /** issue_id 评论业务 id */
@@ -1314,15 +1351,16 @@ export interface EscalateResp {
 /**
  * AdjudicateReq POST /api/comments/:commentId/adjudicate 入参。
  * User 仲裁结论回填（裁决链第 3 拍）：replies 追加裁决条目（数据层留痕、节点可见）
- * → verdict=override 时 wb_override 语义收编落 overridden 终态（resolve_path=ruling
- * + resolve_note 引用结论）→ escalate 复位 → reviewer 重表态（评审轮重入新轮）。
+ * → verdict=override 时 wb_override 语义收编落 resolved 终态（resolve_path=override
+ * + resolve_note 引用结论；09-12 裁决 overridden 态废除）→ escalate 复位 → reviewer
+ * 重表态（评审轮重入新轮）。
  */
 export interface AdjudicateReq {
   /** comment_id 评论业务 id（commentId 取路径） */
   commentId: string;
   /**
    * verdict 仲裁结论：uphold=维持议题（回正常澄清/修复链）| override=仲裁推翻
-   * （issue 落 overridden 终态，wb_override 语义收编）
+   * （issue 落 resolved 终态，resolve_path=override，wb_override 语义收编）
    */
   verdict: string;
   /** conclusion 裁决结论文本（必填；裁决条目 text 与 override 路径 resolve_note 同源） */
@@ -5072,6 +5110,260 @@ export const ReopenResp: MessageFns<ReopenResp> = {
     message.issue = (object.issue !== undefined && object.issue !== null)
       ? IssueItem.fromPartial(object.issue)
       : undefined;
+    return message;
+  },
+};
+
+function createBaseOverrideRoleReq(): OverrideRoleReq {
+  return { requirementId: "", nodeId: "", reviewerRole: "", operator: "" };
+}
+
+export const OverrideRoleReq: MessageFns<OverrideRoleReq> = {
+  encode(message: OverrideRoleReq, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.requirementId !== "") {
+      writer.uint32(10).string(message.requirementId);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(18).string(message.nodeId);
+    }
+    if (message.reviewerRole !== "") {
+      writer.uint32(26).string(message.reviewerRole);
+    }
+    if (message.operator !== "") {
+      writer.uint32(34).string(message.operator);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): OverrideRoleReq {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseOverrideRoleReq();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.requirementId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.reviewerRole = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.operator = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): OverrideRoleReq {
+    return {
+      requirementId: isSet(object.requirementId)
+        ? globalThis.String(object.requirementId)
+        : isSet(object.requirement_id)
+        ? globalThis.String(object.requirement_id)
+        : "",
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      reviewerRole: isSet(object.reviewerRole)
+        ? globalThis.String(object.reviewerRole)
+        : isSet(object.reviewer_role)
+        ? globalThis.String(object.reviewer_role)
+        : "",
+      operator: isSet(object.operator) ? globalThis.String(object.operator) : "",
+    };
+  },
+
+  toJSON(message: OverrideRoleReq): unknown {
+    const obj: any = {};
+    if (message.requirementId !== "") {
+      obj.requirementId = message.requirementId;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    if (message.reviewerRole !== "") {
+      obj.reviewerRole = message.reviewerRole;
+    }
+    if (message.operator !== "") {
+      obj.operator = message.operator;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<OverrideRoleReq>, I>>(base?: I): OverrideRoleReq {
+    return OverrideRoleReq.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<OverrideRoleReq>, I>>(object: I): OverrideRoleReq {
+    const message = createBaseOverrideRoleReq();
+    message.requirementId = object.requirementId ?? "";
+    message.nodeId = object.nodeId ?? "";
+    message.reviewerRole = object.reviewerRole ?? "";
+    message.operator = object.operator ?? "";
+    return message;
+  },
+};
+
+function createBaseOverrideRoleResp(): OverrideRoleResp {
+  return { ok: false, nodeId: "", reviewerRole: "", resolved: 0 };
+}
+
+export const OverrideRoleResp: MessageFns<OverrideRoleResp> = {
+  encode(message: OverrideRoleResp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ok !== false) {
+      writer.uint32(8).bool(message.ok);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(18).string(message.nodeId);
+    }
+    if (message.reviewerRole !== "") {
+      writer.uint32(26).string(message.reviewerRole);
+    }
+    if (message.resolved !== 0) {
+      writer.uint32(32).int32(message.resolved);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): OverrideRoleResp {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseOverrideRoleResp();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.ok = reader.bool();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.reviewerRole = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.resolved = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): OverrideRoleResp {
+    return {
+      ok: isSet(object.ok) ? globalThis.Boolean(object.ok) : false,
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      reviewerRole: isSet(object.reviewerRole)
+        ? globalThis.String(object.reviewerRole)
+        : isSet(object.reviewer_role)
+        ? globalThis.String(object.reviewer_role)
+        : "",
+      resolved: isSet(object.resolved) ? globalThis.Number(object.resolved) : 0,
+    };
+  },
+
+  toJSON(message: OverrideRoleResp): unknown {
+    const obj: any = {};
+    if (message.ok !== false) {
+      obj.ok = message.ok;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    if (message.reviewerRole !== "") {
+      obj.reviewerRole = message.reviewerRole;
+    }
+    if (message.resolved !== 0) {
+      obj.resolved = Math.round(message.resolved);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<OverrideRoleResp>, I>>(base?: I): OverrideRoleResp {
+    return OverrideRoleResp.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<OverrideRoleResp>, I>>(object: I): OverrideRoleResp {
+    const message = createBaseOverrideRoleResp();
+    message.ok = object.ok ?? false;
+    message.nodeId = object.nodeId ?? "";
+    message.reviewerRole = object.reviewerRole ?? "";
+    message.resolved = object.resolved ?? 0;
     return message;
   },
 };

@@ -41,7 +41,7 @@ export function DecisionCard({
   const decision = parseLastDecision(node.lastDecision);
   const open = countOpenIssues(issues);
   const pendingConfirm = issues.filter((i) => i.state === "pending-confirm").length;
-  const resolved = issues.filter((i) => i.state === "resolved" || i.state === "overridden").length;
+  const resolved = issues.filter((i) => i.state === "resolved").length;
 
   return (
     <section className="panel-card decision-card" data-gate-view={gateView}>
@@ -93,7 +93,7 @@ function GateSummary({
   artifacts: ArtifactItem[];
 }) {
   const seats = seatStatesOf(node);
-  const settled = issues.filter((i) => i.state === "resolved" || i.state === "overridden");
+  const settled = issues.filter((i) => i.state === "resolved");
   return (
     <div className="decision-summary" role="status">
       <h5>各评审位结论</h5>

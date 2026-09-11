@@ -292,7 +292,8 @@ type Issue struct {
 	Assignee *string `gorm:"column:assignee;size:32;index:idx_issues_assignee" json:"assignee"`
 	// Text 根评论内容
 	Text string `gorm:"column:text;type:TEXT;notNull" json:"text"`
-	// State issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved/overridden
+	// State issue 状态机 v2：open/pending-confirm/to-fix/fixed/resolved（overridden
+	// 态已按 09-12 裁决废除，override 动作置 resolved，semantica 920030de）
 	State string `gorm:"column:state;index:idx_issues_state;size:20;notNull;default:'open'" json:"state"`
 	// Escalate 冲突上升标记：1=拉起裁决 session
 	Escalate int64 `gorm:"column:escalate;index:idx_issues_escalate;notNull;default:0" json:"escalate"`
@@ -310,7 +311,7 @@ type Issue struct {
 	ResolveAt *int64 `gorm:"column:resolve_at" json:"resolveAt"`
 	// ResolveNote resolve 说明；NULL=未解决
 	ResolveNote *string `gorm:"column:resolve_note;type:TEXT" json:"resolveNote"`
-	// ResolvePath fix=修复关闭 / agree=协商一致关闭；NULL=未解决
+	// ResolvePath fix=修复关闭 / agree=协商一致关闭 / override=强权仲裁关闭；NULL=未解决
 	ResolvePath *string `gorm:"column:resolve_path;size:8" json:"resolvePath"`
 	// ResolveReviewerConfirmed 评审者复核确认：0/1
 	ResolveReviewerConfirmed int64 `gorm:"column:resolve_reviewer_confirmed;notNull;default:0" json:"resolveReviewerConfirmed"`

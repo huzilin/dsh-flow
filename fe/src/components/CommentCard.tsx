@@ -47,8 +47,8 @@ export function CommentCard({
   const isAssignee = issue.assignee === WEB_USER_ROLE;
   const isReviewer = issueReviewerOf(issue) === WEB_USER_ROLE;
   // resolve 双路径入口状态域：open/pending-confirm 定性 to-fix；to-fix/fixed 修复关闭申报；
-  // agree 直落 resolved（后端裁决，UI 按 domain 口径收敛）
-  const canResolve = isAssignee && issue.state !== "resolved" && issue.state !== "overridden";
+  // agree 直落 resolved（后端裁决，UI 按 domain 口径收敛；09-12 裁决 overridden 态废除）
+  const canResolve = isAssignee && issue.state !== "resolved";
   const canConfirm = isReviewer && (issue.state === "pending-confirm" || issue.state === "fixed");
   const canReopen = isReviewer && (issue.state === "pending-confirm" || issue.state === "fixed");
   const busy = reply.isPending || resolve.isPending || confirm.isPending || reopen.isPending;

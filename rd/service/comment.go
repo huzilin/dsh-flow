@@ -253,7 +253,7 @@ func (s *IssueService) commentOnce(ctx context.Context, row *repo.Issue, escalat
 // Reply wb_reply：replies 不可变追加（只增不改）+ roundCount++ + last_reply_at。
 // 状态迁移由 domain 状态机判定：open→pending-confirm（澄清回复完成待复核）/
 // to-fix→fixed（修复完成申报）；pending-confirm/fixed 追加回复状态停留不回退
-// （多轮说明幂等）；resolved/overridden 拒绝（终态不可追加）。
+// （多轮说明幂等）；resolved 拒绝（终态不可追加；overridden 态已按 09-12 裁决废除）。
 //
 // 入参：req.CommentId 必填（commentId 路径）；by/role_id/text 必填；
 // voided=误发 reply 标注作废（ui-interaction-final §3，回复照常留痕）。
@@ -396,13 +396,15 @@ func (s *IssueService) Reopen(ctx context.Context, req *api.ReopenReq) (*api.Reo
 	return &api.ReopenResp{Ok: true, LoopCount: row.LoopCount, Issue: issueItem(row)}, nil
 }
 
-// OverrideRole wb_override_role（注记-L1 强权通道，2026-09-10 User 拍板）：User 整角色
-// 强权通过——该节点该角色名下全部未闭环 issue 类评论（open/to-fix/fixed/pending-confirm）
-// 批量置 overridden（resolved_by=operator）。「强行通过 X 全部剩余」的原型对应物。
-// 闭环评论与 notification/discussion 行不动。
+// OverrideRole wb_override_role（注记-L1 强权通道，2026-09-10 User 拍板；09-12 裁决
+// overridden 态废除，semantica 920030de）：User 整角色强权通过——该节点该角色名下
+// 全部未闭环 issue 类评论（open/to-fix/fixed/pending-confirm）批量置 resolved，
+// 落 resolve 族（resolve_by=operator、resolve_path=override、resolve_note 记强权
+// 仲裁来源）。「强行通过 X 全部剩余」的原型对应物。闭环评论与 notification/
+// discussion 行不动。
 //
 // 入参：RequirementId/NodeId/ReviewerRole 必填；Operator 必填且须=user（强权专属）。
-// 出参：本次 overridden 计数。
+// 出参：本次批量置 resolved 的评论数。
 //
 // 错误集：ErrInvalidArgument（必填缺失/operator 非 user）；底层 IO 错误经 Trace 上抛。
 func (s *IssueService) OverrideRole(ctx context.Context, req *api.OverrideRoleReq) (*api.OverrideRoleResp, error) {
@@ -412,7 +414,7 @@ func (s *IssueService) OverrideRole(ctx context.Context, req *api.OverrideRoleRe
 	if req.Operator != "user" {
 		return nil, invalidArg("operator 须为 user（强权 override 为 User 专属，注记-L1）")
 	}
-	overridden := 0
+	resolved := 0
 	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
 		var issues []repo.Issue
 		if err := tx.WithContext(ctx).
@@ -422,33 +424,39 @@ func (s *IssueService) OverrideRole(ctx context.Context, req *api.OverrideRoleRe
 			return errs.Trace(err)
 		}
 		now := repo.NowMillis()
+		overridePath := domain.IssueResolvePathOverride
+		overrideNote := fmt.Sprintf("强权仲裁（wb_override_role 整角色通过，operator=%s，09-12 裁决 override 动作置 resolved）", req.Operator)
 		for _, issue := range issues {
 			if domain.IssueClosed(issue.State) {
 				continue
 			}
 			updates := map[string]any{
-				"state":       repo.IssueStateOverridden,
-				"resolved_by": req.Operator,
-				"resolved_at": now,
-				"updated_at":  now,
+				"state":        repo.IssueStateResolved,
+				"resolved_by":  req.Operator,
+				"resolved_at":  now,
+				"resolve_by":   req.Operator,
+				"resolve_at":   now,
+				"resolve_path": overridePath,
+				"resolve_note": overrideNote,
+				"updated_at":   now,
 			}
 			if err := tx.WithContext(ctx).Model(&repo.Issue{}).
 				Where("id = ? AND updated_at = ?", issue.ID, issue.UpdatedAt).
 				Updates(updates).Error; err != nil {
 				return errs.Trace(err)
 			}
-			audit := issueAudit(issue.IssueID, "state", issue.State, repo.IssueStateOverridden, req.Operator)
+			audit := issueAudit(issue.IssueID, "state", issue.State, repo.IssueStateResolved, req.Operator)
 			if err := s.repo.InsertAuditLogWith(tx, &audit); err != nil {
 				return errs.Trace(err)
 			}
-			overridden++
+			resolved++
 		}
 		return nil
 	})
 	if txErr != nil {
 		return nil, txErr
 	}
-	return &api.OverrideRoleResp{Ok: true, NodeId: req.NodeId, ReviewerRole: req.ReviewerRole, Overridden: int32(overridden)}, nil
+	return &api.OverrideRoleResp{Ok: true, NodeId: req.NodeId, ReviewerRole: req.ReviewerRole, Resolved: int32(resolved)}, nil
 }
 
 // transitionInput 状态迁移统一入参（五端点收敛点：行锁读 → 操作者约束 →

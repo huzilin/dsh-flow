@@ -69,7 +69,10 @@ export function ReviewStatePill({ state }: { state: string }) {
   );
 }
 
-/** issue 状态机 v2 状态徽标（open/pending-confirm/to-fix/fixed/resolved/overridden）。 */
+/**
+ * issue 状态机 v2 状态徽标（open/pending-confirm/to-fix/fixed/resolved；
+ * 09-12 裁决 overridden 态废除，override 动作置 resolved）。
+ */
 export function IssueStateBadge({ state }: { state: string }) {
   const kinds: Record<string, string> = {
     open: "is-open",
@@ -77,7 +80,6 @@ export function IssueStateBadge({ state }: { state: string }) {
     "to-fix": "is-tofix",
     fixed: "is-fixed",
     resolved: "is-resolved",
-    overridden: "is-overridden",
   };
   return (
     <Badge kind={`issue ${kinds[state] ?? "is-open"}`}>{ISSUE_STATE_LABELS[state] ?? state}</Badge>

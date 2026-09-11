@@ -117,9 +117,12 @@ export function deriveGateView(node: FlowNodeItem): GateView {
   return "";
 }
 
-/** 节点未闭合 issue 数（评审药丸 open 数；unresolved=state 非 resolved/overridden）。 */
+/**
+ * 节点未闭合 issue 数（评审药丸 open 数；unresolved=state 非 resolved）。
+ * 09-12 裁决 overridden 态废除，override 动作置 resolved。
+ */
 export function countOpenIssues(issues: IssueItem[]): number {
-  return issues.filter((i) => i.state !== "resolved" && i.state !== "overridden").length;
+  return issues.filter((i) => i.state !== "resolved").length;
 }
 
 /**

@@ -101,7 +101,7 @@ func repliesEntries(t *testing.T, raw string) []map[string]any {
 // TestIntegration_EscalationChain_RealMySQL 冲突上升 AC 全链路（review 相位拉锯）：
 // reopen 达注入阈值自动 escalate + 通知位 → wb_escalate 拉起裁决 session（sessions
 // 建绑 role=user、dsh_ref 占位、幂等 noop）→ wb_adjudicate override 结论回填
-// （replies 裁决条目 + resolve_path=ruling + resolve_note 引用结论 + overridden 终态
+// （replies 裁决条目 + resolve_path=override + resolve_note 引用结论 + resolved 终态
 // + escalate 复位 + session 终局）→ reviewer 重表态（评审轮重入新轮）→ 恢复评审轮
 // （重入轮全 agree → agreed → 拍板推进，正常判据链恢复）。
 func TestIntegration_EscalationChain_RealMySQL(t *testing.T) {
@@ -192,11 +192,12 @@ func TestIntegration_EscalationChain_RealMySQL(t *testing.T) {
 	assert.Assert(t, strings.Contains(reentered, `"round":1`), "新轮快照: %s", reentered)
 	assert.Assert(t, !strings.Contains(reentered, `"round":0`), "全量替换=当前轮快照")
 
-	// issue 终态回填断言（overridden + resolve 族 + escalate 复位 + 裁决条目；
-	// 出参取 adjudicate resp.issue 全量）
+	// issue 终态回填断言（resolved + resolve 族 + escalate 复位 + 裁决条目；
+	// 出参取 adjudicate resp.issue 全量；09-12 裁决 overridden 态废除——
+	// override 动作置 resolved 且 resolve_path=override）
 	issue := item(t, resp, "issue")
-	assert.Equal(t, issue.str("state"), "overridden", "仲裁推翻=overridden 终态")
-	assert.Equal(t, issue.str("resolvePath"), "ruling", "resolve_path=仲裁裁定路径")
+	assert.Equal(t, issue.str("state"), "resolved", "仲裁推翻=resolved 终态（09-12 裁决废除 overridden）")
+	assert.Equal(t, issue.str("resolvePath"), "override", "resolve_path=强权仲裁关闭")
 	assert.Equal(t, issue.str("resolveNote"), "议题不成立，按现状通过", "resolve_note 引用结论")
 	assert.Equal(t, issue.str("resolvedBy"), "user")
 	assert.Equal(t, issue.number(t, "resolveReviewerConfirmed"), int64(1), "仲裁终局确认内嵌")
@@ -237,7 +238,7 @@ func TestIntegration_EscalationChain_RealMySQL(t *testing.T) {
 
 	// 审计留痕：issue UPDATE（escalate/replies/state）+ sessions INSERT/UPDATE
 	assert.Assert(t, auditFieldCount(t, handles, "issues", issueID, "escalate") >= 2, "自动置位+复位审计")
-	assert.Assert(t, auditFieldCount(t, handles, "issues", issueID, "state") >= 1, "overridden 迁移审计")
+	assert.Assert(t, auditFieldCount(t, handles, "issues", issueID, "state") >= 1, "resolved 迁移审计（override 动作置 resolved）")
 	assert.Assert(t, auditCount(t, handles, "sessions", sessionID, "INSERT") == 1, "session INSERT 审计")
 	assert.Assert(t, auditFieldCount(t, handles, "sessions", sessionID, "status") == 1, "session 终局审计")
 }

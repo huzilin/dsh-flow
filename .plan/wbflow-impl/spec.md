@@ -188,7 +188,7 @@ CREATE TABLE issues (
   issue_type      VARCHAR(16) NOT NULL DEFAULT 'issue' COMMENT 'issue/notification/discussion',
   assignee        VARCHAR(32) NULL COMMENT '解决责任人；NULL=未指派',
   text            TEXT        NOT NULL COMMENT '根评论内容',
-  state           VARCHAR(20) NOT NULL DEFAULT 'open' COMMENT 'issue 状态机 v2：open 待澄清 / pending-confirm 已澄清待复核 / to-fix 待修复 / fixed 已修复待复核 / resolved / overridden',
+  state           VARCHAR(20) NOT NULL DEFAULT 'open' COMMENT 'issue 状态机 v2：open 待澄清 / pending-confirm 已澄清待复核 / to-fix 待修复 / fixed 已修复待复核 / resolved（09-12 裁决：overridden 态废除，override 动作置 resolved，semantica 920030de）',
   escalate        TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '冲突上升标记：1=拉起裁决 session',
   loop_count      INT         NOT NULL DEFAULT 0 COMMENT '回退计数：澄清期读=reopen 次数，修复期读=revise 次数',
   replies         TEXT        NOT NULL COMMENT '回复与裁决回填 JSON 文本（不可变追加）',
@@ -197,7 +197,7 @@ CREATE TABLE issues (
   resolve_by      VARCHAR(32) NULL COMMENT 'resolve 责任人；NULL=未解决',
   resolve_at      BIGINT NULL COMMENT 'resolve 时间；NULL=未解决',
   resolve_note    TEXT NULL COMMENT 'resolve 说明；NULL=未解决',
-  resolve_path    VARCHAR(8) NULL COMMENT 'fix=修复关闭 / agree=协商一致关闭；NULL=未解决',
+  resolve_path    VARCHAR(8) NULL COMMENT 'fix=修复关闭 / agree=协商一致关闭 / override=强权仲裁关闭（09-12 裁决：override 类动作统一本值）；NULL=未解决',
   resolve_reviewer_confirmed TINYINT(1) NOT NULL DEFAULT 0 COMMENT '评审者复核确认：0/1',
   resolved_by     VARCHAR(32) NULL COMMENT '最终确认人；NULL=未闭环',
   resolved_at     BIGINT NULL COMMENT '最终确认时间；NULL=未闭环',
@@ -404,7 +404,7 @@ CREATE TABLE versions (
 >
 > **-L（2026-09-10 深夜对齐轮四项拍板；User 逐条定案；spec 偏差清零批）**：
 >
-> **-L1（collect=评论闭环表态；OPT-004 拍板落地）**：collect 表态的本义对齐老设计（被反复确认十几遍的门禁链）——**agree 的前提=该评审位名下评论全部被响应并澄清**（state ∈ resolved/overridden；open/to-fix/fixed/pending-confirm 未闭环）；有未闭环评论须先解决（resolve 族）或保持 unagree（确认是问题 → 打回前一节点）。**approve 前置=节点名下全部 issue 类评论闭环**（要么打回要么全 resolved/overridden 才进下一节点）；rejected 不受限（打回即「确认是问题」的合法出口）。强权泄压阀：新增 `wb_override_role`（POST /api/comments/override-role，operator 须=user）——整角色未闭环评论批量置 overridden（「强行通过 X 全部剩余」原型对应物）。空集=闭环（vacuous，0 评论可直接表态）。notification/discussion 行不参与闭环。轮次高亮沿用 -C7 reopen≥5 自动上升口径。
+> **-L1（collect=评论闭环表态；OPT-004 拍板落地；09-12 裁决修订）**：collect 表态的本义对齐老设计（被反复确认十几遍的门禁链）——**agree 的前提=该评审位名下评论全部被响应并澄清**（state ∈ resolved；open/to-fix/fixed/pending-confirm 未闭环）；有未闭环评论须先解决（resolve 族）或保持 unagree（确认是问题 → 打回前一节点）。**approve 前置=节点名下全部 issue 类评论闭环**（要么打回要么全 resolved 才进下一节点）；rejected 不受限（打回即「确认是问题」的合法出口）。强权泄压阀：新增 `wb_override_role`（POST /api/comments/override-role，operator 须=user）——整角色未闭环评论批量置 resolved（resolve_path=override）。**09-12 裁决废除 overridden 态：override 动作=批量 resolve，resolve_path=override；存量若有 overridden 行一次性 UPDATE 为 resolved**（semantica 920030de）。（「强行通过 X 全部剩余」原型对应物。）空集=闭环（vacuous，0 评论可直接表态）。notification/discussion 行不参与闭环。轮次高亮沿用 -C7 reopen≥5 自动上升口径。
 >
 > **-L2（done 离场终态；BUG-016 拍板落地）**：flow_nodes.state 增加 **done** 业务终态（老模型「已通过」的 v1.0 对应物）——wb_advance 推进激活目标节点时，目标之前的全部活跃相位节点（entry/exec/review/respond，按 node_order 切片序）统一置 done（并行组对侧+存量脏状态一次自愈）；done 节点**禁止挂载**（wb_add_artifact/wb_assign_task → 400/409）；对 done 节点重复 wb_advance 幂等 noop 200；打回重入由 RollbackForRejectTx 复位；裁决轮重入对 done 节点 no-op（不阻断回填）。FE 点色 done=绿、徽标「done · 已完成」。
 >

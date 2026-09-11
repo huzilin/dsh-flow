@@ -81,7 +81,7 @@ export function RequirementDetailPage() {
   const issuesByNode = useMemo(() => {
     const map = new Map<string, number>();
     for (const i of issues) {
-      if (i.state !== "resolved" && i.state !== "overridden") {
+      if (i.state !== "resolved") {
         map.set(i.nodeId, (map.get(i.nodeId) ?? 0) + 1);
       }
     }

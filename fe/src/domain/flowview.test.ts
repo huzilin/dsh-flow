@@ -162,9 +162,9 @@ describe("锚点/评论展示辅助", () => {
     expect(issueReviewerOf({ reviewerRole: "arch", author: "pm" } as IssueItem)).toBe("arch");
     expect(issueReviewerOf({ reviewerRole: "", author: "pm" } as IssueItem)).toBe("pm");
   });
-  it("countOpenIssues：resolved/overridden 不计", () => {
+  it("countOpenIssues：resolved 不计（09-12 裁决 overridden 态废除）", () => {
     const mk = (state: string) => ({ state }) as IssueItem;
-    expect(countOpenIssues([mk("open"), mk("resolved"), mk("overridden"), mk("to-fix")])).toBe(2);
+    expect(countOpenIssues([mk("open"), mk("resolved"), mk("to-fix")])).toBe(2);
   });
   it("selectionLabel 划词两级文案（注记-L3）", () => {
     expect(selectionLabel(null)).toBe("全文评论（document）");

@@ -16,22 +16,22 @@ import (
 // 并发同毫秒由 FOR UPDATE 基值递增兜底，形态仍为纯数字后缀时间戳）。
 const issueIDPrefix = "cm-"
 
-// 未闭合状态集（my_task relatedIssues 口径：state 非 resolved/overridden）。
+// 未闭合状态集（my_task relatedIssues 口径：state 非 resolved）。
 // SQL NOT IN 直接内联常量切片。
 // 修复（T8）：原实现误传 open 族集合致 NOT IN 语义反转——查回的恰是已闭合行，
 // 与本注释口径及 issues_it_test「resolved 不注入」断言冲突（T7 遗留缺陷，
 // 阻碍 T8 澄清循环「owner 收 clarify 上下文」AC，最小修复对齐注释口径）。
-var issueOpenStates = []string{IssueStateResolved, IssueStateOverridden}
+var issueOpenStates = []string{IssueStateResolved}
 
 // issue 状态常量镜像（domain 为纯逻辑包，repo 不反向依赖，取值与
-// domain.IssueState* 同源——spec §0 列注释为单一口径）。
+// domain.IssueState* 同源——spec §0 列注释为单一口径；overridden 态已按
+// 09-12 裁决废除，override 动作置 resolved，semantica 920030de）。
 const (
 	IssueStateOpen           = "open"
 	IssueStatePendingConfirm = "pending-confirm"
 	IssueStateToFix          = "to-fix"
 	IssueStateFixed          = "fixed"
 	IssueStateResolved       = "resolved"
-	IssueStateOverridden     = "overridden"
 )
 
 // GetIssueByIssueID 按评论业务 id 读评论行；未命中返回 (nil, nil)（service 转 ErrNotFound）。
@@ -67,7 +67,7 @@ func (r *Repo) GetIssueByIssueIDLockTx(ctx context.Context, tx *gorm.DB, issueID
 }
 
 // ListOpenIssuesByNode 读需求下指定节点的未闭合评论（my_task relatedIssues 数据源，
-// state NOT IN (resolved, overridden)）；nodeID 为空返回空集。
+// state NOT IN (resolved)）；nodeID 为空返回空集。
 // 通知行（issue_type=notification，T11 收件箱载体）不属于评论流，排除。
 func (r *Repo) ListOpenIssuesByNode(ctx context.Context, requirementID string, nodeID string) ([]*Issue, error) {
 	if nodeID == "" {

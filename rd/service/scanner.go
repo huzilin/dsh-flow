@@ -98,7 +98,7 @@ type ScanReport struct {
 // 决定退避节奏）；在途任务逐行 domain.ScanTask 判定，命中阈值且无同类未闭合通知
 // 时经 Notifier 写催办/介入通知行（挂 requirement/node/role）。
 //
-// 幂等：同一任务同轮已有同类未闭合 notification（state 不在 resolved/overridden
+// 幂等：同一任务同轮已有同类未闭合 notification（state 不在 resolved
 // 闭合集）不重复建（spec §2 幂等口径 + T10 AC「催办幂等」）。
 //
 // 错误集：查询/写入 IO 错误经 Trace 上抛（ping 探测已隔离主链路不可用场景；

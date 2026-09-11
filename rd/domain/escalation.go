@@ -24,11 +24,6 @@ import (
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
-// wb_resolve path=fix|agree 之外的第三路径（T12 仲裁裁定关闭）：仅裁决链
-// （wb_adjudicate verdict=override）可落，wb_resolve 入参校验仍拒之门外
-// （issues.resolve_path 列注释「fix=修复关闭 / agree=协商一致关闭」的仲裁扩展）。
-const IssueResolvePathRuling = "ruling"
-
 // 仲裁结论词表（wb_adjudicate verdict；与既有 approved/rejected 拍板词表区分
 // ——拍板是节点级门禁结论，仲裁是 issue 级冲突结论）：
 const (
@@ -37,7 +32,8 @@ const (
 	AdjudicationVerdictUphold = "uphold"
 	// AdjudicationVerdictOverride 仲裁推翻：wb_override 语义收编（spec §1.2 移出
 	// 清单「wb_override（escalate 取代）——语义保留在 service 层」），issue 落
-	// overridden 终态（resolve_path=ruling + resolve_note 引用结论）。
+	// resolved 终态（resolve_path=override + resolve_note 引用结论；09-12 裁决
+	// overridden 态废除，semantica 920030de）。
 	AdjudicationVerdictOverride = "override"
 )
 
