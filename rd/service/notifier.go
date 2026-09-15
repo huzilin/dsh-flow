@@ -341,6 +341,7 @@ func deriveOwnerRoleTx(ctx context.Context, db *gorm.DB, requirementID string, n
 	if flow != nil {
 		scope = flow.Scope
 	}
+	execRole := ""
 	defNodes, err := repo.ListFlowDefNodesByTemplateIDsTx(ctx, db, []string{node.DefNodeID})
 	if err != nil {
 		return "", errs.Trace(err)
@@ -350,31 +351,30 @@ func deriveOwnerRoleTx(ctx context.Context, db *gorm.DB, requirementID string, n
 		if filterErr != nil {
 			return "", errs.Trace(filterErr)
 		}
-		caps, err := repo.ListCapabilitiesTx(ctx, db)
-		if err != nil {
-			return "", errs.Trace(err)
-		}
-		infos, err := buildCapabilityInfoMap(caps)
-		if err != nil {
-			return "", err
-		}
 		if filtered != "" {
-			execRole, execErr := domain.NodeExecRole(filtered, infos)
+			caps, capsErr := repo.ListCapabilitiesTx(ctx, db)
+			if capsErr != nil {
+				return "", errs.Trace(capsErr)
+			}
+			infos, infosErr := buildCapabilityInfoMap(caps)
+			if infosErr != nil {
+				return "", infosErr
+			}
+			var execErr error
+			execRole, execErr = domain.NodeExecRole(filtered, infos)
 			if execErr != nil {
 				return "", errs.Trace(execErr)
 			}
-			if execRole != "" {
-				// exec 能力归属角色优先；空回落 requirement.owner（domain 单点判定）
-				return domain.OwnerRoleWithFallback(execRole, ""), nil
-			}
 		}
 	}
-	requirement, err := repo.GetRequirementByIDTx(ctx, db, requirementID)
-	if err != nil {
-		return "", errs.Trace(err)
+	requirement, reqErr := repo.GetRequirementByIDTx(ctx, db, requirementID)
+	if reqErr != nil {
+		return "", errs.Trace(reqErr)
 	}
 	if requirement == nil {
 		return "", notFound("需求 %q 不存在", requirementID)
 	}
-	return domain.OwnerRoleWithFallback("", requirement.Owner), nil
+	// exec 能力归属角色优先，空回落 requirement.owner（domain 单点判定；
+	// 需求行恒校验存在——缺失即数据损坏报 notFound，不再借 exec 角色提前返回）
+	return domain.OwnerRoleWithFallback(execRole, requirement.Owner), nil
 }

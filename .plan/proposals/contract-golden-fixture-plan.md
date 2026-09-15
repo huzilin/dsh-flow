@@ -84,7 +84,9 @@ D1-D6 全部按推荐拍板（2026-09-15「认可」）；semantica `2ef99a5f`�
 - FE `flowview.ts` 导出 `isLaneSideExecCR`（契约断言消费）；
 - qa/README 增「契约变更 SOP」节。
 
-### 8.2 实现期发现（两点）
+### 8.2 实现期发现（三点；2026-09-15 评审补录第 3 点）
+
+3. **collectVerdict 未进 golden（评审 Spec 轴发现，补录为有意排除）**：C3-D3 正文真值表列了 collectVerdict，实现期发现 FE 无对应镜像消费方（门禁视图 deriveGateView 读 last_decision/由 wb_advance 机械收口承载，collect 判定只在 Go 侧）——无镜像即无漂移面，golden 不收。后续若 FE 出现 collect 判定消费面（如进度条「评审中 x/y」改从 collect 口径推导）再入表。
 
 1. **anchorSummary 排除出契约面（D4 的应用）**：实现期实读发现 Go `SummarizeIssueAnchor`（"range 3-5"）与 FE `anchorSummary`（"line 3-5"）措辞本就不同——它是展示层重渲染而非契约镜像，flowview.ts:251 的「同口径」注释口径过宽（已由本提案排除，注释待后续顺手修）；
 2. **泳道判定分歧面比预想宽**：FE 谓词完全不含 scope 校验（凡 produce+gate+评审位即 true），不止 scope=full 一例——golden 以 2 个 `feSkip` 样例（lane 视角、full scope）显式记录该分歧边界，FE 测试跳过并断言其存在。fixture 首轮即逮住真实分歧=机制有效性实证。

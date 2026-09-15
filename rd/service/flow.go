@@ -262,11 +262,11 @@ func (s *FlowService) injectRelatedIssues(ctx context.Context, resp *api.MyTaskR
 			Anchor: domain.SummarizeIssueAnchor(
 				row.AnchorKind,
 				utils.DerefStr(row.AnchorArtifactID),
-				derefInt64(row.AnchorLine),
-				derefInt64(row.AnchorStartLine),
-				derefInt64(row.AnchorEndLine),
-				derefInt64(row.AnchorBlockStart),
-				derefInt64(row.AnchorBlockEnd),
+				utils.DerefInt64(row.AnchorLine),
+				utils.DerefInt64(row.AnchorStartLine),
+				utils.DerefInt64(row.AnchorEndLine),
+				utils.DerefInt64(row.AnchorBlockStart),
+				utils.DerefInt64(row.AnchorBlockEnd),
 				utils.DerefStr(row.AnchorLang),
 			),
 		})

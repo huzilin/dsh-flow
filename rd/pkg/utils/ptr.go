@@ -15,6 +15,14 @@ func DerefStr(v *string) string {
 	return *v
 }
 
+// DerefInt64 整型指针零值收敛（nil → 0，NULL 列出参口径）。
+func DerefInt64(v *int64) int64 {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
 // FormatMillis 毫秒时间戳/序号审计文本（audit_log old/new 值 TEXT 列字符串口径）。
 func FormatMillis(v int64) string {
 	return strconv.FormatInt(v, 10)

@@ -806,31 +806,23 @@ func issueItem(row *repo.Issue) *api.IssueItem {
 		ReviewerRole:             utils.DerefStr(row.ReviewerRole),
 		Assignee:                 utils.DerefStr(row.Assignee),
 		AnchorArtifactId:         utils.DerefStr(row.AnchorArtifactID),
-		AnchorLine:               derefInt64(row.AnchorLine),
-		AnchorStartLine:          derefInt64(row.AnchorStartLine),
-		AnchorEndLine:            derefInt64(row.AnchorEndLine),
-		AnchorBlockStart:         derefInt64(row.AnchorBlockStart),
-		AnchorBlockEnd:           derefInt64(row.AnchorBlockEnd),
+		AnchorLine:               utils.DerefInt64(row.AnchorLine),
+		AnchorStartLine:          utils.DerefInt64(row.AnchorStartLine),
+		AnchorEndLine:            utils.DerefInt64(row.AnchorEndLine),
+		AnchorBlockStart:         utils.DerefInt64(row.AnchorBlockStart),
+		AnchorBlockEnd:           utils.DerefInt64(row.AnchorBlockEnd),
 		AnchorLang:               utils.DerefStr(row.AnchorLang),
 		Replies:                  row.Replies,
-		LastReplyAt:              derefInt64(row.LastReplyAt),
+		LastReplyAt:              utils.DerefInt64(row.LastReplyAt),
 		ResolvePath:              utils.DerefStr(row.ResolvePath),
 		ResolveBy:                utils.DerefStr(row.ResolveBy),
-		ResolveAt:                derefInt64(row.ResolveAt),
+		ResolveAt:                utils.DerefInt64(row.ResolveAt),
 		ResolveNote:              utils.DerefStr(row.ResolveNote),
 		ResolveReviewerConfirmed: row.ResolveReviewerConfirmed,
 		ResolvedBy:               utils.DerefStr(row.ResolvedBy),
-		ResolvedAt:               derefInt64(row.ResolvedAt),
+		ResolvedAt:               utils.DerefInt64(row.ResolvedAt),
 		UpdatedAt:                row.UpdatedAt,
 	}
-}
-
-// derefInt64 指针整数零值收敛（nil → 0，NULL 列出参口径）。
-func derefInt64(v *int64) int64 {
-	if v == nil {
-		return 0
-	}
-	return *v
 }
 
 // strPtrIfSet 空串映射 NULL（NULL 保留清单列建行口径），非空取指针。

@@ -147,6 +147,14 @@ repo struct 加 audit tag，派生核反射遍历。
 - 迁移调用点：reject（3 写路径/30 条手拼消灭）、advance（4）、review（4，含 Who 双署名）、reproject（下游重排+carrier 清标记）、llmflow failTask（节点段；tasks 段留二期）。
 - IT 基建顺手改：IT scratch 库前缀 `wbflow_it_*` → `wbflow_qa_it_*`（7 处代码点+注释）——qa 运行账号 `wbflow_qa` 授权恰为 `wbflow_qa%`（qa_provision.sh GRANT），root 凭据按纪律零落仓库不可得，qa 账号+匹配前缀即可跑全量真库 IT，隔离性与测后 DROP 口径不变。
 
+### 8.2.1 行为偏差补录（2026-09-15 评审发现；同 D3 统一口径的延伸，非新拍板）
+
+D3「与现状手拼行为逐点一致」在 **reopen_source 无条件审计** 三处不成立，实现时被统一条件化但当时未记录：
+- reject.go 回退目标/下游节点（reopen_source=downstream/upstream-reject）
+- llmflow failTask（reopen_source=rework-return）
+
+旧行为：重复打回/重复 fail 同值时仍落一行 old==new 的同值审计；新行为（派生核 old≠new 才落）：跳过。差异仅在「同值重复到达」的真实可重复路径上，审计行数与旧版可分叉；既有黄金 IT 未覆盖该场景故未红灯。**按 D3 口径本义（同值写不重放留痕）新行为为正确口径，追认保持**；若未来审计回放侧依赖同值行计数，需单独拍板恢复。
+
 ### 8.3 闸门
 
 gofmt/vet/build 零输出；`go test ./...` 全绿（含派生核 5 条新单测）；真库 IT 全量跑（qa 账号，1783s）：**audit/reject/advance/reproject/review 并发等黄金断言全过 = 行为保持证明**；唯一失败 `ReviewClarifyLoop_RealMySQL` 经 HEAD 干净 worktree 对照复跑**同点同因失败**（rd 名下 pending-confirm issue 拦 agree 闭环，review_it_test.go:342）——存量问题，与本次迁移无关（提交信息「单跑过」与现状矛盾，需另行排查：该测试序列缺 issue2 的 settle/confirm 步骤）。
