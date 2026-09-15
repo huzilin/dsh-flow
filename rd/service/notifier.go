@@ -31,6 +31,7 @@ import (
 
 	"github.com/huzilin/wbflow/rd/domain"
 	"github.com/huzilin/wbflow/rd/pkg/errs"
+	"github.com/huzilin/wbflow/rd/pkg/utils"
 	"github.com/huzilin/wbflow/rd/repo"
 	"gorm.io/gorm"
 )
@@ -64,6 +65,17 @@ var notificationTargetTypes = map[string]string{
 	NotificationKindNeedIntervene:  "task",
 	NotificationKindEscalation:     "issue",
 	NotificationKindSessionMessage: "session",
+}
+
+// NotificationTargetTypes 类别 → 跳转目标类型映射的只读出口（收件箱 target_type
+// 出参口径）。导出（C3 契约快照消费：rd/contract 词表单一真相源）；返回副本，
+// 调用方改动不影响本包判定。
+func NotificationTargetTypes() map[string]string {
+	out := make(map[string]string, len(notificationTargetTypes))
+	for k, v := range notificationTargetTypes {
+		out[k] = v
+	}
+	return out
 }
 
 // validNotificationKind 类别枚举校验。
@@ -138,6 +150,28 @@ type NotificationSpec struct {
 	Text string
 }
 
+// normalizeNotificationSpec 入参校验 + 默认值填充（C5-D1 单一真相源：Notify 与
+// outboxRowOf 同口径消费——此前两处手写同款校验）。Kind 越集 / RequirementID /
+// RecipientRole 空=装配缺陷返回错误；Sender/SenderRole 空=plugin（系统投递口径）。
+func normalizeNotificationSpec(spec NotificationSpec) (NotificationSpec, error) {
+	if !validNotificationKind(spec.Kind) {
+		return spec, fmt.Errorf("通知类别 %q 越集（七类枚举）", spec.Kind)
+	}
+	if spec.RequirementID == "" {
+		return spec, fmt.Errorf("通知 requirement_id 必填")
+	}
+	if spec.RecipientRole == "" {
+		return spec, fmt.Errorf("通知收件角色必填（kind=%s）", spec.Kind)
+	}
+	if spec.Sender == "" {
+		spec.Sender = "plugin"
+	}
+	if spec.SenderRole == "" {
+		spec.SenderRole = "plugin"
+	}
+	return spec, nil
+}
+
 // Notify 落库一条通知（issues 行 issue_type=notification，state=未读）。派发失败
 // 返回错误——由 Dispatch 兜底吞错记日志，业务调用方不感知。
 //
@@ -145,39 +179,25 @@ type NotificationSpec struct {
 // 返回错误（触发点装配缺陷，不入用户错误路径）。
 // 错误集：落库 IO 错误经 Trace 上抛；入参缺陷以普通错误返回。
 func (n *Notifier) Notify(ctx context.Context, spec NotificationSpec) (*repo.Issue, error) {
-	if !validNotificationKind(spec.Kind) {
-		return nil, fmt.Errorf("通知类别 %q 越集（七类枚举）", spec.Kind)
-	}
-	if spec.RequirementID == "" {
-		return nil, fmt.Errorf("通知 requirement_id 必填")
-	}
-	if spec.RecipientRole == "" {
-		return nil, fmt.Errorf("通知收件角色必填（kind=%s）", spec.Kind)
+	spec, err := normalizeNotificationSpec(spec)
+	if err != nil {
+		return nil, err
 	}
 	// target_id 列位承载跳转锚点增强：target_type=node 的 kind 默认列位空
 	// （定位取 node_id 列）；调用方显式传入时保留（注记-D1：re_review retest
 	// 子型传 issueId 锚点，FE「待复验」投影与意见区跳转消费）
-	targetID := spec.TargetID
-	sender := spec.Sender
-	if sender == "" {
-		sender = "plugin"
-	}
-	senderRole := spec.SenderRole
-	if senderRole == "" {
-		senderRole = "plugin"
-	}
-	issueID, err := n.store.AllocIssueID(ctx)
-	if err != nil {
-		return nil, errs.Trace(err)
+	issueID, allocErr := n.store.AllocIssueID(ctx)
+	if allocErr != nil {
+		return nil, errs.Trace(allocErr)
 	}
 	row := &repo.Issue{
 		IssueID:          issueID,
 		RequirementID:    spec.RequirementID,
 		NodeID:           spec.NodeID,
 		AnchorKind:       spec.Kind,
-		AnchorArtifactID: strPtrIfSet(targetID),
-		Author:           sender,
-		RoleID:           senderRole,
+		AnchorArtifactID: strPtrIfSet(spec.TargetID),
+		Author:           spec.Sender,
+		RoleID:           spec.SenderRole,
 		IssueType:        domain.IssueTypeNotification,
 		Assignee:         strPtrIfSet(spec.RecipientRole),
 		Text:             spec.Text,
@@ -202,25 +222,12 @@ func EnqueueNotificationTx(ctx context.Context, tx *gorm.DB, spec NotificationSp
 	return repo.InsertOutboxTx(ctx, tx, row)
 }
 
-// outboxRowOf NotificationSpec → notify_outbox 行装配（校验 + 默认值填充，
-// 与 Notify 同口径）。
+// outboxRowOf NotificationSpec → notify_outbox 行装配（校验+默认值与 Notify
+// 同源——normalizeNotificationSpec 单点，C5-D1）。
 func outboxRowOf(spec NotificationSpec) (*repo.Outbox, error) {
-	if !validNotificationKind(spec.Kind) {
-		return nil, fmt.Errorf("通知类别 %q 越集（七类枚举）", spec.Kind)
-	}
-	if spec.RequirementID == "" {
-		return nil, fmt.Errorf("通知 requirement_id 必填")
-	}
-	if spec.RecipientRole == "" {
-		return nil, fmt.Errorf("通知收件角色必填（kind=%s）", spec.Kind)
-	}
-	sender := spec.Sender
-	if sender == "" {
-		sender = "plugin"
-	}
-	senderRole := spec.SenderRole
-	if senderRole == "" {
-		senderRole = "plugin"
+	spec, err := normalizeNotificationSpec(spec)
+	if err != nil {
+		return nil, err
 	}
 	return &repo.Outbox{
 		Kind:          spec.Kind,
@@ -228,8 +235,8 @@ func outboxRowOf(spec NotificationSpec) (*repo.Outbox, error) {
 		NodeID:        spec.NodeID,
 		TargetID:      strPtrIfSet(spec.TargetID),
 		RecipientRole: spec.RecipientRole,
-		Sender:        sender,
-		SenderRole:    senderRole,
+		Sender:        spec.Sender,
+		SenderRole:    spec.SenderRole,
 		Text:          spec.Text,
 		Status:        repo.OutboxStatusPending,
 	}, nil
@@ -241,7 +248,7 @@ func outboxSpec(row *repo.Outbox) NotificationSpec {
 		Kind:          row.Kind,
 		RequirementID: row.RequirementID,
 		NodeID:        row.NodeID,
-		TargetID:      derefString(row.TargetID),
+		TargetID:      utils.DerefStr(row.TargetID),
 		RecipientRole: row.RecipientRole,
 		Sender:        row.Sender,
 		SenderRole:    row.SenderRole,
@@ -357,7 +364,8 @@ func deriveOwnerRoleTx(ctx context.Context, db *gorm.DB, requirementID string, n
 				return "", errs.Trace(execErr)
 			}
 			if execRole != "" {
-				return execRole, nil
+				// exec 能力归属角色优先；空回落 requirement.owner（domain 单点判定）
+				return domain.OwnerRoleWithFallback(execRole, ""), nil
 			}
 		}
 	}
@@ -368,5 +376,5 @@ func deriveOwnerRoleTx(ctx context.Context, db *gorm.DB, requirementID string, n
 	if requirement == nil {
 		return "", notFound("需求 %q 不存在", requirementID)
 	}
-	return requirement.Owner, nil
+	return domain.OwnerRoleWithFallback("", requirement.Owner), nil
 }

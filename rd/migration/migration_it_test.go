@@ -233,7 +233,7 @@ func openTarget(t *testing.T) *database.DB {
 		cfg.Port = port
 	}
 	if cfg.DBName == "" {
-		cfg.DBName = fmt.Sprintf("wbflow_it_%d", time.Now().UnixNano())
+		cfg.DBName = fmt.Sprintf("wbflow_qa_it_%d", time.Now().UnixNano())
 		t.Logf("scratch 库: %s", cfg.DBName)
 		t.Cleanup(func() {
 			dropDatabase(t, cfg)

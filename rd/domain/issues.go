@@ -399,6 +399,15 @@ func DeriveAssignee(explicit string, anchorArtifactAddedBy string, nodeExecRole 
 // 能力归属角色（首个命中）。无 exec 能力（review/gate 等纯评审节点）返回空串。
 //
 // 错误集：node_actions JSON 非法（实例数据损坏）。
+// OwnerRoleWithFallback owner 角色推导收口（C5-D2）：exec 能力归属角色优先，
+// 空=回落需求 owner（review.go collect 通知收件人推导同源；纯判定，免库可测）。
+func OwnerRoleWithFallback(execRole string, requirementOwner string) string {
+	if execRole != "" {
+		return execRole
+	}
+	return requirementOwner
+}
+
 func NodeExecRole(nodeActionsJSON string, capabilities map[string]CapabilityInfo) (string, error) {
 	var entries []repo.NodeActionDef
 	if err := utils.UnmarshalJSONText(nodeActionsJSON, &entries); err != nil {

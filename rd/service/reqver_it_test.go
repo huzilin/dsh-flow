@@ -2,7 +2,7 @@
 // 正常 / 拦截（blocked/401/409）/ 幂等分支 + 审计落库断言 + req-NNN/v-NNN 取号并发安全。
 //
 // env 门控与 scratch 库口径沿用 T2：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入；
-// 独立 scratch 库（wbflow_it_* 后缀）应用迁移后测、测后 DROP——
+// 独立 scratch 库（wbflow_qa_it_* 后缀）应用迁移后测、测后 DROP——
 // 不污染 wbflow 库、不改其数据。密码仅经 env 零落地。
 package service_test
 
@@ -63,7 +63,7 @@ func openScratchWithThreshold(t *testing.T, escalateLoopThreshold int64) (*gin.E
 		assert.NilError(t, err)
 		cfg.Port = port
 	}
-	cfg.DBName = fmt.Sprintf("wbflow_it_%d", time.Now().UnixNano())
+	cfg.DBName = fmt.Sprintf("wbflow_qa_it_%d", time.Now().UnixNano())
 	t.Logf("scratch 库: %s", cfg.DBName)
 
 	handles, err := migration.Bootstrap(context.Background(), cfg)

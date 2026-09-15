@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatTime } from "../lib/time";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { CreateRequirementReq, RequirementItem } from "../api/proto/api";
@@ -186,10 +187,4 @@ function RequirementRow({
       <td className="muted">{formatTime(item.updatedAt)}</td>
     </tr>
   );
-}
-
-export function formatTime(unixMs: string): string {
-  const n = Number(unixMs);
-  if (!Number.isFinite(n) || n === 0) return "—";
-  return new Date(n).toLocaleString("zh-CN", { hour12: false });
 }

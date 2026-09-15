@@ -13,6 +13,7 @@ import (
 
 	"github.com/huzilin/wbflow/rd/api"
 	"github.com/huzilin/wbflow/rd/pkg/errs"
+	"github.com/huzilin/wbflow/rd/pkg/utils"
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
@@ -103,11 +104,11 @@ func inboxItem(row *repo.Issue) *api.InboxItem {
 		RequirementId: row.RequirementID,
 		NodeId:        row.NodeID,
 		TargetType:    notificationTargetTypes[row.AnchorKind],
-		TargetId:      derefString(row.AnchorArtifactID),
+		TargetId:      utils.DerefStr(row.AnchorArtifactID),
 		Text:          row.Text,
 		Sender:        row.Author,
 		SenderRole:    row.RoleID,
-		RecipientRole: derefString(row.Assignee),
+		RecipientRole: utils.DerefStr(row.Assignee),
 		State:         row.State,
 		CreatedAt:     row.CreatedAt,
 	}

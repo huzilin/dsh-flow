@@ -143,7 +143,7 @@ func openScratch(t *testing.T) *database.DB {
 		assert.NilError(t, err)
 		cfg.Port = port
 	}
-	cfg.DBName = fmt.Sprintf("wbflow_it_%d", time.Now().UnixNano())
+	cfg.DBName = fmt.Sprintf("wbflow_qa_it_%d", time.Now().UnixNano())
 	t.Logf("scratch 库: %s", cfg.DBName)
 
 	handles, err := migration.Bootstrap(context.Background(), cfg)

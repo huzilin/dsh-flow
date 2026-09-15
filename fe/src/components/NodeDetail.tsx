@@ -10,6 +10,7 @@ import { NODE_TYPE_LABELS, SESSION_STATUS_LABELS, WEB_USER_ROLE } from "../api/c
 import {
   deriveGateView,
   inReviewCommentContext,
+  latestSeatState,
   parseReviewers,
   parseReviewResults,
   reviewArtifactGroups,
@@ -19,7 +20,7 @@ import { ArtifactReader, CommentThread } from "./ArtifactReader";
 import { ConflictCard } from "./ConflictCard";
 import { DecisionActions, DecisionCard } from "./DecisionCard";
 import { PhaseBadge, ReviewStatePill } from "./Badges";
-import { formatTime } from "../pages/RequirementPoolPage";
+import { formatTime } from "../lib/time";
 
 /**
  * 节点详情五区分栏（ui-interaction-final §1.2 口径落位）：
@@ -408,7 +409,7 @@ function ReviewPills({
               aria-expanded={expanded}
               onClick={() => setOpenSeatKey(expanded ? null : key)}
             >
-              <ReviewStatePill state={latestStateOf(node, s.role, s.capabilityId)} />
+              <ReviewStatePill state={latestSeatState(node, s.role, s.capabilityId)} />
               {openN > 0 && (
                 <span className="badge pill-open-count" title="该评审位未闭合评论数">
                   {openN} 未解决
@@ -445,23 +446,6 @@ function ReviewPills({
       )}
     </div>
   );
-}
-
-/** 评审位最新表态（round 大者胜；同轮 at 后者胜——与 wb_review 覆写语义一致）。 */
-function latestStateOf(node: FlowNodeItem, role: string, capabilityId: string): string {
-  let state = "reviewing";
-  let bestRound = -1;
-  let bestAt = -1;
-  for (const r of parseReviewResults(node.reviewResults)) {
-    if (r.role === role && r.capabilityId === capabilityId) {
-      if (r.round > bestRound || (r.round === bestRound && r.at >= bestAt)) {
-        state = r.state;
-        bestRound = r.round;
-        bestAt = r.at;
-      }
-    }
-  }
-  return state;
 }
 
 /** 在途任务摘要（my_task relatedTasks；任务区并入意见区下方，避免第六栏）。 */

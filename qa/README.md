@@ -38,6 +38,22 @@ bash qa_env_down.sh
     WBFLOW_MYSQL_PASSWORD='<密码>' go test ./service/ -timeout=25m
   ```
 
+## 契约变更 SOP（C3 跨语言契约快照）
+
+FE 手写镜像面（flowview.ts 判定/constants.ts 词表/payload 形状）以 Go 真相源导出的
+golden 快照做漂移检测（双测试互锁）：改后端判定/词表/payload struct 后**必须**：
+
+```bash
+cd rd && go test ./contract/ -run TestUnit_ContractSnapshot -update   # 重生成 golden（并提交）
+cd fe && npx vitest run src/api/contract                              # FE 消费面验证
+```
+
+- 不重生 → Go 侧 `TestUnit_ContractSnapshot` 比对红灯（忘跑 FE 测试也会被拦）；
+- 后端改判定 FE 未跟 → FE 侧 contract.test.ts 真值表红灯；
+- golden 中 `feSkip` 样例=已知双端分歧的显式记录（FE 无 scope 校验，相邻成对约束
+  替代，flowview.ts:359 注），FE 测试跳过并断言其存在；
+- 断言口径锁「拦截与否+结果值」，不锁文案措辞（呈现层自由）。
+
 ## 扩展约定
 
 - 新增用例：用例编号进 `docs/v1.0/qa/qa-test-cases.md` 覆盖矩阵，断言用 `qa_drive.py` 的 `ck(cid, cond, detail)`（软失败，一轮收全缺陷）。

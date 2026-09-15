@@ -280,7 +280,7 @@ func hasCompletedTask(tasks []*repo.Task, candidate llmAction) bool {
 }
 
 // execCandidates exec 相位 LLM 候选动作集：激活清单（scope 裁剪后）× 重入配置
-// 选择（rolled_back_count 首产/返工二选一，domain 单一口径）× 准入集 ∩ 家族
+// 选择（rolled_back_count 首产/重入二选一，domain 单一口径）× 准入集 ∩ 家族
 // （produce/dev/accept，create_reqs 无产物判据不入）× 素材存在（skill/inline）。
 // kind=node 动作须 executor=subagent（program=内置动作非 LLM 通路）。
 //
@@ -830,8 +830,8 @@ func (s *LLMFlowService) failTask(ctx context.Context, taskID string, cause erro
 		// 失败落账审计 by_who=system（系统回退口径，非执行角色上报）
 		audits := []repo.AuditLog{
 			{Table: "tasks", RowID: row.TaskID, Action: "UPDATE", Field: utils.StrPtr("status"), OldValue: utils.StrPtr(row.Status), NewValue: utils.StrPtr(repo.TaskStatusRejected), ByWho: auditByWhoSystem},
-			{Table: "tasks", RowID: row.TaskID, Action: "UPDATE", Field: utils.StrPtr("lastProgress"), OldValue: utils.StrPtr(derefString(row.LastProgress)), NewValue: utils.StrPtr(reason), ByWho: auditByWhoSystem},
-			{Table: "tasks", RowID: row.TaskID, Action: "UPDATE", Field: utils.StrPtr("doneAt"), OldValue: utils.StrPtr(""), NewValue: utils.StrPtr(formatMillis(now)), ByWho: auditByWhoSystem},
+			{Table: "tasks", RowID: row.TaskID, Action: "UPDATE", Field: utils.StrPtr("lastProgress"), OldValue: utils.StrPtr(utils.DerefStr(row.LastProgress)), NewValue: utils.StrPtr(reason), ByWho: auditByWhoSystem},
+			{Table: "tasks", RowID: row.TaskID, Action: "UPDATE", Field: utils.StrPtr("doneAt"), OldValue: utils.StrPtr(""), NewValue: utils.StrPtr(utils.FormatMillis(now)), ByWho: auditByWhoSystem},
 		}
 		baseline := row.UpdatedAt
 		if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.Task{}, row.ID, baseline, updates); err != nil {
@@ -850,15 +850,10 @@ func (s *LLMFlowService) failTask(ctx context.Context, taskID string, cause erro
 				return nodeErr
 			}
 			if node != nil {
-				nodeUpdates := map[string]any{
-					"rolled_back_count": node.RolledBackCount + 1,
-					"reopen_source":     domain.ReopenSourceReworkReturn,
-				}
-				nodeAudits := []repo.AuditLog{
-					reviewAudit(node, "rolledBackCount", formatMillis(node.RolledBackCount), formatMillis(node.RolledBackCount+1), auditByWhoSystem),
-					reviewAudit(node, "reopenSource", node.ReopenSource, domain.ReopenSourceReworkReturn, auditByWhoSystem),
-				}
-				if err := applyNodeUpdatesTx(ctx, s.repo, tx, node, nodeUpdates, nodeAudits); err != nil {
+				if err := repo.ApplyNodeChangeTx(ctx, s.repo, tx, node, auditByWhoSystem,
+					repo.RolledBackCount(node.RolledBackCount+1),
+					repo.ReopenSource(domain.ReopenSourceReworkReturn),
+				); err != nil {
 					return err
 				}
 			}

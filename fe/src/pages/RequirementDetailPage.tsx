@@ -13,7 +13,7 @@ import { MarkdownView } from "../components/MarkdownView";
 import { NodeDetail } from "../components/NodeDetail";
 import { RequirementModal } from "../components/CreateRequirementDialog";
 import { Modal } from "../components/Modal";
-import { formatTime } from "./RequirementPoolPage";
+import { formatTime } from "../lib/time";
 import { describeHistory } from "../domain/historyview";
 
 /**
@@ -118,8 +118,8 @@ export function RequirementDetailPage() {
           <button type="button" onClick={() => setEditOpen(true)}>
             编辑
           </button>
-          {/* 会话找 X（§6 N5：X 随节点绑定角色动态——full=qa / fe-only=fe / rd-only=rd；
-              按需会话通道 DSH 嵌入期开放，本期 disabled 占位） */}
+          {/* 会话找 X（§6 N5：X 随节点绑定角色动态——scope=full 找 qa / scope=fe 找 fe /
+              scope=rd 找 rd；按需会话通道 DSH 嵌入期开放，本期 disabled 占位） */}
           <button
             type="button"
             disabled

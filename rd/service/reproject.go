@@ -43,16 +43,12 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 	}
 
 	resp := &api.ReprojectScopeResp{}
-	txErr := s.repo.Gorm().WithContext(ctx).Transaction(func(tx *gormio.DB) error {
-		flow, err := repo.GetFlowByRequirementIDTx(ctx, tx, req.RequirementId)
-		if err != nil {
-			return err
-		}
-		if flow == nil {
-			return notFound("需求 %q 无流程实例", req.RequirementId)
-		}
-
-		nodes, err := repo.ListFlowNodesByRequirementLockTx(ctx, tx, req.RequirementId)
+	err := s.orch.runFlowRead(ctx, req.RequirementId, func(sess *orchSession) error {
+		tx := sess.txHandle()
+		// flow 行非锁读（重投影视角：flow 行无并发写面，并发防护由 nodes 清单行锁
+		// 承载——runFlowRead 模式，C1 D3）
+		flow := sess.flow()
+		nodes, err := sess.nodes(ctx)
 		if err != nil {
 			return err
 		}
@@ -138,15 +134,12 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 				}
 				continue
 			}
-			updates := make(map[string]any)
-			audits := make([]repo.AuditLog, 0, 3)
+			var changes []repo.NodeChange
 			if node.NodeOrder != p.NodeOrder {
-				updates["node_order"] = p.NodeOrder
-				audits = append(audits, flowNodeAudit(node, "nodeOrder", formatMillis(node.NodeOrder), formatMillis(p.NodeOrder)))
+				changes = append(changes, repo.NodeOrder(p.NodeOrder))
 			}
 			if node.Reviewers != p.Reviewers {
-				updates["reviewers"] = p.Reviewers
-				audits = append(audits, flowNodeAudit(node, "reviewers", node.Reviewers, p.Reviewers))
+				changes = append(changes, repo.Reviewers(p.Reviewers))
 				// 裁剪角色残留条目清理（与 reviewers 裁剪同事务同口径）：被裁角色在
 				// review_results 的既有条目一并剔除——否则留下幽灵评审位（重投影与
 				// 评审轮播种竞速时，如 scanner 兜底推进抢先按裁剪前评审位播种）。
@@ -175,19 +168,13 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 						if mErr != nil {
 							return errs.Trace(mErr)
 						}
-						updates["review_results"] = pruned
-						audits = append(audits, flowNodeAudit(node, "reviewResults", node.ReviewResults, pruned))
+						changes = append(changes, repo.ReviewResults(pruned))
 					}
 				}
 			}
-			if len(updates) > 0 {
-				if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.FlowNode{}, node.ID, node.UpdatedAt, updates); err != nil {
+			if len(changes) > 0 {
+				if err := repo.ApplyNodeChangeTx(ctx, s.repo, tx, node, auditByWhoUser, changes...); err != nil {
 					return err
-				}
-				for i := range audits {
-					if err := s.repo.InsertAuditLogWith(tx, &audits[i]); err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -240,21 +227,11 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 			}
 		}
 
-		// 清 pending_scope 标记 + flows.scope 落值（变更时）
-		if err := repo.UpdateWithOptimisticLockTx(ctx, tx, &repo.FlowNode{}, carrier.ID, carrier.UpdatedAt, map[string]any{
-			"pending_scope": nil,
-		}); err != nil {
-			return err
-		}
-		if err := s.repo.InsertAuditLogWith(tx, &repo.AuditLog{
-			Table:    "flow_nodes",
-			RowID:    carrier.NodeID,
-			Action:   "UPDATE",
-			Field:    utils.StrPtr("pendingScope"),
-			OldValue: utils.StrPtr(derefString(carrier.PendingScope)),
-			NewValue: utils.StrPtr(""),
-			ByWho:    auditByWhoUser,
-		}); err != nil {
+		// 清 pending_scope 标记（重定完成；清标记审计一次——标记落值时由回退核
+		// Silent 写入不审计，此刻统一留痕）
+		if err := repo.ApplyNodeChangeTx(ctx, s.repo, tx, carrier, auditByWhoUser,
+			repo.PendingScopeNull(),
+		); err != nil {
 			return err
 		}
 		if newScope != flow.Scope {
@@ -282,8 +259,8 @@ func (s *FlowService) Reproject(ctx context.Context, req *api.ReprojectScopeReq)
 		resp.ReprojectedCount = count
 		return nil
 	})
-	if txErr != nil {
-		return nil, txErr
+	if err != nil {
+		return nil, err
 	}
 	return resp, nil
 }
@@ -346,17 +323,4 @@ func (s *FlowService) deleteFlowNodeTx(tx *gormio.DB, node *repo.FlowNode) error
 		Action: "DELETE",
 		ByWho:  auditByWhoUser,
 	})
-}
-
-// flowNodeAudit flow_nodes UPDATE 审计条目（重投影 by_who=user 口径）。
-func flowNodeAudit(node *repo.FlowNode, field string, oldVal string, newVal string) repo.AuditLog {
-	return repo.AuditLog{
-		Table:    "flow_nodes",
-		RowID:    node.NodeID,
-		Action:   "UPDATE",
-		Field:    utils.StrPtr(field),
-		OldValue: utils.StrPtr(oldVal),
-		NewValue: utils.StrPtr(newVal),
-		ByWho:    auditByWhoUser,
-	}
 }

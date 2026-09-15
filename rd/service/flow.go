@@ -16,11 +16,13 @@ import (
 // FlowService 流程实例读端点 service（wb_my_task + 依赖树）。
 type FlowService struct {
 	repo *repo.Repo
+	// orch 编排会话（C1：事务生命周期+锁序+提交后 flush 一处定义）
+	orch *orchestrator
 }
 
 // NewFlowService 构造流程实例 service。
 func NewFlowService(r *repo.Repo) *FlowService {
-	return &FlowService{repo: r}
+	return &FlowService{repo: r, orch: newOrchestrator(r)}
 }
 
 // MyTask wb_my_task：三向校验（role × node × 相位）的动作投影。
@@ -153,10 +155,10 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 		NodeType:  nodeType,
 		State:     node.State,
 		Reviewers: node.Reviewers,
-		// T9 重入上下文：exec 首产/返工配置选择依据 + 重开来源 + 评审敲定分支
+		// T9 重入上下文：exec 首产/重入配置选择依据 + 重开来源 + 评审敲定分支
 		RolledBackCount: node.RolledBackCount,
 		ReopenSource:    node.ReopenSource,
-		FeatureBranch:   derefString(node.FeatureBranch),
+		FeatureBranch:   utils.DerefStr(node.FeatureBranch),
 	}
 	resp.CurrentPhase = node.State
 
@@ -164,8 +166,8 @@ func (s *FlowService) MyTask(ctx context.Context, req *api.MyTaskReq) (*api.MyTa
 	if err != nil {
 		return nil, errs.Trace(err)
 	}
-	// exec 相位首产/返工配置选择（T9）：rolled_back_count=0 → 首产集（produce/dev/
-	// accept）；≥1 → 返工集（revise/diagnosing-bugs/retest）；集合外动作不受影响
+	// exec 相位首产/重入配置选择（T9）：rolled_back_count=0 → 首产集（produce/dev/
+	// accept）；≥1 → 重入集（revise/diagnosing-bugs/retest）；集合外动作不受影响
 	if node.State == repo.PhaseExec {
 		active = domain.FilterExecActionsByReentry(active, node.RolledBackCount)
 	}
@@ -256,16 +258,16 @@ func (s *FlowService) injectRelatedIssues(ctx context.Context, resp *api.MyTaskR
 			IssueId:   row.IssueID,
 			State:     row.State,
 			IssueType: row.IssueType,
-			Assignee:  derefString(row.Assignee),
+			Assignee:  utils.DerefStr(row.Assignee),
 			Anchor: domain.SummarizeIssueAnchor(
 				row.AnchorKind,
-				derefString(row.AnchorArtifactID),
+				utils.DerefStr(row.AnchorArtifactID),
 				derefInt64(row.AnchorLine),
 				derefInt64(row.AnchorStartLine),
 				derefInt64(row.AnchorEndLine),
 				derefInt64(row.AnchorBlockStart),
 				derefInt64(row.AnchorBlockEnd),
-				derefString(row.AnchorLang),
+				utils.DerefStr(row.AnchorLang),
 			),
 		})
 	}

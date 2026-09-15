@@ -4,7 +4,7 @@ import type { FlowNodeItem, IssueItem } from "../api/proto/api";
 import { ADJUDICATE_VERDICT_LABELS, WEB_USER_ROLE } from "../api/constants";
 import { issueReviewerOf, parseReplies, unagreeSeatsOf } from "../domain/flowview";
 import { useAdjudicateMutation, useEscalateMutation } from "../hooks/queries";
-import { formatTime } from "../pages/RequirementPoolPage";
+import { formatTime } from "../lib/time";
 import { AlertBanner } from "./AlertBanner";
 import { IssueStateBadge } from "./Badges";
 

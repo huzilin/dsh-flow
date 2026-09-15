@@ -172,8 +172,9 @@ export function inReviewCommentContext(node: FlowNodeItem, roleId: string): bool
 
 /**
  * BUG-013 发表前预校验（rd 新评论硬拦的 FE 前置同口径）：评审上下文的 issue 类
- * document 级锚必须携带 artifactId，否则返回引导文案（line/range/block 天然挂产物、
- * notification/discussion 类不受限）。返回 null=放行。
+ * document 级锚必须携带 artifactId，否则返回引导文案（range 天然挂产物、
+ * notification/discussion 类不受限；line/block 已按注记-L3 废弃，后端 400）。
+ * 返回 null=放行。
  */
 export function reviewAnchorGuardError(input: {
   reviewContext: boolean;
@@ -247,7 +248,9 @@ export function inSelection(
   return no >= sel.start && no <= sel.end;
 }
 
-/** 锚点摘要文本（与后端 my_task relatedIssues.anchor 同口径："art-1 line 42" 家族）。
+/** 阅读器选区/锚点摘要文案（展示层重渲染：由 anchor 列字段重拼，措辞与后端
+ *  my_task relatedIssues.anchor（SummarizeIssueAnchor）不必一致——呈现层自由，
+ *  C3 契约面不含本函数）。
  *  BUG-013：传入 artifactLabelOf 时以产物显示名替代裸 id（评论展示挂产物名）；document
  *  级已挂产物显示「《名》全文」，未挂产物维持 "document"。 */
 export function anchorSummary(
@@ -293,59 +296,57 @@ export interface UnagreeSeat {
   at: number;
 }
 
-/** 节点内反对中的评审位清单（该位最新表态=unagree 才计入；后轮 agree 覆盖前轮 unagree）。 */
-export function unagreeSeatsOf(node: FlowNodeItem): UnagreeSeat[] {
-  const latest = new Map<string, UnagreeSeat & { state: string }>();
-  for (const r of parseReviewResults(node.reviewResults)) {
+/** 评审位最新表态 map（latest-wins 唯一实现：round 大者胜、同轮 at 后者胜——
+ *  与 wb_review 覆写语义一致；unagreeSeatsOf/seatStatesOf/latestSeatState 共用）。 */
+function latestSeatMap(results: ReviewResult[]): Map<string, ReviewResult> {
+  const latest = new Map<string, ReviewResult>();
+  for (const r of results) {
     const key = `${r.role}:${r.capabilityId}`;
     const prev = latest.get(key);
     if (!prev || r.round > prev.round || (r.round === prev.round && r.at >= prev.at)) {
-      latest.set(key, {
-        role: r.role,
-        capabilityId: r.capabilityId,
-        round: r.round,
-        at: r.at,
-        state: r.state,
-      });
+      latest.set(key, r);
     }
   }
-  return [...latest.values()]
-    .filter((s) => s.state === "unagree")
+  return latest;
+}
+
+/** 节点内反对中的评审位清单（该位最新表态=unagree 才计入；后轮 agree 覆盖前轮 unagree）。 */
+export function unagreeSeatsOf(node: FlowNodeItem): UnagreeSeat[] {
+  return [...latestSeatMap(parseReviewResults(node.reviewResults)).values()]
+    .filter((r) => r.state === "unagree")
     .map(({ role, capabilityId, round, at }) => ({ role, capabilityId, round, at }));
 }
 
-/** 评审位最新表态清单（门禁汇总用；同轮同角色覆写取最后——与 wb_review 覆写语义一致）。 */
+/** 评审位最新表态清单（门禁汇总用；无表态位缺省 reviewing——与 wb_review 覆写语义一致）。
+ *  仅渲染声明评审位（收敛时顺带收紧：结果条目不应含声明外席位，reproject 裁剪保一致）。 */
 export function seatStatesOf(
   node: FlowNodeItem,
 ): Array<{ role: string; capabilityId: string; state: string }> {
-  const latest = new Map<string, { role: string; capabilityId: string; state: string; round: number; at: number }>();
-  for (const s of parseReviewers(node.reviewers)) {
-    latest.set(`${s.role}:${s.capabilityId}`, {
-      role: s.role,
-      capabilityId: s.capabilityId,
-      state: "reviewing",
-      round: -1,
-      at: -1,
-    });
-  }
-  for (const r of parseReviewResults(node.reviewResults)) {
-    const key = `${r.role}:${r.capabilityId}`;
-    const prev = latest.get(key);
-    if (!prev || r.round > prev.round || (r.round === prev.round && r.at >= prev.at)) {
-      latest.set(key, { role: r.role, capabilityId: r.capabilityId, state: r.state, round: r.round, at: r.at });
-    }
-  }
-  return [...latest.values()].map(({ role, capabilityId, state }) => ({ role, capabilityId, state }));
+  const latest = latestSeatMap(parseReviewResults(node.reviewResults));
+  return parseReviewers(node.reviewers).map((s) => ({
+    role: s.role,
+    capabilityId: s.capabilityId,
+    state: latest.get(`${s.role}:${s.capabilityId}`)?.state ?? "reviewing",
+  }));
+}
+
+/** 指定评审位的最新表态（无表态=reviewing；C4 收敛——原 NodeDetail.latestStateOf
+ *  第三份覆写实现并入此处）。 */
+export function latestSeatState(node: FlowNodeItem, role: string, capabilityId: string): string {
+  return (
+    latestSeatMap(parseReviewResults(node.reviewResults)).get(`${role}:${capabilityId}`)?.state ??
+    "reviewing"
+  );
 }
 
 /**
  * rejected 拍板后的重入提示（T9 重入语义呈现——重入 UI 状态从快照相位读取）：
  * 节点仍在 review/respond 等非 exec 相位=「已打回，等待 exec 重入」；
- * 相位已回 exec=「已打回重入：exec 返工执行中」。
+ * 相位已回 exec=「已打回重入：exec 重入执行中」。
  */
 export function rejectedReentryHint(node: FlowNodeItem): string {
   return node.state === "exec"
-    ? "已打回重入：exec 返工执行中"
+    ? "已打回重入：exec 重入执行中"
     : "已打回，等待 exec 重入";
 }
 
@@ -355,11 +356,13 @@ export type FlowRow =
   | { kind: "single"; node: FlowNodeItem }
   | { kind: "parallel"; rd: FlowNodeItem; fe: FlowNodeItem };
 
-/** 泳道侧 exec-CR 成员判定（与后端 rd/service advance.isLaneSideExecCR 同口径镜像：
+/** 泳道侧 exec-CR 成员判定（与后端 rd/service LaneSideExecCR 同口径镜像：
  * produce + gate=1 + 有评审位）。scope 单侧校验以相邻成对约束替代——seed 定稿矩阵
  * （business 40 定义节点）中相邻 exec-CR 对仅 RD∥FE 开发组，单测锁定；未来 seed
- * 若引入相邻 exec-CR 串行对，需后端快照出 parallel_group 标识替代本判定。 */
-function isLaneSideExecCR(node: FlowNodeItem): boolean {
+ * 若引入相邻 exec-CR 串行对，需后端快照出 parallel_group 标识替代本判定。
+ * 导出（C3 契约快照消费：golden laneSideExecCR 真值表逐例断言；feSkip 样例=
+ * scope 双侧命中时 Go=false/FE=true 的已知分歧显式记录）。 */
+export function isLaneSideExecCR(node: FlowNodeItem): boolean {
   if (node.nodeType !== "produce" || Number(node.gate) !== 1) return false;
   return parseReviewers(node.reviewers).length > 0;
 }

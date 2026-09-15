@@ -19,7 +19,7 @@ import {
   CreateVersionDialog,
   RenameVersionDialog,
 } from "../components/VersionDialogs";
-import { formatTime } from "./RequirementPoolPage";
+import { formatTime } from "../lib/time";
 
 /**
  * 版本管理（原型 P9）：版本列表（含待分配池 is_backlog 行，锁定无操作）+

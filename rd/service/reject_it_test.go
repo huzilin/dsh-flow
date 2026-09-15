@@ -3,7 +3,7 @@
 // 重定范围重投影（full→rd 裁剪/上游保护）+ 回退幂等（同轮重放 no-op）+ 并发回退
 // 行锁仅一次生效。
 // env 门控与 scratch 库口径沿用 T2：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库，密码仅经 env 零落地。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库，密码仅经 env 零落地。
 //
 // 实例节点 id 与需求序对应（T4 取号规则）：第 k 条 business×full 需求节点 =
 // n-(13(k-1)+1)..n-13k ↔ bus-00..bus-12（bus-04 RD 技术设计=第 5 位、bus-05 RD 技术
@@ -59,7 +59,7 @@ func openRejectScratch(t *testing.T) (*gin.Engine, *database.DB, string) {
 		assert.NilError(t, err)
 		cfg.Port = port
 	}
-	cfg.DBName = fmt.Sprintf("wbflow_it_%d", time.Now().UnixNano())
+	cfg.DBName = fmt.Sprintf("wbflow_qa_it_%d", time.Now().UnixNano())
 	t.Logf("scratch 库: %s", cfg.DBName)
 
 	handles, err := migration.Bootstrap(context.Background(), cfg)
@@ -231,7 +231,7 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	assert.Equal(t, targetID, "", "同轮重放 no-op")
 	assert.Equal(t, auditFieldCount(t, handles, "flow_nodes", "n-05", "rolledBackCount"), auditBefore, "重放零副作用")
 
-	// —— exec 重入（revise 多配置选择）：my_task 按 rolled_back_count 出返工集 ——
+	// —— exec 重入（revise 多配置选择）：my_task 按 rolled_back_count 出重入集 ——
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/my-task",
 		map[string]any{"role": "rd", "nodeId": "n-05"})
 	assert.Equal(t, resp.code, http.StatusOK)
@@ -244,7 +244,7 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	for _, a := range actions {
 		actionIDs = append(actionIDs, a.str("actionId"))
 	}
-	assert.Assert(t, contains(actionIDs, "backend-design.revise"), "重入出返工配置: %v", actionIDs)
+	assert.Assert(t, contains(actionIDs, "backend-design.revise"), "重入出修订配置: %v", actionIDs)
 	assert.Assert(t, !contains(actionIDs, "backend-design.produce"), "首产配置被剔除: %v", actionIDs)
 
 	resp = reqJSON(t, router, http.MethodPost, "/api/tasks", map[string]any{
@@ -283,10 +283,10 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 		assert.Equal(t, resp.number(t, "round"), int64(2), "新轮与打回计数对齐")
 	}
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-06/decision",
-		map[string]any{"verdict": "approved", "reason": "修订后通过", "branch": "feat/rd-rework"})
+		map[string]any{"verdict": "approved", "reason": "修订后通过", "branch": "feat/rd-fix"})
 	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
 	assert.Equal(t, resp.str("nextNodeId"), "n-07")
-	assert.Equal(t, nodeCol(t, handles, "n-06", "feature_branch"), "feat/rd-rework", "评审敲定分支落值")
+	assert.Equal(t, nodeCol(t, handles, "n-06", "feature_branch"), "feat/rd-fix", "评审敲定分支落值")
 
 	// 下游重入配置选择：bus-06 已被 upstream-reject 波及（rbc=1）→ my_task 出 revise
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/my-task",
@@ -297,7 +297,7 @@ func TestIntegration_RejectRollbackLoop_RealMySQL(t *testing.T) {
 	for _, a := range actions {
 		actionIDs = append(actionIDs, a.str("actionId"))
 	}
-	assert.Assert(t, contains(actionIDs, "frontend-design.revise"), "下游重入出返工配置: %v", actionIDs)
+	assert.Assert(t, contains(actionIDs, "frontend-design.revise"), "下游重入出修订配置: %v", actionIDs)
 	assert.Assert(t, !contains(actionIDs, "frontend-design.produce"), "下游首产配置被剔除: %v", actionIDs)
 
 	// —— QA retest（仅 full scope 节点；rbc≥1 选 retest）——

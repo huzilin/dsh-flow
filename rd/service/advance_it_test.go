@@ -2,7 +2,7 @@
 // （①跨节点 / ②节点内 CR 轮转 / ③机械收口）+ 幂等 + 并行 join 三层
 // （提交瞬间检查 / flows 行锁并发防护 / scanner 兜底巡检补推）。
 // env 门控与 scratch 库口径沿用 T2：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库。
 package service_test
 
 import (
@@ -56,7 +56,7 @@ func openAdvanceScratch(t *testing.T) (*gin.Engine, *database.DB, string) {
 		assert.NilError(t, err)
 		cfg.Port = port
 	}
-	cfg.DBName = fmt.Sprintf("wbflow_it_%d", time.Now().UnixNano())
+	cfg.DBName = fmt.Sprintf("wbflow_qa_it_%d", time.Now().UnixNano())
 	t.Logf("scratch 库: %s", cfg.DBName)
 
 	handles, err := migration.Bootstrap(context.Background(), cfg)

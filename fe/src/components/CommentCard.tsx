@@ -8,7 +8,7 @@ import {
   useResolveMutation,
 } from "../hooks/queries";
 import { anchorSummary, issueReviewerOf, parseReplies } from "../domain/flowview";
-import { formatTime } from "../pages/RequirementPoolPage";
+import { formatTime } from "../lib/time";
 import { IssueStateBadge } from "./Badges";
 
 /**

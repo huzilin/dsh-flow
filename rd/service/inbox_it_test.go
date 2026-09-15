@@ -9,7 +9,7 @@
 //   - 通知落库审计 by_who=plugin。
 //
 // env 门控与 scratch 库口径沿用 T2：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库，密码仅经 env 零落地。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库，密码仅经 env 零落地。
 //
 // 实例节点 id 与需求序对应（T4 取号规则）：第 k 条 business×full 需求节点 =
 // n-(13(k-1)+1)..n-13k ↔ bus-00..bus-12（第 1 条 bus-03=n-04、第 2 条 bus-03=n-17）。

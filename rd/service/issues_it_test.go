@@ -3,7 +3,7 @@
 // 阈值自动 escalate / assignee 推导（L1 锚点产物登记人）/ my_task relatedIssues
 // 注入 / 审计留痕 / 并发 reply 追加不丢行（事务 + 行锁）。
 // env 门控与 scratch 库口径沿用 T2/T3/T4：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库。密码仅经 env 零落地。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库。密码仅经 env 零落地。
 package service_test
 
 import (

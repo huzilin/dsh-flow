@@ -3,7 +3,7 @@
 // 三分支（有产物/无产物/节点无关）。
 //
 // env 门控与 scratch 库口径沿用 T2/T3：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库。
 // 测试用 docs root 为临时目录（t.TempDir，测后自动清理）。
 // 密码仅经 env 零落地。装配 helper 自包含（openScratchWithDocs），不动既有
 // openScratch 签名，便于并行工单三方合并。
@@ -53,7 +53,7 @@ func openScratchWithDocs(t *testing.T) (*gin.Engine, *database.DB, string) {
 		assert.NilError(t, err)
 		cfg.Port = port
 	}
-	cfg.DBName = fmt.Sprintf("wbflow_it_%d", time.Now().UnixNano())
+	cfg.DBName = fmt.Sprintf("wbflow_qa_it_%d", time.Now().UnixNano())
 	t.Logf("scratch 库: %s", cfg.DBName)
 
 	handles, err := migration.Bootstrap(context.Background(), cfg)

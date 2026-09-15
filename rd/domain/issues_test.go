@@ -312,3 +312,17 @@ func TestUnit_ValidIssueTypeState(t *testing.T) {
 	assert.Assert(t, !ValidIssueState("overridden"), "overridden 态已废除（09-12 裁决）")
 	assert.Assert(t, !ValidIssueState("closed"))
 }
+
+// TestUnit_OwnerRoleWithFallback owner 推导收口（C5-D2）：exec 能力归属角色优先，
+// 空=回落需求 owner。
+func TestUnit_OwnerRoleWithFallback(t *testing.T) {
+	if got := OwnerRoleWithFallback("rd", "pm"); got != "rd" {
+		t.Fatalf("exec 角色应优先: got %q", got)
+	}
+	if got := OwnerRoleWithFallback("", "pm"); got != "pm" {
+		t.Fatalf("空 exec 应回落需求 owner: got %q", got)
+	}
+	if got := OwnerRoleWithFallback("", ""); got != "" {
+		t.Fatalf("双空应返回空串（调用方跳过派发）: got %q", got)
+	}
+}

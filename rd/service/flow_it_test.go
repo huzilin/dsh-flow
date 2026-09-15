@@ -1,7 +1,7 @@
 // T4 涉库集成测试（AC）：三种 scope 实例化矩阵（full/rd/fe × business/tech/task/plan，
 // 被裁不占位）+ wb_my_task 三向校验全分支 + 依赖树（含环检测）。
 // env 门控与 scratch 库口径沿用 T2/T3：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——冒烟与测试禁写 wbflow 库。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——冒烟与测试禁写 wbflow 库。
 // 密码仅经 env 零落地。
 package service_test
 
@@ -173,7 +173,7 @@ func TestIntegration_MyTask_RealMySQL(t *testing.T) {
 	execSQL(t, handles, "UPDATE flow_nodes SET state = 'exec' WHERE node_id = 'n-03'")
 
 	// 三维全中：pm × n-03 × exec 拿首产配置（T9：exec 多配置按 rolled_back_count
-	// 选择——rbc=0 出 produce，返工集 revise 剔除；submit 未激活）
+	// 选择——rbc=0 出 produce，重入集 revise 剔除；submit 未激活）
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/my-task", map[string]any{"role": "pm"})
 	assert.Equal(t, resp.code, http.StatusOK)
 	node := item(t, resp, "node")

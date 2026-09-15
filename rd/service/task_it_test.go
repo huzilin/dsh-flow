@@ -3,7 +3,7 @@
 // 谎报 complete 判据拦截回 in-progress 且 missing 列出/未 ack complete 409/
 // 已终态再上报 no-op/乐观锁 409）+ my_task relatedTasks 摘要 + 写路径审计。
 // env 门控与 scratch 库口径沿用 T2/T3：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库。密码仅经 env 零落地。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库。密码仅经 env 零落地。
 package service_test
 
 import (

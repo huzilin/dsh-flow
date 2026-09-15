@@ -3,7 +3,7 @@
 // active 会话绑定（running 代理）等待 + 会话结束后续扫 + MySQL 断连降级退避不崩 +
 // 恢复后从账面状态续扫（无内存态依赖）+ sessions 绑定 status 迁移全分支与非法迁移
 // 拦截 + 写路径审计。env 门控与 scratch 库口径沿用 T2/T3：WBFLOW_MYSQL_IT=1 +
-// WBFLOW_MYSQL_* 注入，独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库。
+// WBFLOW_MYSQL_* 注入，独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库。
 // 密码仅经 env 零落地。
 package service_test
 
@@ -227,15 +227,15 @@ func TestIntegration_Scanner_Recovery_RealMySQL(t *testing.T) {
 }
 
 // TestIntegration_SessionBinding_RealMySQL sessions 绑定：status 迁移全分支 +
-// 非法迁移拦截 + 同态幂等 no-op + 审计 + persona 解析器占位 + 读端。
+// 非法迁移拦截 + 同态幂等 no-op + 审计 + 角色说明解析器占位 + 读端。
 func TestIntegration_SessionBinding_RealMySQL(t *testing.T) {
 	router, handles := openScratch(t)
 	_ = router
 	ctx := context.Background()
 	baseRepo := repo.NewRepo(handles.Gorm)
-	sessSvc := service.NewSessionService(baseRepo, &stubPersona{})
+	sessSvc := service.NewSessionService(baseRepo, &stubNoteResolver{})
 
-	// 1. 绑定：占位句柄 + persona 注入；status=active
+	// 1. 绑定：占位句柄 + 角色说明注入；status=active
 	session, err := sessSvc.Bind(ctx, service.SessionBindInput{
 		RequirementID: "req-it-s", NodeID: "n-03", RoleID: "rd",
 	})
@@ -243,7 +243,7 @@ func TestIntegration_SessionBinding_RealMySQL(t *testing.T) {
 	assert.Assert(t, session.SessionID != "")
 	assert.Equal(t, session.Status, "active")
 	assert.Assert(t, strings.Contains(session.DshRef, `"kind":"placeholder"`), "占位句柄: %s", session.DshRef)
-	assert.Assert(t, strings.Contains(session.DshRef, `"persona":"节点 persona rd"`), "persona 注入: %s", session.DshRef)
+	assert.Assert(t, strings.Contains(session.DshRef, `"note":"节点 rd 说明"`), "角色说明注入: %s", session.DshRef)
 
 	// 2. 非法迁移拦截：active→disposed 跳段（ErrInvalidTransition，HTTP 409 语义）
 	_, _, err = sessSvc.Dispose(ctx, session.SessionID)
@@ -283,10 +283,10 @@ func TestIntegration_SessionBinding_RealMySQL(t *testing.T) {
 	assert.Equal(t, countAudit(t, handles, "sessions", session.SessionID, "UPDATE"), int64(2))
 }
 
-// stubPersona persona 解析器占位桩（验证接口接线；真实数据源 T15+）。
-type stubPersona struct{}
+// stubNoteResolver 角色说明解析器占位桩（验证接口接线；真实数据源 T15+）。
+type stubNoteResolver struct{}
 
-// PersonaFor 返回确定性 persona 文本。
-func (p *stubPersona) PersonaFor(_ context.Context, _ string, _ string, roleID string) (string, error) {
-	return "节点 persona " + roleID, nil
+// NoteFor 返回确定性角色说明文本。
+func (p *stubNoteResolver) NoteFor(_ context.Context, _ string, _ string, roleID string) (string, error) {
+	return "节点 " + roleID + " 说明", nil
 }

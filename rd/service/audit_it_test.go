@@ -11,7 +11,7 @@
 // 身份留 issues.author/role_id，如扫描器=system——T11 归一口径维持）。
 //
 // env 门控与 scratch 库口径沿用 T2：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库，密码仅经 env 零落地。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库，密码仅经 env 零落地。
 //
 // 实例节点 id 与需求序对应（T4 取号规则，全局取号跨需求递增）：
 // 第 1 条需求 n-01..n-13、第 2 条 n-14..n-26（评审需求，bus-03=n-17）。
@@ -56,7 +56,7 @@ func openScratchAudit(t *testing.T) (*gin.Engine, *database.DB, string) {
 		MaxIdleConns:       5,
 		ConnMaxLifetimeSec: 3600,
 	}
-	cfg.DBName = fmt.Sprintf("wbflow_it_%d", time.Now().UnixNano())
+	cfg.DBName = fmt.Sprintf("wbflow_qa_it_%d", time.Now().UnixNano())
 	t.Logf("scratch 库: %s", cfg.DBName)
 
 	handles, err := migration.Bootstrap(context.Background(), cfg)

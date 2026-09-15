@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	gormio "gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -23,13 +22,16 @@ type TaskService struct {
 	repo *repo.Repo
 	// notifier 通知收敛写入口（T11：事务外派发，失败不阻断业务）
 	notifier *Notifier
+	// orch 编排会话（C1：complete 内嵌推进经 lock 中段接管——任务事务先锁任务行，
+	// 锁序不得换 run 的 flow 先锁，故锁编排基线而不接管事务生命周期）
+	orch *orchestrator
 	// adv 编排推进核（2026-09-09 拍板-B：complete 判据通过后的服务端内聚触发）
 	adv *AdvanceService
 }
 
 // NewTaskService 构造任务总线 service。
 func NewTaskService(r *repo.Repo) *TaskService {
-	return &TaskService{repo: r, notifier: NewNotifier(r), adv: NewAdvanceService(r)}
+	return &TaskService{repo: r, notifier: NewNotifier(r), orch: newOrchestrator(r), adv: NewAdvanceService(r)}
 }
 
 // Assign wb_assign_task：幂等派发——幂等键 requirement_id+node_id+action_id+
@@ -98,7 +100,7 @@ func (s *TaskService) Assign(ctx context.Context, req *api.AssignTaskReq) (*api.
 		return nil, gateBlocked("节点 %q 未进入编排（state 空），不可派发任务", node.NodeID)
 	}
 	if node.State == repo.PhaseDone {
-		return nil, gateBlocked("节点 %q 已完成离场（done），禁止挂载任务；如需返工请 rejected 打回重入", node.NodeID)
+		return nil, gateBlocked("节点 %q 已完成离场（done），禁止挂载任务；如需重做请 rejected 打回重入", node.NodeID)
 	}
 
 	// 激活清单按实例 scope 裁剪后定位动作（与 my_task 三向投影同函数口径）
@@ -372,10 +374,10 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 			now := repo.NowMillis()
 			if row.DispatchAt == nil {
 				updates["dispatch_at"] = now
-				audits = append(audits, taskUpdateAudit(row, "dispatchAt", "", formatMillis(now)))
+				audits = append(audits, taskUpdateAudit(row, "dispatchAt", "", utils.FormatMillis(now)))
 			}
 			updates["last_ack"] = now
-			audits = append(audits, taskUpdateAudit(row, "lastAck", "", formatMillis(now)))
+			audits = append(audits, taskUpdateAudit(row, "lastAck", "", utils.FormatMillis(now)))
 			if row.Status == repo.TaskStatusTodo {
 				updates["status"] = repo.TaskStatusInProgress
 				audits = append(audits, taskUpdateAudit(row, "status", row.Status, repo.TaskStatusInProgress))
@@ -417,7 +419,7 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 			updates["status"] = repo.TaskStatusCompleted
 			updates["done_at"] = now
 			audits = append(audits, taskUpdateAudit(row, "status", row.Status, repo.TaskStatusCompleted))
-			audits = append(audits, taskUpdateAudit(row, "doneAt", "", formatMillis(now)))
+			audits = append(audits, taskUpdateAudit(row, "doneAt", "", utils.FormatMillis(now)))
 			if row.TaskType == repo.TaskTypeRespond {
 				// T8 澄清循环接缝：owner respond 完成判据通过（open issue 清零）即
 				// review 重入新轮——同事务（flow_nodes 行锁）内推进，读写原子
@@ -457,18 +459,23 @@ func (s *TaskService) Update(ctx context.Context, req *api.TaskUpdateReq) (*api.
 			// 推进写丢失的中间态；推进的 blocked（判据未达/exec 未在当前相位/
 			// 并行组待对侧）不否定 complete 本身——吞掉 blocked（推进交由显式
 			// wb_advance 与 scanner 兜底巡检），其余错误（IO/乐观锁）整体回滚。
-			flow, flowErr := repo.GetFlowByRequirementIDLockTx(ctx, tx, row.RequirementID)
-			if flowErr != nil {
-				return flowErr
+			// 编排基线经会话中段接管（flows → flow_nodes 锁序与 run 同核）；
+			// flow 已不存在（需求删除竞态）→ 跳过推进，complete 本身有效。
+			sess, lockErr := s.orch.lock(ctx, tx, row.RequirementID)
+			if lockErr != nil {
+				if !errs.Is(lockErr, errs.ErrNotFound) {
+					return lockErr
+				}
+				sess = nil
 			}
-			if flow != nil {
-				nodes, nodesErr := repo.ListFlowNodesByRequirementLockTx(ctx, tx, row.RequirementID)
+			if sess != nil {
+				nodes, nodesErr := sess.nodes(ctx)
 				if nodesErr != nil {
 					return nodesErr
 				}
 				idx := flowNodeIndex(nodes, row.NodeID)
 				if idx >= 0 && nodes[idx].State == repo.PhaseExec {
-					if _, advErr := s.adv.advanceNodeLocked(ctx, tx, flow, nodes, row.NodeID, auditByWhoPlugin); advErr != nil {
+					if _, advErr := s.adv.advanceNodeLocked(ctx, sess, nodes, row.NodeID, auditByWhoPlugin); advErr != nil {
 						if !errs.Is(advErr, errs.ErrGateBlocked) {
 							return advErr
 						}
@@ -732,11 +739,6 @@ func taskUpdateAudit(row *repo.Task, field string, oldVal string, newVal string)
 		NewValue: utils.StrPtr(newVal),
 		ByWho:    row.RoleID,
 	}
-}
-
-// formatMillis 毫秒时间戳审计文本（audit_log old/new 值 TEXT 列字符串口径）。
-func formatMillis(v int64) string {
-	return strconv.FormatInt(v, 10)
 }
 
 // taskItem repo 行转 proto 契约出参（NULL 时间列 → 0=未落值）。

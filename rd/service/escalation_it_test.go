@@ -3,7 +3,7 @@
 // （注入小阈值）+ 通知位（issues notification 行）+ 非法路径 blocked 分支
 // （未 escalate 拉裁决 / 重复裁决 / 终态回填）。
 // env 门控与 scratch 库口径沿用 T2：WBFLOW_MYSQL_IT=1 + WBFLOW_MYSQL_* 注入，
-// 独立 scratch 库（wbflow_it_*）测后 DROP——禁写 wbflow 库，密码仅经 env 零落地。
+// 独立 scratch 库（wbflow_qa_it_*）测后 DROP——禁写 wbflow 库，密码仅经 env 零落地。
 //
 // 实例节点 id 与需求序对应（T4 取号规则）：第 k 条 business×full 需求节点 =
 // n-(13(k-1)+1)..n-13k ↔ bus-00..bus-12（bus-03 评审位 arch/rd/fe，user_gate=1）。

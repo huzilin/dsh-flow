@@ -144,12 +144,14 @@ func (s *IssueService) Comment(ctx context.Context, req *api.CommentReq) (*api.C
 	// 评审上下文（判定见 inReviewContext）的 issue 类评论必须锚产物——document 级
 	// 锚点未携带 anchorArtifactId 即 400 引导挂锚；notification/discussion 类不受限
 	// （内部通知不走此通道）。存量数据不回溯（新评论硬拦）。
-	if issueType == domain.IssueTypeIssue && anchorKind == domain.IssueAnchorDocument && anchorArtifactID == "" {
-		reviewCtx, ctxErr := inReviewContext(node, req.RoleId)
+	// 惰性求值：仅三项前置命中时才解析评审位（损坏 reviewers 数据不在无关路径
+	// 上扩大为错误），拦截判定单一真相在 ReviewAnchorGuardBlocked（C3 快照同源）
+	if ReviewAnchorGuardPre(issueType, anchorKind, anchorArtifactID) {
+		reviewCtx, ctxErr := InReviewContext(node, req.RoleId)
 		if ctxErr != nil {
 			return nil, errs.Trace(ctxErr)
 		}
-		if reviewCtx {
+		if ReviewAnchorGuardBlocked(issueType, anchorKind, anchorArtifactID, reviewCtx) {
 			return nil, invalidArg("评审上下文的 issue 评论必须锚定产物：请为 anchor 携带 artifactId（如被评审产物，document 级），或使用 range（划词）/ document（文档级）锚点")
 		}
 	}
@@ -198,7 +200,7 @@ func (s *IssueService) Comment(ctx context.Context, req *api.CommentReq) (*api.C
 // 角色（reviewer 主持，§6.8），非评审上下文（reviewer_role 空）回落 User 仲裁
 // （spec §2 澄清不收敛口径）；跳转=冲突 issue。
 func escalationSpec(row *repo.Issue) (NotificationSpec, bool) {
-	recipient := derefString(row.ReviewerRole)
+	recipient := utils.DerefStr(row.ReviewerRole)
 	if recipient == "" {
 		recipient = auditByWhoUser
 	}
@@ -548,8 +550,8 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 		view := domain.IssueView{
 			State:        row.State,
 			Author:       row.Author,
-			ReviewerRole: derefString(row.ReviewerRole),
-			Assignee:     derefString(row.Assignee),
+			ReviewerRole: utils.DerefStr(row.ReviewerRole),
+			Assignee:     utils.DerefStr(row.Assignee),
 		}
 		if err := domain.ValidateIssueActor(in.action, in.actorRole, view); err != nil {
 			return err
@@ -683,7 +685,7 @@ func (s *IssueService) transitionIssue(ctx context.Context, in transitionInput) 
 // （issues.reviewer_role）；非评审评论（reviewer_role 空）返回 false 不派发——
 // 修复闭环仅评审链路语义。
 func retestSpec(row *repo.Issue) (NotificationSpec, bool) {
-	recipient := derefString(row.ReviewerRole)
+	recipient := utils.DerefStr(row.ReviewerRole)
 	if recipient == "" {
 		return NotificationSpec{}, false
 	}
@@ -697,12 +699,12 @@ func retestSpec(row *repo.Issue) (NotificationSpec, bool) {
 	}, true
 }
 
-// inReviewContext 评审上下文判定（BUG-013 锚产物强制前置条件）：节点相位处于
+// InReviewContext 评审上下文判定（BUG-013 锚产物强制前置条件）：节点相位处于
 // review/respond（评审表态与 owner 响应均为评审对话期），或 author 角色出现在
 // 节点评审位声明（评审者身份——未激活节点上的评论同样受约束）。
 //
 // 错误集：reviewers JSON 非法（实例数据损坏）。
-func inReviewContext(node *repo.FlowNode, roleID string) (bool, error) {
+func InReviewContext(node *repo.FlowNode, roleID string) (bool, error) {
 	if node.State == repo.PhaseReview || node.State == repo.PhaseRespond {
 		return true, nil
 	}
@@ -716,6 +718,22 @@ func inReviewContext(node *repo.FlowNode, roleID string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// ReviewAnchorGuardPre 评审上下文锚产物强制的前置三项（issue 类 + document 级 +
+// 未携带产物）。命中时调用方才解析评审位求值 reviewCtx（惰性边界）。
+// 导出（C3 契约快照消费），判定逻辑不变。
+func ReviewAnchorGuardPre(issueType string, anchorKind string, anchorArtifactID string) bool {
+	return issueType == domain.IssueTypeIssue &&
+		anchorKind == domain.IssueAnchorDocument &&
+		anchorArtifactID == ""
+}
+
+// ReviewAnchorGuardBlocked 评审上下文锚产物强制判定（BUG-013「所有的评审都是挂在
+// 文档上的」）：issue 类评论 + document 级锚 + 未挂产物 + 评审对话期 = 拦截。
+// 导出（C3 契约快照消费：rd/contract 真值表单一真相源）。
+func ReviewAnchorGuardBlocked(issueType string, anchorKind string, anchorArtifactID string, reviewCtx bool) bool {
+	return ReviewAnchorGuardPre(issueType, anchorKind, anchorArtifactID) && reviewCtx
 }
 
 // issueAudit issue UPDATE 审计行装配（field 级留痕，old/new 文本化）。
@@ -785,34 +803,26 @@ func issueItem(row *repo.Issue) *api.IssueItem {
 		RoundCount:               row.RoundCount,
 		CreatedAt:                row.CreatedAt,
 		IssueType:                row.IssueType,
-		ReviewerRole:             derefString(row.ReviewerRole),
-		Assignee:                 derefString(row.Assignee),
-		AnchorArtifactId:         derefString(row.AnchorArtifactID),
+		ReviewerRole:             utils.DerefStr(row.ReviewerRole),
+		Assignee:                 utils.DerefStr(row.Assignee),
+		AnchorArtifactId:         utils.DerefStr(row.AnchorArtifactID),
 		AnchorLine:               derefInt64(row.AnchorLine),
 		AnchorStartLine:          derefInt64(row.AnchorStartLine),
 		AnchorEndLine:            derefInt64(row.AnchorEndLine),
 		AnchorBlockStart:         derefInt64(row.AnchorBlockStart),
 		AnchorBlockEnd:           derefInt64(row.AnchorBlockEnd),
-		AnchorLang:               derefString(row.AnchorLang),
+		AnchorLang:               utils.DerefStr(row.AnchorLang),
 		Replies:                  row.Replies,
 		LastReplyAt:              derefInt64(row.LastReplyAt),
-		ResolvePath:              derefString(row.ResolvePath),
-		ResolveBy:                derefString(row.ResolveBy),
+		ResolvePath:              utils.DerefStr(row.ResolvePath),
+		ResolveBy:                utils.DerefStr(row.ResolveBy),
 		ResolveAt:                derefInt64(row.ResolveAt),
-		ResolveNote:              derefString(row.ResolveNote),
+		ResolveNote:              utils.DerefStr(row.ResolveNote),
 		ResolveReviewerConfirmed: row.ResolveReviewerConfirmed,
-		ResolvedBy:               derefString(row.ResolvedBy),
+		ResolvedBy:               utils.DerefStr(row.ResolvedBy),
 		ResolvedAt:               derefInt64(row.ResolvedAt),
 		UpdatedAt:                row.UpdatedAt,
 	}
-}
-
-// derefString 指针字符串零值收敛（nil → 空串，NULL 列出参口径）。
-func derefString(v *string) string {
-	if v == nil {
-		return ""
-	}
-	return *v
 }
 
 // derefInt64 指针整数零值收敛（nil → 0，NULL 列出参口径）。

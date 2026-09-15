@@ -10,7 +10,8 @@ import {
 import { INBOX_POLL_INTERVAL_MS, useInboxQuery } from "../hooks/queries";
 import { AlertBanner } from "../components/AlertBanner";
 import { Pagination } from "../components/Pagination";
-import { formatTime } from "./RequirementPoolPage";
+import { formatTime } from "../lib/time";
+import { projectTodoGroups } from "../domain/inboxview";
 
 /**
  * 收件箱页（模块 III/IV，T16 + spec -D5）：七类通知列表 + TODO 五分类投影 + 全局冲突入口。
@@ -63,14 +64,6 @@ export function inboxItemLink(item: InboxItem): string | null {
  * stall_followup/need_intervene/session_message 为提醒类，不产生 TODO。
  * 口径注记：投影基于当前筛选+分页返回的通知列表（后端无跨页聚合端点，计数随筛选联动）。
  */
-const TODO_GROUPS: Array<{ key: string; label: string; match: (n: InboxItem) => boolean }> = [
-  { key: "gate", label: "待拍板", match: (n) => n.kind === "gate_pending" },
-  { key: "clarify", label: "待澄清", match: (n) => n.kind === "clarify_task" },
-  { key: "re-state", label: "待重表态", match: (n) => n.kind === "re_review" && n.targetId === "" },
-  { key: "retest", label: "待复验", match: (n) => n.kind === "re_review" && n.targetId !== "" },
-  { key: "conflict", label: "冲突待裁决", match: (n) => n.kind === "escalation" },
-];
-
 const READ_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "全部" },
   { value: "unread", label: "未读" },
@@ -281,7 +274,7 @@ function ConflictEntry({ items }: { items: InboxItem[] }) {
  * 顶部 dock 条常驻（原型 P11：未完成数=五分类条数之和），组空不渲染小节。
  */
 function TodoSection({ notifications }: { notifications: InboxItem[] }) {
-  const groups = TODO_GROUPS.map((g) => ({ ...g, items: notifications.filter(g.match) }));
+  const groups = projectTodoGroups(notifications);
   const undone = groups.reduce((sum, g) => sum + g.items.length, 0);
   return (
     <section className="todo-section" aria-label="TODO 投影">

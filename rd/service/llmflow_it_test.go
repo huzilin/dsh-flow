@@ -163,7 +163,7 @@ func TestIntegration_LLMFlow_Review_RealMySQL(t *testing.T) {
 	if os.Getenv("WBFLOW_MYSQL_IT") == "" {
 		t.Skip("真实 MySQL 集成：设 WBFLOW_MYSQL_IT=1 且注入 WBFLOW_MYSQL_PASSWORD 后运行")
 	}
-	fake := &llm.FakeClient{ChatText: `{"pass":false,"findings":[{"desc":"第二行目标描述不明确","startLine":2,"endLine":2},{"desc":"全文缺少验收标准"}]}`}
+	fake := &llm.FakeClient{ChatText: `{"findings":[{"desc":"第二行目标描述不明确","startLine":2,"endLine":2},{"desc":"全文缺少验收标准"}]}`}
 	router, handles, docsRoot, flowSvc := llmFlowEnv(t, fake)
 	ctx := context.Background()
 
