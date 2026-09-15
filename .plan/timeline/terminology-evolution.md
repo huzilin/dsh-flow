@@ -117,7 +117,7 @@
 
 | 代际词 | 建议检查范围（rg 命令骨架） | 已知热点（本次 grep 实测） |
 |---|---|---|
-| `rework`（废相位/动作，09-05 20:44） | `rg -nw 'rework' --type-add 'all:*.{md,go,ts,tsx,sql,proto,vue}' -t all`（排除 `rework-return` 现行预留值） | 🔥 rd/service/reject_it_test.go；docs-tmp/data-tools-final.md；✅ rd/domain/reentry.go+rd/migration/sql/0001_schema.sql+docs/api/v1/api.proto（均为 rework-return）；✅ cm §8/时间线留痕 |
+| `rework`（废相位/动作，09-05 20:44） | `rg -nw 'rework' --type-add 'all:*.{md,go,ts,tsx,sql,proto,vue}' -t all`（排除 `rework-return` 现行预留值） | ✅ rd/service/reject_it_test.go（2026-09-13 分支夹具改 feat/rd-fix，见 retired-terms-audit §6）；✅ .archive docs-tmp/data-tools-final.md（归档区豁免）；✅ rd/domain/reentry.go+rd/migration/sql/0001_schema.sql+docs/api/v1/api.proto（均为 rework-return）；✅ cm §8/时间线留痕 |
 | `re-entry` / `re-exec` | `rg -n 're-entry\|re-entry\b'` 与 `rg -nw 're-exec'` | 🔥 docs/agent-subagent-plugin.md（re-exec）；🔥 .plan/capability-chain-finalize/tickets/03、map.md；✅ cm §8 留痕；✅ timeline/* |
 | `after-exec` | `rg -n 'after-exec\|after exec'` | ✅ cm §8/CR-05 留痕；🔥 .plan/capability-chain-finalize/tickets/03 |
 | `respond_to_cr` / `respond_to_qa` | `rg -n 'respond_to_(cr\|qa)'` | 🔥 .plan/capability-chain-finalize/tickets/01/03/05/09、map.md；✅ ca/cm §8 留痕、ctx Avoid 行 |

@@ -338,7 +338,7 @@ type Session struct {
 	RequirementID string `gorm:"column:requirement_id;index:idx_sessions_req;size:32;notNull;default:''" json:"requirementId"`
 	// NodeID 关联节点；空串=无
 	NodeID string `gorm:"column:node_id;index:idx_sessions_node;size:32;notNull;default:''" json:"nodeId"`
-	// RoleID 绑定角色（persona 按节点配置传入）
+	// RoleID 绑定角色（角色说明按节点配置传入）
 	RoleID string `gorm:"column:role_id;size:32;notNull" json:"roleId"`
 	// DshRef DSH 会话句柄
 	DshRef string `gorm:"column:dsh_ref;type:TEXT;notNull" json:"dshRef"`
@@ -473,9 +473,9 @@ type Outbox struct {
 	SenderRole string `gorm:"column:sender_role;size:32;notNull;default:'plugin'" json:"senderRole"`
 	// Text 通知文案
 	Text string `gorm:"column:text;type:TEXT;notNull" json:"text"`
-	// Status pending/sending/sent/failed/dead
+	// Status pending/sending/sent/failed（failed 无限补投无放弃态——0004 口径）
 	Status string `gorm:"column:status;index:idx_outbox_status;size:16;notNull;default:'pending'" json:"status"`
-	// RetryCount 补投次数；上限 5
+	// RetryCount 补投次数（观测）；无上限
 	RetryCount int64 `gorm:"column:retry_count;notNull;default:0" json:"retryCount"`
 	// LastError 最近一次推送失败原因；NULL=无失败
 	LastError *string `gorm:"column:last_error;type:TEXT" json:"lastError"`

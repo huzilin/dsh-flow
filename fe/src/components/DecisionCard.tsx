@@ -11,7 +11,7 @@ import {
 import { REVIEW_STATE_LABELS, WEB_USER_ROLE } from "../api/constants";
 import { useDecisionMutation } from "../hooks/queries";
 import { ApiError } from "../api/client";
-import { formatTime } from "../pages/RequirementPoolPage";
+import { formatTime } from "../lib/time";
 import { AlertBanner } from "./AlertBanner";
 
 /**
@@ -159,7 +159,7 @@ function DecisionResult({
       <span className="muted">{formatTime(String(decision.at))}</span>
       {decision.verdict === "rejected" && (
         <div role="status" className="info-banner">
-          {rejectedReentryHint(node)}（打回走 T9 重入语义：revise/revive 由 exec 相位承接）
+          {rejectedReentryHint(node)}（打回走 T9 重入语义：revise/diagnosing-bugs/retest 由 exec 相位承接）
         </div>
       )}
     </div>

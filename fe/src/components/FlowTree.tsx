@@ -15,7 +15,7 @@ import { Badge, ScopeBadge } from "./Badges";
  * 横排；RD∥FE 并行开发组上下双泳道（rd 上泳道蓝 / fe 下泳道绿 + 泳道标签），主链↔
  * 组之间折线分叉/汇聚（一版组级连线语义：一分叉多、多汇聚一；组间 1:1），组内只连
  * 同泳道行（跨分支不拉线）。并行组判定沿用 buildFlowRows 相邻 exec-CR 对（fe 快照
- * 无 parallel_group 字段，口径见 flowview 注）；rd-only/fe-only/单流程无并行对时
+ * 无 parallel_group 字段，口径见 flowview 注）；scope=rd / scope=fe / 单流程无并行对时
  * 退化为单泳道（全部节点同一中线）。
  * 保留现行功能：scope 渲染集合（被裁节点后端不返回，天然不渲染不占位）、节点点击
  * 进详情（键盘可达）、门禁结论点色（含 done=绿）、当前节点章、选中描边。

@@ -613,7 +613,7 @@ type FlowNodeItem struct {
 	NodeOrder int64 `protobuf:"varint,3,opt,name=node_order,json=nodeOrder,proto3" json:"node_order,omitempty"`
 	// node_key 节点名
 	NodeKey string `protobuf:"bytes,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
-	// state 可配相位：""=未进入编排 / entry / exec / review / respond
+	// state 可配相位：""=未进入编排 / entry / exec / review / respond / done
 	State string `protobuf:"bytes,5,opt,name=state,proto3" json:"state,omitempty"`
 	// review_results 评审轮结果 JSON 文本（TEXT 列同构）
 	ReviewResults string `protobuf:"bytes,6,opt,name=review_results,json=reviewResults,proto3" json:"review_results,omitempty"`
@@ -943,7 +943,8 @@ type IssueItem struct {
 	Replies string `protobuf:"bytes,22,opt,name=replies,proto3" json:"replies,omitempty"`
 	// last_reply_at 最近回复时间，unix 毫秒；0=无回复
 	LastReplyAt int64 `protobuf:"varint,23,opt,name=last_reply_at,json=lastReplyAt,proto3" json:"last_reply_at,omitempty"`
-	// resolve_path resolve 路径：fix=修复关闭 / agree=协商一致关闭；空=未解决
+	// resolve_path resolve 路径：fix=修复关闭 / agree=协商一致关闭 / override=仲裁推翻
+	// （09-12 裁决 overridden 态废除，override 动作置 resolved）；空=未解决
 	ResolvePath string `protobuf:"bytes,24,opt,name=resolve_path,json=resolvePath,proto3" json:"resolve_path,omitempty"`
 	// resolve_by resolve 责任人；空=未解决
 	ResolveBy string `protobuf:"bytes,25,opt,name=resolve_by,json=resolveBy,proto3" json:"resolve_by,omitempty"`
@@ -1498,7 +1499,8 @@ func (x *CommentResp) GetIssue() *IssueItem {
 }
 
 // ReplyReq POST /api/comments/:commentId/clarified（wb_clarified）/ declare-fixed
-// （wb_declare_fixed）共用入参（NAM-09 拆分，路由名承载调用方意图）。
+// （wb_declare_fixed）共用入参（NAM-09 拆分，路由名承载调用方意图，服务端不校验
+// from-state）。
 // replies 不可变追加（只增不改）；open→pending-confirm / to-fix→fixed 由状态机判定，
 // 非法迁移 409。
 type ReplyReq struct {
@@ -1647,14 +1649,15 @@ func (x *ReplyResp) GetIssue() *IssueItem {
 }
 
 // ResolveReq POST /api/comments/:commentId/settle（wb_settle）/ qualify（wb_qualify）
-// 共用入参（NAM-09 拆分，path 参数取消、由路由入口固定注入）。
-// 操作者须=assignee（arch_design 缺陷闭环口径）；path=fix 修复路径（open/pending-confirm
-// 定性 to-fix，to-fix/fixed 修复关闭申报）；path=agree 协商一致关闭（直落 resolved）。
+// 共用入参（NAM-09 拆分，path 参数取消、路由名承载语义）。
+// 操作者须=assignee（arch_design 缺陷闭环口径）；qualify=定性（open/pending-confirm
+// →to-fix，to-fix/fixed 修复关闭申报重申报幂等）；settle=协商一致关闭（直落 resolved）。
 type ResolveReq struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// comment_id 评论业务 id（commentId 取路径）
 	CommentId string `protobuf:"bytes,1,opt,name=comment_id,json=commentId,proto3" json:"comment_id,omitempty"`
-	// path 解决路径：fix | agree（必填）
+	// path 兼容保留字段：NAM-09 后由路由入口固定注入（settle=agree、qualify=fix），
+	// 入参不再消费
 	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	// operator 操作者角色（必填，须=assignee）
 	Operator string `protobuf:"bytes,3,opt,name=operator,proto3" json:"operator,omitempty"`
@@ -1786,7 +1789,8 @@ func (x *ResolveResp) GetIssue() *IssueItem {
 	return nil
 }
 
-// ConfirmReviewReq POST /api/comments/:commentId/confirm 入参（wb_confirm；NAM-09 改名）。
+// ConfirmReviewReq POST /api/comments/:commentId/confirm 入参（wb_confirm；NAM-09
+// 改名，原词面 confirm_review）。
 // 提评者复核确认：pending-confirm/fixed→resolved，落 resolve_reviewer_confirmed=1 +
 // resolved_by/at。操作者须=提评者（reviewer_role 优先，缺省 author）。
 type ConfirmReviewReq struct {
@@ -1900,8 +1904,9 @@ func (x *ConfirmReviewResp) GetIssue() *IssueItem {
 
 // ReopenReq POST /api/comments/:commentId/reopen（wb_reopen）/ revise（wb_revise）
 // 共用入参（NAM-09 拆分）。
-// 澄清 reopen：pending-confirm→open；修复 revise：fixed→to-fix；均 loop_count++。
-// text 非空时以 reopen 理由追加 replies（不可变追加，裁决回填同通道）。
+// reopen：复核退回·未解释清楚（pending-confirm→open）；revise：修复侧复核退回
+// （fixed→to-fix）；均 loop_count++。
+// text 非空时以退回理由追加 replies（不可变追加，裁决回填同通道）。
 type ReopenReq struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// comment_id 评论业务 id（commentId 取路径）
@@ -4182,7 +4187,7 @@ type MyTaskNode struct {
 	State string `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
 	// reviewers 实例评审位声明 JSON 文本（scope 过滤后静态声明）
 	Reviewers string `protobuf:"bytes,5,opt,name=reviewers,proto3" json:"reviewers,omitempty"`
-	// rolled_back_count 回退计数：0=首次（exec 首产配置），≥1=重入（exec 返工配置
+	// rolled_back_count 回退计数：0=首次（exec 首产配置），≥1=重入（exec 重入配置
 	// revise/diagnosing-bugs/retest——activeActions 已按本计数选择，T9）
 	RolledBackCount int64 `protobuf:"varint,6,opt,name=rolled_back_count,json=rolledBackCount,proto3" json:"rolled_back_count,omitempty"`
 	// reopen_source 重开来源：""/upstream-reject/downstream-reject/rework-return；
@@ -6159,7 +6164,7 @@ type AdvanceResp struct {
 	RequirementId string `protobuf:"bytes,2,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
 	// node_id 实例节点 id（回显）
 	NodeId string `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
-	// node_state 推进后该节点相位（""/entry/exec/review/respond）
+	// node_state 推进后该节点相位（""/entry/exec/review/respond/done）
 	NodeState string `protobuf:"bytes,4,opt,name=node_state,json=nodeState,proto3" json:"node_state,omitempty"`
 	// current_node_id 推进后 flows.current_node_id（空=未进入编排）
 	CurrentNodeId string `protobuf:"bytes,5,opt,name=current_node_id,json=currentNodeId,proto3" json:"current_node_id,omitempty"`

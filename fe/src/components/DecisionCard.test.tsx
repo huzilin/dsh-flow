@@ -164,7 +164,7 @@ describe("DecisionCard 三态", () => {
     expect(screen.queryByText(/已打回/)).toBeNull();
   });
 
-  it("态三 已裁决 rejected：重入提示按快照相位切换（review=等待重入 / exec=返工执行中）", () => {
+  it("态三 已裁决 rejected：重入提示按快照相位切换（review=等待重入 / exec=重入执行中）", () => {
     const lastDecision = '{"verdict":"rejected","reason":"范围未定","at":1730000010000}';
     const { rerender } = renderCard(mkGateNode({ state: "review", lastDecision }));
     expect(screen.getByText("已拍板打回")).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe("DecisionCard 三态", () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    expect(screen.getByText(/已打回重入：exec 返工执行中/)).toBeInTheDocument();
+    expect(screen.getByText(/已打回重入：exec 重入执行中/)).toBeInTheDocument();
   });
 });
 

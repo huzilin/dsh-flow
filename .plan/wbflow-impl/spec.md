@@ -217,7 +217,7 @@ CREATE TABLE sessions (
   session_id     VARCHAR(64) NOT NULL COMMENT '会话业务 id',
   requirement_id VARCHAR(32) NOT NULL DEFAULT '' COMMENT '关联需求；空串=无',
   node_id        VARCHAR(32) NOT NULL DEFAULT '' COMMENT '关联节点；空串=无',
-  role_id        VARCHAR(32) NOT NULL COMMENT '绑定角色（persona 按节点配置传入）',
+  role_id        VARCHAR(32) NOT NULL COMMENT '绑定角色（角色说明按节点配置传入）',
   dsh_ref        TEXT        NOT NULL COMMENT 'DSH 会话句柄',
   status         VARCHAR(12) NOT NULL DEFAULT 'active' COMMENT 'active/ended/disposed',
   created_at     BIGINT      NOT NULL COMMENT '创建时间，unix 毫秒',

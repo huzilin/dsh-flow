@@ -144,7 +144,7 @@ func TestUnit_StripFences(t *testing.T) {
 	}{
 		{`{"a":1}`, `{"a":1}`},
 		{"```json\n{\"a\":1}\n```", `{"a":1}`},
-		{"评审结论如下：\n{\"pass\":true,\"note\":\"结论\"}\n以上。", `{"pass":true,"note":"结论"}`},
+		{"评审结论如下：\n{\"agree\":true,\"note\":\"结论\"}\n以上。", `{"agree":true,"note":"结论"}`},
 		{"无 JSON 文本", "无 JSON 文本"},
 	}
 	for _, c := range cases {
@@ -190,7 +190,7 @@ func TestUnit_ParseReviewFindings_Degradations(t *testing.T) {
 		t.Fatalf("字符串形状应回退单条: %+v", ParseReviewFindings(`{"findings":"整体偏长"}`))
 	}
 	// null/空/缺失归空数组
-	for _, raw := range []string{`{"pass":true,"findings":null}`, `{"pass":true}`, ""} {
+	for _, raw := range []string{`{"agree":true,"findings":null}`, `{"agree":true}`, ""} {
 		if fs := ParseReviewFindings(raw); len(fs) != 0 {
 			t.Fatalf("%q 应归空数组: %+v", raw, fs)
 		}

@@ -8,8 +8,8 @@ import (
 	"github.com/huzilin/wbflow/rd/repo"
 )
 
-// TestUnit_FilterExecActionsByReentry exec 首产/返工配置选择表驱动（capability-model
-// §5.1：0=首产 produce/dev/accept，≥1=返工 revise/diagnosing-bugs/retest；
+// TestUnit_FilterExecActionsByReentry exec 首产/重入配置选择表驱动（capability-model
+// §5.1：0=首产 produce/dev/accept，≥1=重入 revise/diagnosing-bugs/retest；
 // 集合外动作如 submit 恒保留）。
 func TestUnit_FilterExecActionsByReentry(t *testing.T) {
 	actions := []ActiveAction{

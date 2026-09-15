@@ -1,7 +1,7 @@
 // service 包本文件：会话绑定 service（T10）——flow↔session 绑定 CRUD 与 status
 // 生命周期（spec §0 表 #10 sessions）。DSH 嵌入适配器 out of scope（spec「Out of
-// Scope」），dsh_ref 以句柄占位承载；persona 按节点配置传入以解析器接口占位，
-// 真实接线与验收在 T15+。路由表（spec §1.2）无 session 端点：本期为 service 层
+// Scope」），dsh_ref 以句柄占位承载；角色说明（note）按节点配置传入以解析器接口
+// 占位，真实接线与验收在 T15+。路由表（spec §1.2）无 session 端点：本期为 service 层
 // 能力（扫描器与后续 plugin 泛用拉起接口消费），不出 HTTP。
 package service
 
@@ -24,24 +24,24 @@ const (
 	auditByWhoSystem      = "system"
 )
 
-// PersonaResolver persona 按节点配置解析接口（capability-model-final：subagent
-// persona 按节点配置传入）。本期占位：无实现注册时按无 persona 处理；真实数据源
-// （节点配置侧）与验收在 T15+ 接线。
-type PersonaResolver interface {
-	// PersonaFor 返回该需求该节点该角色的 persona 配置文本；未配置返回 ("", nil)。
-	PersonaFor(ctx context.Context, requirementID string, nodeID string, roleID string) (string, error)
+// RoleNoteResolver 角色说明（note）按节点配置解析接口（capability-model-final：
+// subagent 角色说明按节点配置传入；「persona」为已退役旧名，08-18 拍板改称说明/注释）。
+// 本期占位：无实现注册时按空说明处理；真实数据源（节点配置侧）与验收在 T15+ 接线。
+type RoleNoteResolver interface {
+	// NoteFor 返回该需求该节点该角色的角色说明文本；未配置返回 ("", nil)。
+	NoteFor(ctx context.Context, requirementID string, nodeID string, roleID string) (string, error)
 }
 
-// SessionService 会话绑定 service（绑定 CRUD + status 生命周期 + persona 占位）。
+// SessionService 会话绑定 service（绑定 CRUD + status 生命周期 + 角色说明占位）。
 type SessionService struct {
 	repo     *repo.Repo
-	persona  PersonaResolver
+	noteRes  RoleNoteResolver
 	endByWho string
 }
 
-// NewSessionService 构造会话绑定 service（resolver 可为 nil=无 persona 占位）。
-func NewSessionService(r *repo.Repo, resolver PersonaResolver) *SessionService {
-	return &SessionService{repo: r, persona: resolver, endByWho: auditByWhoSystem}
+// NewSessionService 构造会话绑定 service（resolver 可为 nil=无角色说明占位）。
+func NewSessionService(r *repo.Repo, resolver RoleNoteResolver) *SessionService {
+	return &SessionService{repo: r, noteRes: resolver, endByWho: auditByWhoSystem}
 }
 
 // SessionBindInput 绑定入参。
@@ -50,7 +50,7 @@ type SessionBindInput struct {
 	RequirementID string
 	// NodeID 关联节点；空串=无
 	NodeID string
-	// RoleID 绑定角色（persona 按节点配置传入的归属角色，必填）
+	// RoleID 绑定角色（角色说明按节点配置传入的归属角色，必填）
 	RoleID string
 	// DshRef DSH 会话句柄；空串=占位句柄（本期无真实 DSH，落 placeholder JSON）
 	DshRef string
@@ -59,8 +59,8 @@ type SessionBindInput struct {
 }
 
 // Bind 建立会话绑定：session_id 事务内取号（s-<ts>）+ INSERT（status=active）+
-// 审计。dsh_ref 空串时落占位句柄 JSON（{"kind":"placeholder","persona":…}，
-// persona 经 PersonaResolver 按节点配置解析——真实接线 T15+，本期默认空）。
+// 审计。dsh_ref 空串时落占位句柄 JSON（{"kind":"placeholder","note":…}，
+// note 经 RoleNoteResolver 按节点配置解析——真实接线 T15+，本期默认空）。
 // 同任务键重复绑定不去重（多轮会话各占一行，按 session_id 区分；active 代理判据
 // 取最早一行，口径见 repo.FindActiveSessionByTaskKey）。
 //
@@ -78,15 +78,15 @@ func (s *SessionService) Bind(ctx context.Context, in SessionBindInput) (*repo.S
 	}
 	dshRef := in.DshRef
 	if dshRef == "" {
-		persona := ""
-		if s.persona != nil {
-			text, err := s.persona.PersonaFor(ctx, in.RequirementID, in.NodeID, in.RoleID)
+		note := ""
+		if s.noteRes != nil {
+			text, err := s.noteRes.NoteFor(ctx, in.RequirementID, in.NodeID, in.RoleID)
 			if err != nil {
 				return nil, errs.Trace(err)
 			}
-			persona = text
+			note = text
 		}
-		dshRef = placeholderDshRef(persona)
+		dshRef = placeholderDshRef(note)
 	}
 	row := &repo.Session{
 		RequirementID: in.RequirementID,
@@ -212,7 +212,7 @@ func (s *SessionService) transition(ctx context.Context, sessionID string, to st
 }
 
 // placeholderDshRef 占位句柄装配（本期无真实 DSH）：{"kind":"placeholder",
-// "persona":"<按节点配置解析>"}；真实 DSH 句柄接入后由嵌入适配器替换（T15+）。
-func placeholderDshRef(persona string) string {
-	return fmt.Sprintf(`{"kind":"placeholder","persona":%q}`, persona)
+// "note":"<按节点配置解析>"}；真实 DSH 句柄接入后由嵌入适配器替换（T15+）。
+func placeholderDshRef(note string) string {
+	return fmt.Sprintf(`{"kind":"placeholder","note":%q}`, note)
 }

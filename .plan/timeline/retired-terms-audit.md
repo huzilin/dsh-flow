@@ -94,8 +94,8 @@
 - schema.sql L173（节点态 未开始/进行中/待评审/已通过）、L273（overridden）、L70（capabilities.how 列）、seed.json/seed.sql（19 旧能力全量：final-approve/decide-cap/plan-cap/alignment-cap/case-design-cap/*-tech-review、pass/reject how、scope be/fe-only）、demo-data.md（block 锚示例、overridden 注释）。建议：目录头加「仅历史参考，现行 seed=rd/migration/sql」横幅或整体迁 .archive（该目录曾于 09-09 被反向更新过 template_path/评审 how，归属信号混乱，宜一次性定性）。
 
 **D6：杂项**
-- `qa/qa_diag_min.py` L222：wb_resolve 传 `path:"clarify"`（非法值，响应弃置）——旧接口残留探测行，删或改 fix。
-- `model.go` L453-455 Outbox 注释「retry 耗尽置 dead 终态」「上限 5」与 0004/CONTEXT「无限补投无 dead」矛盾（注释漂移，非退役词，顺带登记）。
+- `qa/qa_diag_min.py` L222：wb_resolve 传 `path:"clarify"`（非法值，响应弃置）——旧接口残留探测行，删或改 fix。（2026-09-13 复核：已清）
+- `model.go` L453-455 Outbox 注释「retry 耗尽置 dead 终态」「上限 5」与 0004/CONTEXT「无限补投无 dead」矛盾（注释漂移，非退役词，顺带登记）。（2026-09-13 已修：456 行此前已对齐，本轮补齐 476 Status 枚举去 dead、478「补投次数（观测）；无上限」，见 §6）
 
 ## 4. 直读新发现（grep 黑名单拿不到的部分）
 
@@ -113,3 +113,28 @@
 ## 5. C 类（零引用确认）
 
 `collecting`、`barrier`（现行面零引用，仅 timeline/CONTEXT _Avoid_ 自指）；`respond_to_qa`、`respond_to_cr`、`align.closing`、`case_design`（现行实现/DDL/FE 全零，仅声明语境）；`pass`/`block` 作表态值与裁决值（rd/fe 代码零残留，统一 approved/rejected）；`processed`（实现零引用）。废弃成立，保持归档即可。
+
+## 6. 2026-09-13 代码面复扫销号（历史版本文档归档后复查）
+
+以 terminology-evolution.md B 节 23 个 grep 模式 + 本台账对现行代码面（rd Go / fe TS / qa py / api.proto / migration SQL）全量复扫。结论：D 类返工项全部落地（D1 overridden 零残留仅留痕注释、D3 锚点行为合规、D4 templatePath 已删、D5 workbench-sql 已挂冻结横幅、D6-1 已清）；复扫新发现 4 处残留，当日修复：
+
+1. **D6-2 收尾**：`rd/repo/model.go` L476 Status 枚举注释仍列 `dead`、L478 RetryCount「上限 5」——已按 0004 口径改「pending/sending/sent/failed（failed 无限补投无放弃态）」「补投次数（观测）；无上限」。
+2. **锚点注释/测例滞后（新发现）**：`fe/src/domain/flowview.ts` L175 注释与 `flowview.test.ts` L426 测例仍枚举「line/range/block」、测例以 `anchorKind:"line"` 为入参——已收敛 range 并注记 line/block 400 废弃（注记-L3）。
+3. **scope 代号回潮（新发现）**：09-12 FE 交互返工新引入注释/测例标题用退役代号「fe-only/rd-only」（`RequirementDetailPage.tsx:121`、`api/constants.ts:220`、`FlowTree.tsx:18`、`flowview.test.ts:286`、`FlowTree.test.tsx:248` 共 5 处）——已改「scope=full/fe/rd」口径。保留：`qa_drive.py:781` `be-only` 为负探针（断言 400 拒绝退役值）；`document/line/range/block` 四级枚举注释为 D3 存量兼容契约保留面。
+4. **测试夹具分支名（B 表 🔥 销号）**：`rd/service/reject_it_test.go:286/289`「feat/rd-rework」——已改「feat/rd-fix」，terminology-evolution.md B 表 rework 行同步置 ✅。
+
+闸门：gofmt/vet/build 过；rd repo/domain 单测过；TestIntegration_RejectRollbackLoop_RealMySQL 真库过；fe tsc -b 零错、vitest 173/173。误杀排除记录：decide-cap（收缩存活=现行）、/api/inbox（通知通道=现行）、flowview `reviewed` 字段（被评审产物集合，同形异义）、advance.go「澄清中」（现行 clarify 环节口语）、「老模型已通过」类对照注释（B 档）。
+
+## 7. 2026-09-13 全量直读复核（7 分片逐行判读，grep 仅终验）
+
+按「排查直读方法论」以 7 个并行读者分片直读现行代码面（rd service 主文件 8283 行 / service 测试 6025 行 / domain+repo 5468 行 / llm+handler+migration+e2e+configs 4331 行 / fe components 4739 行 / fe pages+hooks 2772 行 / qa+SQL+proto 4478 行，合计约 3.6 万行，均 Read 逐行至 EOF；api.pb.go 与 fe proto/api.ts 为 protoc 生成物，由 api.proto 直读 + buf 再生成覆盖）。**新发现并已修复 5 组**：
+
+1. **persona 机制级残留（最重）**：`rd/service/session.go` 把 persona 当现行机制（PersonaResolver 接口/PersonaFor 方法/persona 字段/占位句柄 JSON 键 `{"persona":…}`），`rd/repo/model.go:341` Session.RoleID 注释、`0001_schema.sql:212` role_id 列注释同。已按 08-18 拍板（persona→说明/注释）整体改挂现行词根 note：RoleNoteResolver/NoteFor/noteRes/`{"note":…}`，scanner_it_test stub 同步，留痕注记补入接口注释。
+2. **「返工」中文词形（rework 代际）20+ 处**：概念标签「首产/返工配置」「返工集」「返工波及」「返工回收」遍布 reentry.go/reentry_test.go、flow.go/llmflow.go/artifact.go/task.go/reject.go 及其测试、api.proto:801；UI 文案「已打回重入：exec 返工执行中」（flowview.ts）及断言（flowview.test/DecisionCard.test）。已统一改「重入/重做/打回」口径；`rework-return` 预留值本体不动（白名单）。
+3. **LLM 评审线契约 pass 字段**：`rd/llm/review.go` prompt 形状 `{"pass":bool,…}` 教模型用退役表态词 pass，而 `ParseReviewFindings` 本就不读该键（表态由 service 按 findings→issues 自判，COL-04/05）。已从形状契约摘除 pass、补「无意见即通过」判定口径说明；llm_test/llmflow_it_test 夹具同步（FakeClient 线协议不再含 pass）。REV-04 口径延伸。
+4. **孤立生造词 revive**：`DecisionCard.tsx:162`「revise/revive 由 exec 相位承接」——revive 不在任何词表；改「revise/diagnosing-bugs/retest」。
+5. **契约注释双源缺项**：相位枚举注释缺 done（api.proto:144/1193、0001:91）已补；resolve_path 注释缺 override 档（api.proto:240，与 DDL fix/agree/override 不一致）已补；改后 buf 双端再生成（api.pb.go、fe proto/api.ts）。
+
+**裁决保留（B 档，非退役词或改名需另行走拍板）**：「首产」词汇（现行，produce/dev/accept 首产集）；`blocked`/`GATE_BLOCKED` 错误出参拦截标记族（现行契约字段，非表态/门禁值；若改名属契约变更需拍板）；`template_node_id` 列名/`idx_fdnode_tpl` 索引词根（现行 schema 列名，改名=迁移拍板）；STALE_REPORT/qa_branch_audit `stale` 变量（事件序冲突码，非 task_stale 编排词）；「spec §x」注释引证（指实现 spec 文档，非产物概念）；wb_decision（现行定名）；「波及」行文（主词现行 upstream-reject）；escalate 阈值 5（现行机制，非 outbox 补投上限）；novel `be/llm` 路径留痕（copy 取证纪律）；version.go「已开始 blocked」行文（错误标记同族）。
+
+闸门：gofmt/vet/build 过；domain/repo/llm 单测过；SessionBinding、RejectRollbackLoop、Flow、LLMFlow 四链真库 IT 过；fe tsc 零错 + vitest 173/173；终验 grep「返工/pass 键/PersonaFor/stubPersona/revive」现行面零命中。附带发现：`rd/configs/config.local.yaml` 含明文本地密码（已 gitignore，不入库，仅提示）。

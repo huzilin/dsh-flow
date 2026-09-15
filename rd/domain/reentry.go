@@ -1,5 +1,5 @@
 // Package domain 本文件：打回链路纯逻辑（T9）——rejected 回退的重入状态机投影：
-// reopen_source 词表、回退目标选取、回退幂等护栏、exec 首产/返工（revise）配置选择。
+// reopen_source 词表、回退目标选取、回退幂等护栏、exec 首产/重入（revise）配置选择。
 // 无 IO，可单测。
 //
 // 定稿出处（docs-tmp/capability-model-final.md + docs-tmp/data-tools-final.md）：
@@ -7,10 +7,10 @@
 //     重入（diagnosing-bugs/revise）→ 完成上报 → 重新提评 → 评审相位重开；
 //     重入识别=rolled_back_count（0=首次，≥1=重入——entry/exec 多配置按计数选择）；
 //   - reopen_source 三值（data-tools-final §1.2 flow_nodes 列注释）：
-//     downstream-reject=被下游评审打回（回退目标）/ upstream-reject=上游返工波及
-//     （下游已激活节点联动重置）/ rework-return=节点自身返工回收（预留词表，
+//     downstream-reject=被下游评审打回（回退目标）/ upstream-reject=上游打回波及
+//     （下游已激活节点联动重置）/ rework-return=节点自身打回回收（预留词表，
 //     本链路 v1 未触发——节点内 CR 异化永不 rejected）；
-//   - §5.1 定稿口径：exec 首次=主产出（produce/dev/accept），重入=返工
+//   - §5.1 定稿口径：exec 首次=主产出（produce/dev/accept），重入=修订/修复/复验
 //     （revise/diagnosing-bugs/retest，QA 复验=retest）；
 //   - collect 读取 round == rolled_back_count（data-tools-final §2 wb_review 行）：
 //     回退幂等键 reqId+nodeId+round——回退以评审节点 rolled_back_count（打回次数）
@@ -25,13 +25,13 @@ import (
 const (
 	// ReopenSourceDownstreamReject 被下游评审节点 rejected 打回（回退目标节点落值）。
 	ReopenSourceDownstreamReject = "downstream-reject"
-	// ReopenSourceUpstreamReject 上游节点返工波及（下游已渲染节点联动重置落值）。
+	// ReopenSourceUpstreamReject 上游节点打回波及（下游已渲染节点联动重置落值）。
 	ReopenSourceUpstreamReject = "upstream-reject"
-	// ReopenSourceReworkReturn 节点自身返工回收（预留词表；v1 打回链路未触发）。
+	// ReopenSourceReworkReturn 节点自身打回回收（预留词表；v1 打回链路未触发）。
 	ReopenSourceReworkReturn = "rework-return"
 )
 
-// exec 首产/返工动作词表（capability-model-final §5.1 定稿；两集合互斥补集——
+// exec 首产/重入动作词表（capability-model-final §5.1 定稿；两集合互斥补集——
 // 两集合之外的 exec 动作（如 submit 登记请评）不参与计数选择，恒随相位激活）。
 var (
 	// execFirstActions 首产动作：rolled_back_count=0 时激活。
@@ -40,7 +40,7 @@ var (
 		"dev":     true,
 		"accept":  true,
 	}
-	// execReentryActions 返工动作：rolled_back_count≥1 时激活（revise=文档修订 /
+	// execReentryActions 重入动作：rolled_back_count≥1 时激活（revise=文档修订 /
 	// diagnosing-bugs=缺陷定位修复 / retest=QA 复验重测）。
 	execReentryActions = map[string]bool{
 		"revise":          true,
@@ -49,9 +49,9 @@ var (
 	}
 )
 
-// FilterExecActionsByReentry exec 相位首产/返工配置选择（T9 重入投影）：
+// FilterExecActionsByReentry exec 相位首产/重入配置选择（T9 重入投影）：
 // 按 rolled_back_count（0=首次 / ≥1=重入）从已激活 exec 动作集中二选一——
-// 首次保留首产集、剔除返工集；重入反之。非 exec 相位或计数为负原样返回；
+// 首次保留首产集、剔除重入集；重入反之。非 exec 相位或计数为负原样返回；
 // 两集合外的动作（如 submit）不参与选择。词表键为能力内裸动作 id——
 // ActionID 为 "<capabilityId>.<action>" 全名（BUG-006 口径）时按最后一个点
 // 切出裸名再查表（SplitCapabilityAction 同一口径）。

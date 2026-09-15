@@ -217,8 +217,8 @@ export const SESSION_STATUS_LABELS: Record<string, string> = {
 
 /**
  * 会话找 X 按钮的绑定角色推导（§6 N5：X 随节点绑定角色动态——
- * full=qa / fe-only=fe / rd-only=rd；flows.scope 空串=未定（task 渲染期再选），
- * 兜底 qa。DSH 嵌入期开放，本期按钮 disabled 占位）。
+ * scope=full 找 qa / scope=fe 找 fe / scope=rd 找 rd；flows.scope 空串=未定
+ * （task 渲染期再选），兜底 qa。DSH 嵌入期开放，本期按钮 disabled 占位）。
  */
 export function sessionFindRoleForScope(flowScope: string): string {
   if (flowScope === "rd") return "rd";

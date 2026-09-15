@@ -245,7 +245,7 @@ describe("FlowTree 横向泳道布局（一版蓝本回归）", () => {
     );
     expect(rdPaths.length).toBeGreaterThan(0);
     expect(rdPaths.every((d) => !d?.includes("V"))).toBe(true);
-    // 单泳道退化：rd-only 全部节点同一中线 y
+    // 单泳道退化：scope=rd 全部节点同一中线 y
     const ys = new Set(
       Array.from(rd.container.querySelectorAll(".flow-node-card")).map((r) => r.getAttribute("y")),
     );

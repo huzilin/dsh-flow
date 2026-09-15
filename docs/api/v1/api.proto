@@ -141,7 +141,7 @@ message FlowNodeItem {
   int64 node_order = 3;
   // node_key 节点名
   string node_key = 4;
-  // state 可配相位：""=未进入编排 / entry / exec / review / respond
+  // state 可配相位：""=未进入编排 / entry / exec / review / respond / done
   string state = 5;
   // review_results 评审轮结果 JSON 文本（TEXT 列同构）
   string review_results = 6;
@@ -237,7 +237,8 @@ message IssueItem {
   string replies = 22;
   // last_reply_at 最近回复时间，unix 毫秒；0=无回复
   int64 last_reply_at = 23;
-  // resolve_path resolve 路径：fix=修复关闭 / agree=协商一致关闭；空=未解决
+  // resolve_path resolve 路径：fix=修复关闭 / agree=协商一致关闭 / override=仲裁推翻
+  // （09-12 裁决 overridden 态废除，override 动作置 resolved）；空=未解决
   string resolve_path = 24;
   // resolve_by resolve 责任人；空=未解决
   string resolve_by = 25;
@@ -798,7 +799,7 @@ message MyTaskNode {
   string state = 4;
   // reviewers 实例评审位声明 JSON 文本（scope 过滤后静态声明）
   string reviewers = 5;
-  // rolled_back_count 回退计数：0=首次（exec 首产配置），≥1=重入（exec 返工配置
+  // rolled_back_count 回退计数：0=首次（exec 首产配置），≥1=重入（exec 重入配置
   // revise/diagnosing-bugs/retest——activeActions 已按本计数选择，T9）
   int64 rolled_back_count = 6;
   // reopen_source 重开来源：""/upstream-reject/downstream-reject/rework-return；
@@ -1190,7 +1191,7 @@ message AdvanceResp {
   string requirement_id = 2;
   // node_id 实例节点 id（回显）
   string node_id = 3;
-  // node_state 推进后该节点相位（""/entry/exec/review/respond）
+  // node_state 推进后该节点相位（""/entry/exec/review/respond/done）
   string node_state = 4;
   // current_node_id 推进后 flows.current_node_id（空=未进入编排）
   string current_node_id = 5;

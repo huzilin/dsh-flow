@@ -54,11 +54,11 @@ func ReviewSystemPrompt(role string, capabilityName string, material string) str
 		b.WriteString("\n评审要点：" + material)
 	}
 	b.WriteString("\n输出仅一个 JSON 对象，禁止 markdown 围栏与任何解释文字，形状必须为：" +
-		`{"pass":bool,"findings":[{"desc":"…","startLine":1,"endLine":1}]}` +
+		`{"findings":[{"desc":"…","startLine":1,"endLine":1}]}` +
 		"。findings 必须是数组（无意见=[]）：每条只讲一件独立的事；每条必带 desc（一句中文人话，≤80字，直接给结论，" +
 		"desc 内禁止出现 JSON、键值对、markdown 围栏或代码）；针对具体行/词的意见必须带 startLine/endLine" +
 		"（按正文行号，1 起，startLine≤endLine）；只有全篇级问题才允许省略行号；禁止把整个报告或多个问题塞进单条 findings。" +
-		"pass=true 表示通过（findings 通常为空数组）。")
+		"是否通过由工作台按 findings 落开的评论判定：无意见（findings=[]）即通过。")
 	return b.String()
 }
 
@@ -74,7 +74,7 @@ func LineNumbered(content string) string {
 }
 
 // ParseReviewFindings 评审 findings 解析（宽口径，C3 copy 纪律）：
-//   - 剥围栏取首个 {..} 平衡块后按 {"pass":…,"findings":…} 解析；
+//   - 剥围栏取首个 {..} 平衡块后按 {"findings":…} 解析（多余键忽略）；
 //   - findings 数组形状优先（逐条映射，行级带 startLine/endLine）；
 //   - 字符串形状回退为单条纯文本意见（旧契约容忍），不中断评审；
 //   - null/空/缺失归空数组；desc 空条目剔除；desc 塞 JSON/围栏时净化降级；

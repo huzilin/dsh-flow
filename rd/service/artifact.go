@@ -115,9 +115,9 @@ func (s *ArtifactService) Add(ctx context.Context, req *api.AddArtifactReq) (*ap
 		return nil, notFound("节点 %q 不存在于需求 %q", req.NodeId, req.RequirementId)
 	}
 	// 注记-L2（BUG-016）：done=离场终态，禁止挂载产物（防事后补挂绕过 exec 判据）；
-	// 返工走 rejected 打回重入。
+	// 重做走 rejected 打回重入。
 	if node.State == repo.PhaseDone {
-		return nil, policyRejected("节点 %q 已完成离场（done），禁止挂载产物；如需返工请 rejected 打回重入", node.NodeID)
+		return nil, policyRejected("节点 %q 已完成离场（done），禁止挂载产物；如需重做请 rejected 打回重入", node.NodeID)
 	}
 
 	// BUG-015 守卫（产物入库约束，spec 注记-K）：节点 expected_outputs 对该

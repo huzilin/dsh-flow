@@ -195,3 +195,18 @@ Work the **frontier**: any ticket whose blockers are all done. 关键路径 1→
 - [x] rd-only：FE 侧与 QA 不渲染不占位，走通至用户验收（真库 PASS 107s）
 - [x] task：走通至用户验收，报障直连开发执行者（真库 PASS 44.6s）
 - [x] 脚本可重复执行（重置 seed → 重跑）（scratch 库每次新建天然可重复，两轮实证）
+
+## 18. DSH 嵌入适配器：project 工作区 + flow 挂载 session + subagent 两层执行（提案 v3，方案见 .plan/proposals/dsh-embedding-session-plan.md）
+
+**What to build:** 把 T10 的句柄占位换成真实 DSH 接线。架构口径（User 2026-09-13 拍板）：web 页面 + Go 底层，与 DSH 只经 MCP 交互；**M2 两层式**——项目制，整个 flow 挂载于绑定 session（主会话），节点动作由会话内 spawn 的 subagent 承接（child=sub session），不机械模仿 novel 单会话链。①rd 新增 wb MCP server：wb_* 工具族（wb_my_task / wb_advance / wb_review / wb_comment / 产物提交 / session 登记·child 回告）双面暴露（HTTP+MCP 同 service 层）；②project 工作区：/api/projects registry 启用（spec §1.2 预留位兑现、DM-07 落地；存储形态推荐 rd projects 表待确认）+ 会话 cwd=项目工作区（**补历史缺口：上轮 DSH 测试跑通但未挂载工作目录**）；③rd DSH 会话客户端：session/new（mcpServers+cwd）/ session/prompt / session/list（`_request` 包装）；④绑定 session：**程序创建**（「MVP 架构模式选择」模式 B：flow↔session 一对一，所有 subagent 拉起经该会话；rd 经 session/new 创建即知 sessionId 直接落 bind 行，node_id='' 主会话行；**空白会话 UI 隐藏——创建后须 session/prompt 发首条消息激活 non-blank**）；⑤sub session：主会话内 spawn child（节点启动指令+角色说明经 wb MCP 任务材料下发），child sessionId 经新增 MCP 工具 `wb_child_report` 回告 rd，bind 成功后落行（`{"kind":"dsh","sessionId","cwd"}`，D3 拍板）；⑥失败链：创建重试上限默认 5（retry_max 参数化，D3 拍板）耗尽告警不落行；⑦scanner 卡死观测：session/list 轮询 running+asOfSeq → 催办/介入（沿用 T10 阈值）；⑧会话找 X 开放 + SessionItem 摘要（主会话+sub session 双态）；⑨裁决 session 真实句柄替换。
+
+**Blocked by:** 10（已完）、LLM 通路（已完，DSH 端点配置同源复用）
+
+- [ ] AC1 project 工作区：/api/projects 注册工作区；会话 cwd=工作区，DSH 侧会话日志落点在工作区归档下（对照上轮未挂载缺口）
+- [ ] AC2 flow 挂载：rd 程序创建绑定 session（cwd=工作区+挂 wb MCP+发首条消息激活 non-blank），直接落 sessions 表（node_id=''），需求详情可见
+- [ ] AC3 sub session：主会话内为 exec 节点动作 spawn child，child sessionId 经 wb_child_report 回告，bind 成功后落行（requirement+node+role，kind=dsh）
+- [ ] AC4 MCP 全链：child 完成动作→wb 工具上报→评审轮推进（e2e 剧本扩展一档）
+- [ ] AC5 会话找 X：FE 详情页按钮真实打开 scope 绑定角色会话（full=qa / fe=fe / rd=rd），不经 Leader 中转
+- [ ] AC6 卡死观测：scanner 经 session/list 轮询 running+asOfSeq，停滞触发 stall_followup / need_intervene
+- [ ] AC7 失败链：会话创建重试 5 次（上限参数化）耗尽后告警通知 user，且 sessions 表不落行
+- [ ] AC8 裁决 session 真实化：escalate 链落行 dsh_ref 为真实句柄

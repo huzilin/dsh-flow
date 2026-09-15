@@ -228,10 +228,10 @@ describe("T16 拍板卡/冲突卡纯函数", () => {
     expect(seats.find((s) => s.role === "rd")?.state).toBe("reviewing");
   });
 
-  it("rejectedReentryHint：快照相位读取（review=等待重入 / exec=返工执行中）", () => {
+  it("rejectedReentryHint：快照相位读取（review=等待重入 / exec=重入执行中）", () => {
     expect(rejectedReentryHint(node({ state: "review" }))).toBe("已打回，等待 exec 重入");
     expect(rejectedReentryHint(node({ state: "" }))).toBe("已打回，等待 exec 重入");
-    expect(rejectedReentryHint(node({ state: "exec" }))).toBe("已打回重入：exec 返工执行中");
+    expect(rejectedReentryHint(node({ state: "exec" }))).toBe("已打回重入：exec 重入执行中");
   });
 
   it("parseReplies：T12 条目 kind/verdict/sessionId 透传", () => {
@@ -283,7 +283,7 @@ describe("buildFlowRows 并行泳道行构建（wb_advance join 同口径镜像�
     }
   });
 
-  it("rd-only：FE 侧已被 scope 裁剪，单个 exec-CR 不成组（全 single 行）", () => {
+  it("scope=rd：FE 侧已被 scope 裁剪，单个 exec-CR 不成组（全 single 行）", () => {
     const rows = buildFlowRows([laneNode(9, "RD 开发")]);
     expect(rows).toHaveLength(1);
     expect(rows[0].kind).toBe("single");
@@ -423,8 +423,8 @@ describe("reviewAnchorGuardError（BUG-013 发表前预校验；rd 400 同口径
   it("携带 artifactId 放行", () => {
     expect(reviewAnchorGuardError({ ...ctx, artifactId: "art-1" })).toBeNull();
   });
-  it("line/range/block 天然挂产物不受限；非 issue 类不受限；非评审上下文不受限", () => {
-    expect(reviewAnchorGuardError({ ...ctx, anchorKind: "line", artifactId: "" })).toBeNull();
+  it("range 天然挂产物不受限（line/block 已 400 废弃，不进本守卫）；非 issue 类不受限；非评审上下文不受限", () => {
+    expect(reviewAnchorGuardError({ ...ctx, anchorKind: "range", artifactId: "" })).toBeNull();
     expect(reviewAnchorGuardError({ ...ctx, issueType: "discussion", artifactId: "" })).toBeNull();
     expect(
       reviewAnchorGuardError({ reviewContext: false, issueType: "issue", anchorKind: "document", artifactId: "" }),

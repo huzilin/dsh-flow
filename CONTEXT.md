@@ -67,6 +67,14 @@ _Avoid_: dead 终态、retry 耗尽放弃、Dispatch 吞错口径
 联调 + 验收 + 缺陷判定（验收节点仅 full 渲染）；缺陷响应链=rd/fe clarify 确认归属 + diagnosing-bugs 修复；qa 评审以对象化评审 skill 减少上下文。
 _Avoid_: qa 产用例（旧职责）、respond_to_qa（退役动作名）
 
-**subagent 会话（挂载到 flow 节点）**:
-每个 subagent 有独立稳定 sessionId，持久化跨重启；UI 经插件页面从 flow 节点查看历史/进行中的 subagent 对话（不经 Leader 中转）。
-_Avoid_: 弹窗问答（ask_user_question 是另一通道）
+**绑定 session（主会话）**:
+程序创建（模式 B）的常驻 DSH 会话，flow↔session 一对一，整个 flow 挂载其中；cwd=所属 project 工作区；创建即挂载 rd wb MCP；空白会话在 UI 隐藏，创建后须发首条消息（节点启动指令）激活 non-blank 才可见。sessions 表主会话行 node_id=''。
+_Avoid_: Leader spawn 模式 A（Leader 启动职责已由 wbflow 承担，Leader 会话可选）；用户手动开会话挂载（2026-09-13 拍板程序创建）
+
+**sub session（subagent 会话，挂载到 flow 节点）**:
+绑定 session 内 spawn 的 child 会话，每个 subagent 独立稳定 sessionId，持久化跨重启；节点动作的执行体；child sessionId 经 wb MCP 回告 rd，bind 成功后落 sessions 表（requirement+node+role）；UI 经 web 详情页（会话找 X）从 flow 节点查看历史/进行中的 subagent 对话（不经 Leader 中转）。
+_Avoid_: 弹窗问答（ask_user_question 是另一通道）、插件页面（插件方案已退役，查看通道=web 详情页）
+
+**project 工作区**:
+工作区=内部 project（DM-07：不同 project 绑定不同工作区）；registry 经 /api/projects 启用（spec §1.2 预留位）；会话创建按项目挂载 cwd——会话日志归档、产物读写均落工作区。
+_Avoid_: 无工作目录会话（2026-09-13 补历史缺口拍板）、requirements.project_id 列（沿用零改动口径，归属后置）
