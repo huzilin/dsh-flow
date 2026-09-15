@@ -28,9 +28,10 @@
 | OPT-002 | 评审药丸只读不可点：缺 m2 原型「点角色展开对话区+参与讨论/裁定+强行通过/强制修改」交互 | 建议（S4）/ P3 | fe | 待指派 | **已修复（药丸可点展开意见线程，待冒烟）** | 原型对照 diff（2026-09-10） | **User session**（批注轮原型对照 diff） |
 | OPT-003 | 变更历史形态与归位：自然语句列表折叠沉底，原型为字段级 diff 样式、随描述卡归位 | 建议（S4）/ P3 | fe | 待指派 | **已修复（随描述卡归位）** | 原型对照 diff（2026-09-10） | **User session**（批注轮原型对照 diff） |
 | BUG-015 | 联调库全部产物为假域名外链占位（9/9 kind=link，document 类 0 行），文档阅读→锚定评论→评审交互链在用户验收环境不可达；系统不校验产物期望 kind（seed 全 document）放行外链冒充文档并一路推进 | 严重（S1）/ P0 | rd+data+docs+qa | 待指派 | **已修复（①数据②守卫落地，复测 PASS；③已落 spec 注记-K；FE 呈现通道已验：阅读器+行号+行选中）** | A-15g（守卫断言）/ D-3 巡检（新增） | **User**（批注「挂载的产物文档不能是外链…req-004 还全是外链」2026-09-10） |
-| BUG-016 | SweepLLMTasks 相位闸漏 entry——align 宿主（to-brd 样板）永不自动派发，IT 造数置 exec 掩盖真实链 | 一般（S2）/ P1 | rd | 待指派 | **已修复（Q 组回归 PASS）** | Q-1c（架构增量组首跑） | **QA 验收轮**（qa_drive 真实 HTTP 链 vs IT 造数对照揭出） || OPT-005 | 轻量 Markdown 渲染器不解析 blockquote（`> 引用`字面显示；支持清单=标题/粗体/列表/行内代码/代码块/链接，属 BUG-012 修复口径内边界） | 建议（S4）/ P3 | fe | 待指派 | 新建 | 浏览器冒烟轮（2026-09-10，req-004 描述卡实测） | **QA**（呈现通道冒烟轮） |
+| OPT-005 | 轻量 Markdown 渲染器不解析 blockquote（`> 引用`字面显示；支持清单=标题/粗体/列表/行内代码/代码块/链接，属 BUG-012 修复口径内边界） | 建议（S4）/ P3 | fe | 待指派 | 新建 | 浏览器冒烟轮（2026-09-10，req-004 描述卡实测） | **QA**（呈现通道冒烟轮） |
 | BUG-016 | 流程节点无业务终态：produce 节点推进离场后 state 恒 exec，点色蓝点被读作「进行中/卡 exec」（老模型有已通过终态，v1.0 相位制缺失） | 一般（S2）/ P1 | rd+fe | 待指派 | **已修复（-L2 done 终态：推进离场收口+禁挂载+幂等 noop；IT/断言齐）** | User 截图质询（req-004 节点 3/5） | **User**（2026-09-10 深夜） |
 | BUG-017 | done × 打回/reproject 时序缺口：C-2a 打回重做派发 409 done（复投影/重评路径未先复位）；D-2a override 审计时间戳（已修）；C-4 clarify open 计数（已修） | 一般（S2）/ P1 | rd | 待指派 | **新建（e2e 3 FAIL 载体；-L2 与回退/重投影交互待补复位逻辑）** | qa_drive C-2a/C-2b/D-2a（-L2 引入的回归面） | **QA**（-L 落地回归轮，2026-09-10 深夜） |
+| BUG-018 | SweepLLMTasks 相位闸漏 entry——align 宿主（to-brd 样板）永不自动派发，IT 造数置 exec 掩盖真实链 | 一般（S2）/ P1 | rd | 待指派 | **已修复（Q 组回归 PASS）** | Q-1c（架构增量组首跑） | **QA 验收轮**（qa_drive 真实 HTTP 链 vs IT 造数对照揭出） |
 | OPT-005↑ | 扩容：Markdown 对齐老代码（+表格）+ blockquote（User 拍板支持）+ 阅读器交互对齐（单击框选/筛选栏/锚点回跳）——升 S3/P2 | 一般（S3）/ P2 | fe | 待指派 | 新建（对齐轮扩容） | 老代码对质 + User 拍板 | **User**（「严重漏实现」定性） |
 
 ---
@@ -537,7 +538,7 @@ rd（守卫缺失）+ data（联调数据）+ docs（约束无正本）+ qa（�
 
 
 
-## BUG-016 SweepLLMTasks 相位闸漏 entry，align 宿主动作永不自动派发（2026-09-15 架构增量 QA 轮登记）
+## BUG-018 SweepLLMTasks 相位闸漏 entry，align 宿主动作永不自动派发（2026-09-15 架构增量 QA 轮登记）
 
 ### A. 基本信息
 
@@ -556,6 +557,7 @@ rd（守卫缺失）+ data（联调数据）+ docs（约束无正本）+ qa（�
 ### C. 返工与复验记录
 
 - 修复：派发闸补 `case repo.PhaseEntry` 走 execCandidates（其内部过滤 on=exec+subagent+produce 族+准入集自洽——program 执行者的 align.opening 自然排除，无误派面）
+- 连带造数口径修正（D 节①扩围，CR 补录）：除 Produce IT 外，FailRollback/ChatClientTransport 两处 startFlowAt 同改 "entry"（同为 align 造数掩盖面）
 - 反馈环：既有 Produce IT 的 startFlowAt 改 "entry"（对齐真实激活相位）→ 修前红（0 派发）/ 修后绿；IT 补「align 拍板位停等 wb_decision → 拍板推进」真实语义断言
 - 复测：qa_drive 全量 **PASS 339 / FAIL 0 / SKIP 1**（Q-1 全链绿：派发→产文→入库→停等→拍板→推进）
 - 关闭人/日期：agent / 2026-09-16

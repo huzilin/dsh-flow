@@ -7,7 +7,8 @@
 // 锚）→ wb_task_update complete 走既有判据链（exec 族 complete 内聚触发编排推进，
 // HTTP 全程不阻塞）。派发与驱动由扫描器每轮 SweepLLMTasks 收口：
 //
-//   - 派发：节点处于 exec/review 相位且动作在准入集（config llm.actions，样板
+//   - 派发：节点处于 entry/exec/review 相位且动作在准入集（config llm.actions，
+//     entry=align 类节点激活相位，BUG-018；样板
 //     先行=to-brd + arch.prd-review.review，机制通用扩面改清单）、无同键在途任务
 //     → wb_assign_task 派发并启动执行；
 //   - 恢复（拍板「scanner 轮询发现异常中断任务→继续任务」）：在途 LLM 任务进程内
@@ -166,7 +167,7 @@ func (s *LLMFlowService) SweepLLMTasks(ctx context.Context) (*LLMSweepReport, er
 				// entry：align 类节点（开场白挂 entry）的激活相位且终生驻留——
 				// 挂载其上的 exec 动作（to-brd 样板宿主）经 execCandidates 内部
 				// 过滤（on=exec+subagent+produce 族+准入）派发；program 执行者与
-				// 非 exec 条目自然排除。BUG-Q1（2026-09-15 QA 轮）：原闸仅
+				// 非 exec 条目自然排除。BUG-018（2026-09-15 QA 轮）：原闸仅
 				// exec/review，align 宿主动作永不自动派发（IT 造数置 exec 掩盖）。
 				candidates, err = s.execCandidates(ctx, flow, node)
 			case repo.PhaseReview:

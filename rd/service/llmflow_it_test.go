@@ -143,7 +143,7 @@ func TestIntegration_LLMFlow_Produce_RealMySQL(t *testing.T) {
 	_, statErr := os.Stat(filepath.Join(docsRoot, "llm", reqID, bus01, "brd.md"))
 	assert.NilError(t, statErr, "LLM 产文应写入 docs root")
 	// align 节点 user_gate=1 拍板位：complete 判据过后停等拍板（entry 相位推进由
-	// wb_decision 驱动，BUG-Q1 真实相位链修正），拍板后 current 前移 bus-02
+	// wb_decision 驱动，BUG-018 真实相位链修正），拍板后 current 前移 bus-02
 	current := ""
 	assert.NilError(t, handles.Gorm.Raw("SELECT current_node_id FROM flows WHERE requirement_id = ?", reqID).Scan(&current).Error)
 	assert.Equal(t, current, bus01, "align 拍板位应停等 wb_decision（不内聚推进）")

@@ -1,6 +1,6 @@
 {
  "base": "http://127.0.0.1:6081",
- "db": "wbflow_qa_1789503784",
+ "db": "wbflow_qa_1789504427",
  "results": [
   {
    "cid": "A-01",
@@ -20,7 +20,7 @@
   {
    "cid": "A-03a create_version",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-1', 'name': 'QA 版本 A', 'state': '待启动', 'isBacklog': False, 'createdAt': '1789503792095', 'updatedAt': '1789503792095'}}"
+   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-1', 'name': 'QA 版本 A', 'state': '待启动', 'isBacklog': False, 'createdAt': '1789504436341', 'updatedAt': '1789504436341'}}"
   },
   {
    "cid": "A-03b list_versions 含新版本",
@@ -30,7 +30,7 @@
   {
    "cid": "A-04a update_version",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-1', 'name': 'QA 版本 A2', 'state': '待启动', 'isBacklog': False, 'createdAt': '1789503792095', 'updatedAt': '1789503792147'}}"
+   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-1', 'name': 'QA 版本 A2', 'state': '待启动', 'isBacklog': False, 'createdAt': '1789504436341', 'updatedAt': '1789504436414'}}"
   },
   {
    "cid": "A-04b 乐观锁冲突 409",
@@ -45,7 +45,7 @@
   {
    "cid": "A-06a 全未开始 deprecate 成功",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-3', 'name': 'QA 版本 dep', 'state': '已废弃', 'isBacklog': False, 'createdAt': '1789503792652', 'updatedAt': '1789503793109'}}"
+   "detail": "HTTP 200 {'ok': True, 'version': {'versionId': 'v-3', 'name': 'QA 版本 dep', 'state': '已废弃', 'isBacklog': False, 'createdAt': '1789504436844', 'updatedAt': '1789504437411'}}"
   },
   {
    "cid": "A-06b 需求解绑回池 versionId 空",
@@ -65,7 +65,7 @@
   {
    "cid": "C-09a 前置：bus-00 拍板进入编排",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-28', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"进入编排\",\"at\":1789503793731}', 'nextNodeId': 'n-29', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-28', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"进入编排\",\"at\":1789504437932}', 'nextNodeId': 'n-29', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-09b 已开始 deprecate 409 blocked",
@@ -90,7 +90,7 @@
   {
    "cid": "A-07d currentNodeId 空 / scope=full",
    "ok": true,
-   "detail": "{'flowDefsId': 'business', 'dependencies': '[]', 'currentNodeId': '', 'createdAt': '1789503793962', 'updatedAt': '1789503793962', 'scope': 'full'}"
+   "detail": "{'flowDefsId': 'business', 'dependencies': '[]', 'currentNodeId': '', 'createdAt': '1789504438130', 'updatedAt': '1789504438130', 'scope': 'full'}"
   },
   {
    "cid": "A-08a priority 筛选",
@@ -115,7 +115,7 @@
   {
    "cid": "A-10a update_requirement",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'requirement': {'requirementId': 'req-005', 'title': 'QA CRUD 主需求 v2', 'description': '', 'category': '需求任务', 'flowDefsId': 'business', 'versionId': '', 'priority': 'P0', 'status': '待启动', 'owner': 'pm', 'createdBy': 'user-a', 'createdAt': '1789503793955', 'updatedAt': '1789503794279', 'dependencies': []}}"
+   "detail": "HTTP 200 {'ok': True, 'requirement': {'requirementId': 'req-005', 'title': 'QA CRUD 主需求 v2', 'description': '', 'category': '需求任务', 'flowDefsId': 'business', 'versionId': '', 'priority': 'P0', 'status': '待启动', 'owner': 'pm', 'createdBy': 'user-a', 'createdAt': '1789504438122', 'updatedAt': '1789504438450', 'dependencies': []}}"
   },
   {
    "cid": "A-10b 陈旧基线 409",
@@ -125,7 +125,7 @@
   {
    "cid": "BUG-004a 局部更新（仅 title）200",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'requirement': {'requirementId': 'req-005', 'title': 'QA CRUD 局部更新', 'description': '', 'category': '需求任务', 'flowDefsId': 'business', 'versionId': '', 'priority': 'P0', 'status': '待启动', 'owner': 'pm', 'createdBy': 'user-a', 'createdAt': '1789503793955', 'updatedAt': '1789503794389', 'dependencies': []}}"
+   "detail": "HTTP 200 {'ok': True, 'requirement': {'requirementId': 'req-005', 'title': 'QA CRUD 局部更新', 'description': '', 'category': '需求任务', 'flowDefsId': 'business', 'versionId': '', 'priority': 'P0', 'status': '待启动', 'owner': 'pm', 'createdBy': 'user-a', 'createdAt': '1789504438122', 'updatedAt': '1789504438535', 'dependencies': []}}"
   },
   {
    "cid": "BUG-004b 显式非法值仍拦截 400",
@@ -175,7 +175,7 @@
   {
    "cid": "A-15a document 产物登记",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'artifact': {'artifactId': 'art-1789503795103', 'nodeId': 'n-42', 'productType': 'brd', 'label': '《业务需求文档》', 'href': 'v1.0/qa/fixtures/brd.md', 'kind': 'document', 'note': '', 'addedBy': 'pm', 'createdAt': '1789503795102'}}"
+   "detail": "HTTP 200 {'ok': True, 'artifact': {'artifactId': 'art-1789504439224', 'nodeId': 'n-42', 'productType': 'brd', 'label': '《业务需求文档》', 'href': 'v1.0/qa/fixtures/brd.md', 'kind': 'document', 'note': '', 'addedBy': 'pm', 'createdAt': '1789504439224'}}"
   },
   {
    "cid": "A-15b 内容回读含 marker",
@@ -200,7 +200,7 @@
   {
    "cid": "A-15f link 类登记",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'artifact': {'artifactId': 'art-1789503795201', 'nodeId': 'n-42', 'productType': 'code_mr', 'label': '《QA-code_mr》', 'href': 'https://git.example.local/n-42/code_mr', 'kind': 'link', 'note': '', 'addedBy': 'rd', 'createdAt': '1789503795201'}}"
+   "detail": "HTTP 200 {'ok': True, 'artifact': {'artifactId': 'art-1789504439333', 'nodeId': 'n-42', 'productType': 'code_mr', 'label': '《QA-code_mr》', 'href': 'https://git.example.local/n-42/code_mr', 'kind': 'link', 'note': '', 'addedBy': 'rd', 'createdAt': '1789504439333'}}"
   },
   {
    "cid": "A-15g 期望 document 拒绝 link 登记（BUG-015 守卫）",
@@ -225,7 +225,7 @@
   {
    "cid": "B-1b bus-00 拍板→bus-01",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-50', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"确认投入资源\",\"at\":1789503795538}', 'nextNodeId': 'n-51', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-50', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"确认投入资源\",\"at\":1789504439668}', 'nextNodeId': 'n-51', 'rollbackNodeId': ''}"
   },
   {
    "cid": "BUG-001a 首次进编排→进行中",
@@ -260,7 +260,7 @@
   {
    "cid": "A-16a assign 新建 reused=false",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503795981-001', 'requirementId': 'req-006', 'nodeId': 'n-51', 'actionId': 'to-brd', 'branch': '', 'roleId': 'pm', 'taskType': 'produce', 'goal': '在节点「需求对齐」执行动作 to-brd（to-brd，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-006\",\"title\":\"QA 主链全栈需求\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-51\",\"defNodeId\":\"bus-01\",\"nodeKey\":\"需求对齐\",\"state\":\"en"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504440077-001', 'requirementId': 'req-006', 'nodeId': 'n-51', 'actionId': 'to-brd', 'branch': '', 'roleId': 'pm', 'taskType': 'produce', 'goal': '在节点「需求对齐」执行动作 to-brd（to-brd，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-006\",\"title\":\"QA 主链全栈需求\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-51\",\"defNodeId\":\"bus-01\",\"nodeKey\":\"需求对齐\",\"state\":\"en"
   },
   {
    "cid": "A-16b 同幂等键重放 reused=true",
@@ -270,12 +270,12 @@
   {
    "cid": "A-17a 未 ack 先 complete 409 stale",
    "ok": true,
-   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 过期上报: 任务 \"t-1789503795981-001\" 未 ack，拒绝 complete（先上报 ack）', 'code': 'STALE_REPORT', 'blocked': False, 'missing': []}"
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 过期上报: 任务 \"t-1789504440077-001\" 未 ack，拒绝 complete（先上报 ack）', 'code': 'STALE_REPORT', 'blocked': False, 'missing': []}"
   },
   {
    "cid": "A-17b 判据未过 blocked+missing+回 in-progress",
    "ok": true,
-   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 任务 \"t-1789503795981-001\" 完成判据不满足，回 in-progress', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': ['artifact:brd']}"
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 任务 \"t-1789504440077-001\" 完成判据不满足，回 in-progress', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': ['artifact:brd']}"
   },
   {
    "cid": "A-17c 非法 event 400",
@@ -285,7 +285,7 @@
   {
    "cid": "B-1e bus-01 拍板通过",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-51', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"对齐结论用户确认\",\"at\":1789503796677}', 'nextNodeId': 'n-52', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-51', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"对齐结论用户确认\",\"at\":1789504441101}', 'nextNodeId': 'n-52', 'rollbackNodeId': ''}"
   },
   {
    "cid": "B-1f",
@@ -305,7 +305,7 @@
   {
    "cid": "A-18a document 锚点建行",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503796926', 'nodeId': 'n-51', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '锚点探针', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503796926', 'issueType': 'issue', 'reviewerRole': '', 'assignee': 'pm', 'anchorArtifactId': '', 'anchorLine': '0', 'anchorStartLine': '0', 'anchorEndLine'"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504441579', 'nodeId': 'n-51', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '锚点探针', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504441580', 'issueType': 'issue', 'reviewerRole': '', 'assignee': 'pm', 'anchorArtifactId': '', 'anchorLine': '0', 'anchorStartLine': '0', 'anchorEndLine'"
   },
   {
    "cid": "A-14a 非法 product_type 400",
@@ -335,7 +335,7 @@
   {
    "cid": "C-4a fe unagree→clarify",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-53', 'role': 'fe', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.prd-review\",\"state\":\"agree\",\"round\":0,\"at\":1789503797618},{\"role\":\"rd\",\"capabilityId\":\"rd.prd-review\",\"state\":\"agree\",\"round\":0,\"at\":1789503797686},{\"role\":\"fe\",\"capabilityId\":\"fe.prd-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789503797816}]', 'collectOutcom"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-53', 'role': 'fe', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.prd-review\",\"state\":\"agree\",\"round\":0,\"at\":1789504442704},{\"role\":\"rd\",\"capabilityId\":\"rd.prd-review\",\"state\":\"agree\",\"round\":0,\"at\":1789504442763},{\"role\":\"fe\",\"capabilityId\":\"fe.prd-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789504443020}]', 'collectOutcom"
   },
   {
    "cid": "C-4b",
@@ -360,12 +360,12 @@
   {
    "cid": "C-4d 澄清闭环 resolved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503797754', 'nodeId': 'n-53', 'anchorKind': 'document', 'author': 'fe-a', 'roleId': 'fe', 'text': '登录态刷新口径未定义，需澄清', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503797754', 'issueType': 'issue', 'reviewerRole': 'fe', 'assignee': 'pm', 'anchorArtifactId': 'art-1789503797253', 'anchorLine': '0', 'ancho"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504442936', 'nodeId': 'n-53', 'anchorKind': 'document', 'author': 'fe-a', 'roleId': 'fe', 'text': '登录态刷新口径未定义，需澄清', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504442936', 'issueType': 'issue', 'reviewerRole': 'fe', 'assignee': 'pm', 'anchorArtifactId': 'art-1789504442105', 'anchorLine': '0', 'ancho"
   },
   {
    "cid": "C-4e respond complete 触发重入",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503798234-003', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503798234-003', 'requirementId': 'req-006', 'nodeId': 'n-53', 'actionId': 'product-design.clarify', 'branch': '', 'roleId': 'pm', 'taskType': 'respond', 'goal': '在节点「产品设计评审」执行动作 product-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-006\",\"title\":"
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504443724-003', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504443724-003', 'requirementId': 'req-006', 'nodeId': 'n-53', 'actionId': 'product-design.clarify', 'branch': '', 'roleId': 'pm', 'taskType': 'respond', 'goal': '在节点「产品设计评审」执行动作 product-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-006\",\"title\":"
   },
   {
    "cid": "C-4f",
@@ -380,7 +380,7 @@
   {
    "cid": "C-4h 澄清子型 target_id 空",
    "ok": true,
-   "detail": "{'issueId': 'cm-1789503798592', 'kind': 're_review', 'requirementId': 'req-006', 'nodeId': 'n-53', 'targetType': 'node', 'targetId': '', 'text': '节点 n-53 澄清已回应，请重新表态（新评审轮）', 'sender': 'plugin', 'senderRole': 'plugin', 'recipientRole': 'fe', 'state': 'open', 'createdAt': '1789503798596'}"
+   "detail": "{'issueId': 'cm-1789504444285', 'kind': 're_review', 'requirementId': 'req-006', 'nodeId': 'n-53', 'targetType': 'node', 'targetId': '', 'text': '节点 n-53 澄清已回应，请重新表态（新评审轮）', 'sender': 'plugin', 'senderRole': 'plugin', 'recipientRole': 'fe', 'state': 'open', 'createdAt': '1789504444289'}"
   },
   {
    "cid": "C-10a 同轮同角色覆写单条目",
@@ -400,7 +400,7 @@
   {
    "cid": "B-1i bus-03 拍板→bus-04",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-53', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"产品设计终审通过\",\"at\":1789503799125}', 'nextNodeId': 'n-54', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-53', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"产品设计终审通过\",\"at\":1789504445210}', 'nextNodeId': 'n-54', 'rollbackNodeId': ''}"
   },
   {
    "cid": "B-1j",
@@ -425,7 +425,7 @@
   {
    "cid": "A-18a3 评审意见锚产物 200",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503799888', 'nodeId': 'n-55', 'anchorKind': 'document', 'author': 'arch', 'roleId': 'arch', 'text': '评审意见锚定被评审文档', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503799889', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503799499', 'anchorLine': '0', 'anchorSt"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504446460', 'nodeId': 'n-55', 'anchorKind': 'document', 'author': 'arch', 'roleId': 'arch', 'text': '评审意见锚定被评审文档', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504446461', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504445840', 'anchorLine': '0', 'anchorSt"
   },
   {
    "cid": "L1a open 评论拦 agree 409",
@@ -435,7 +435,7 @@
   {
    "cid": "L1a2 协商一致 resolved",
    "ok": true,
-   "detail": "HTTP 200 {\"ok\": true, \"issue\": {\"issueId\": \"cm-1789503799888\", \"nodeId\": \"n-55\", \"anchorKind\": \"document\", \"author\": \"arch\", \"roleId\": \"arch\", \"text\": \"\\u8bc4\\u5ba1\\u610"
+   "detail": "HTTP 200 {\"ok\": true, \"issue\": {\"issueId\": \"cm-1789504446460\", \"nodeId\": \"n-55\", \"anchorKind\": \"document\", \"author\": \"arch\", \"roleId\": \"arch\", \"text\": \"\\u8bc4\\u5ba1\\u610"
   },
   {
    "cid": "L1a3 闭环后 agree 200",
@@ -445,12 +445,12 @@
   {
    "cid": "B-1m bus-05 拍板→bus-06",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-55', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"技术评审通过\",\"at\":1789503800440}', 'nextNodeId': 'n-56', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-55', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"技术评审通过\",\"at\":1789504447407}', 'nextNodeId': 'n-56', 'rollbackNodeId': ''}"
   },
   {
    "cid": "L1b-1 补挂评论 200",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503800709', 'nodeId': 'n-55', 'anchorKind': 'document', 'author': 'arch', 'roleId': 'arch', 'text': '强权通过前补挂意见', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503800709', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503799499', 'anchorLine': '0', 'anchorStar"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504447830', 'nodeId': 'n-55', 'anchorKind': 'document', 'author': 'arch', 'roleId': 'arch', 'text': '强权通过前补挂意见', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504447830', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504445840', 'anchorLine': '0', 'anchorStar"
   },
   {
    "cid": "L1b-2 非 user 强权 400",
@@ -525,7 +525,7 @@
   {
    "cid": "B-1v bus-11 拍板→bus-12",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-61', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"用户验收通过\",\"at\":1789503803654}', 'nextNodeId': 'n-62', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-61', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"用户验收通过\",\"at\":1789504453950}', 'nextNodeId': 'n-62', 'rollbackNodeId': ''}"
   },
   {
    "cid": "BUG-001b 落位尾节点→已完成",
@@ -565,7 +565,7 @@
   {
    "cid": "C-1a rejected 拍板回显 rollbackNodeId",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-68', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"技术方案存在缺陷，打回重做\",\"at\":1789503808001}', 'nextNodeId': '', 'rollbackNodeId': 'n-67'}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-68', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"技术方案存在缺陷，打回重做\",\"at\":1789504461583}', 'nextNodeId': '', 'rollbackNodeId': 'n-67'}"
   },
   {
    "cid": "C-1b bus-04 exec 重入",
@@ -635,12 +635,12 @@
   {
    "cid": "C-2a 重做任务派发",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503808887-014', 'requirementId': 'req-007', 'nodeId': 'n-67', 'actionId': 'backend-design.revise', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「RD 技术设计」执行动作 backend-design.revise（修订后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-007\",\"title\":\"QA 打回链路需求\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-67\",\"defNodeId\":"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504463065-014', 'requirementId': 'req-007', 'nodeId': 'n-67', 'actionId': 'backend-design.revise', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「RD 技术设计」执行动作 backend-design.revise（修订后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-007\",\"title\":\"QA 打回链路需求\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-67\",\"defNodeId\":"
   },
   {
    "cid": "C-2b 重做 complete",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503808887-014', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503808887-014', 'requirementId': 'req-007', 'nodeId': 'n-67', 'actionId': 'backend-design.revise', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「RD 技术设计」执行动作 backend-design.revise（修订后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-007\",\""
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504463065-014', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504463065-014', 'requirementId': 'req-007', 'nodeId': 'n-67', 'actionId': 'backend-design.revise', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「RD 技术设计」执行动作 backend-design.revise（修订后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-007\",\""
   },
   {
    "cid": "C-2c",
@@ -650,12 +650,12 @@
   {
    "cid": "C-2d 重评新轮播种 reviewing",
    "ok": true,
-   "detail": "[{'role': 'arch', 'capabilityId': 'arch.rd-design-review', 'state': 'reviewing', 'round': 0, 'at': 1789503809116}, {'role': 'qa', 'capabilityId': 'qa.rd-design-"
+   "detail": "[{'role': 'arch', 'capabilityId': 'arch.rd-design-review', 'state': 'reviewing', 'round': 0, 'at': 1789504463429}, {'role': 'qa', 'capabilityId': 'qa.rd-design-"
   },
   {
    "cid": "C-2e 重评拍板→bus-08（rd 重排后继）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-68', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"重评通过\",\"at\":1789503809633}', 'nextNodeId': 'n-71', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-68', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"重评通过\",\"at\":1789504464448}', 'nextNodeId': 'n-71', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-2f",
@@ -705,7 +705,7 @@
   {
    "cid": "B-3b tec-b3 拍板",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-88', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"RD 技术评审通过\",\"at\":1789503816730}', 'nextNodeId': 'n-89', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-88', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"RD 技术评审通过\",\"at\":1789504474882}', 'nextNodeId': 'n-89', 'rollbackNodeId': ''}"
   },
   {
    "cid": "B-3c tec-b5 机械收口",
@@ -780,12 +780,12 @@
   {
    "cid": "A-17d 判据缺产物 blocked+missing",
    "ok": true,
-   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 任务 \"t-1789503820498-026\" 完成判据不满足，回 in-progress', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': ['artifact:rd_design']}"
+   "detail": "HTTP 409 {'ok': False, 'error': 'wbflow: 门禁拦截: 任务 \"t-1789504479173-026\" 完成判据不满足，回 in-progress', 'code': 'GATE_BLOCKED', 'blocked': True, 'missing': ['artifact:rd_design']}"
   },
   {
    "cid": "B-4d 补齐产物后 complete",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503820498-026', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503820498-026', 'requirementId': 'req-010', 'nodeId': 'n-98', 'actionId': 'backend-design.produce', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「技术设计」执行动作 backend-design.produce（产出后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-010\",\"t"
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504479173-026', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504479173-026', 'requirementId': 'req-010', 'nodeId': 'n-98', 'actionId': 'backend-design.produce', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「技术设计」执行动作 backend-design.produce（产出后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-010\",\"t"
   },
   {
    "cid": "B-4e",
@@ -795,12 +795,12 @@
   {
    "cid": "C-5a 缺陷 issue 建行",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503822176', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503822176', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503821655', 'anchorLine': '0', 'anchorSta"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504480927', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504480928', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504480448', 'anchorLine': '0', 'anchorSta"
   },
   {
    "cid": "C-5b resolve fix open→to-fix",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503822176', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'to-fix', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503822176', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503821655', 'anchorLine': '0', 'anchorS"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504480927', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'to-fix', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504480928', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504480448', 'anchorLine': '0', 'anchorS"
   },
   {
    "cid": "C-5c to-fix 未迁 fixed 不发 re_review",
@@ -815,7 +815,7 @@
   {
    "cid": "C-5e retest 子型 target_id=issueId",
    "ok": true,
-   "detail": "targetId=cm-1789503822176 issue=cm-1789503822176"
+   "detail": "targetId=cm-1789504480927 issue=cm-1789504480927"
   },
   {
    "cid": "C-5f fixed→fixed 幂等不重发",
@@ -825,12 +825,12 @@
   {
    "cid": "C-5g 提评者（角色 cr）confirm → resolved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503822176', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503822176', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503821655', 'anchorLine': '0', 'ancho"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504480927', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（缺陷）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504480928', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504480448', 'anchorLine': '0', 'ancho"
   },
   {
    "cid": "A-19a reply roundCount++",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'roundCount': '1', 'issue': {'issueId': 'cm-1789503822681', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '边界未覆盖（第二处）', 'state': 'fixed', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789503822682', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503821655', 'anchorLine'"
+   "detail": "HTTP 200 {'ok': True, 'roundCount': '1', 'issue': {'issueId': 'cm-1789504481531', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '边界未覆盖（第二处）', 'state': 'fixed', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789504481531', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504480448', 'anchorLine'"
   },
   {
    "cid": "A-19b to-fix 态回复后 resolve fix → fixed + re_review（-D1 路径②）",
@@ -840,7 +840,7 @@
   {
    "cid": "A-19c 提评者（角色 cr）confirm → resolved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503822681', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '边界未覆盖（第二处）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789503822682', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503821655', 'anchorLine': '0', 'anchorSt"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504481531', 'nodeId': 'n-100', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '边界未覆盖（第二处）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789504481531', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504480448', 'anchorLine': '0', 'anchorSt"
   },
   {
    "cid": "B-4f",
@@ -850,7 +850,7 @@
   {
    "cid": "C-13a1 unagree→clarify（respond 相位）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-106', 'role': 'arch', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.rd-design-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789503824380}]', 'collectOutcome': 'clarify', 'gateState': '', 'nextNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-106', 'role': 'arch', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.rd-design-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789504483407}]', 'collectOutcome': 'clarify', 'gateState': '', 'nextNodeId': ''}"
   },
   {
    "cid": "C-13a2",
@@ -860,17 +860,17 @@
   {
    "cid": "C-13a 澄清动作派发 200",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503824679-029', 'requirementId': 'req-011', 'nodeId': 'n-106', 'actionId': 'backend-design.clarify', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「技术评审」执行动作 backend-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-011\",\"title\":\"QA 澄清矩阵 task×rd\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-106\",\"defNodeId\""
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504483691-029', 'requirementId': 'req-011', 'nodeId': 'n-106', 'actionId': 'backend-design.clarify', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「技术评审」执行动作 backend-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-011\",\"title\":\"QA 澄清矩阵 task×rd\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-106\",\"defNodeId\""
   },
   {
    "cid": "C-13a3 owner 澄清 issue resolved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503824324', 'nodeId': 'n-106', 'anchorKind': 'document', 'author': 'arch-a', 'roleId': 'arch', 'text': '口径未定义，需澄清（澄清矩阵探针）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503824325', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503824001', 'anchorLine': '"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504483320', 'nodeId': 'n-106', 'anchorKind': 'document', 'author': 'arch-a', 'roleId': 'arch', 'text': '口径未定义，需澄清（澄清矩阵探针）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504483320', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504482995', 'anchorLine': '"
   },
   {
    "cid": "C-13a4 respond complete 触发评审重入",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503824679-029', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503824679-029', 'requirementId': 'req-011', 'nodeId': 'n-106', 'actionId': 'backend-design.clarify', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「技术评审」执行动作 backend-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-011\",\"title\""
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504483691-029', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504483691-029', 'requirementId': 'req-011', 'nodeId': 'n-106', 'actionId': 'backend-design.clarify', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「技术评审」执行动作 backend-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-011\",\"title\""
   },
   {
    "cid": "C-13a5 重入 review 新轮",
@@ -885,7 +885,7 @@
   {
    "cid": "C-13a7 拍板 approved 门禁收口",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-106', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"澄清后通过\",\"at\":1789503825427}', 'nextNodeId': 'n-107', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-106', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"澄清后通过\",\"at\":1789504484554}', 'nextNodeId': 'n-107', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-13a8",
@@ -900,7 +900,7 @@
   {
    "cid": "C-13b1 unagree→clarify（respond 相位）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-113', 'role': 'arch', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.fe-design-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789503828067}]', 'collectOutcome': 'clarify', 'gateState': '', 'nextNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-113', 'role': 'arch', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.fe-design-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789504487011}]', 'collectOutcome': 'clarify', 'gateState': '', 'nextNodeId': ''}"
   },
   {
    "cid": "C-13b2",
@@ -910,17 +910,17 @@
   {
    "cid": "C-13b 澄清动作派发 200",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503828365-032', 'requirementId': 'req-012', 'nodeId': 'n-113', 'actionId': 'frontend-design.clarify', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「技术评审」执行动作 frontend-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-012\",\"title\":\"QA 澄清矩阵 task×fe\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-113\",\"defNodeI"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504487330-032', 'requirementId': 'req-012', 'nodeId': 'n-113', 'actionId': 'frontend-design.clarify', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「技术评审」执行动作 frontend-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-012\",\"title\":\"QA 澄清矩阵 task×fe\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-113\",\"defNodeI"
   },
   {
    "cid": "C-13b3 owner 澄清 issue resolved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503828009', 'nodeId': 'n-113', 'anchorKind': 'document', 'author': 'arch-a', 'roleId': 'arch', 'text': '口径未定义，需澄清（澄清矩阵探针）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503828009', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'fe', 'anchorArtifactId': 'art-1789503827207', 'anchorLine': '"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504486951', 'nodeId': 'n-113', 'anchorKind': 'document', 'author': 'arch-a', 'roleId': 'arch', 'text': '口径未定义，需澄清（澄清矩阵探针）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504486952', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'fe', 'anchorArtifactId': 'art-1789504486619', 'anchorLine': '"
   },
   {
    "cid": "C-13b4 respond complete 触发评审重入",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503828365-032', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503828365-032', 'requirementId': 'req-012', 'nodeId': 'n-113', 'actionId': 'frontend-design.clarify', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「技术评审」执行动作 frontend-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-012\",\"titl"
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504487330-032', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504487330-032', 'requirementId': 'req-012', 'nodeId': 'n-113', 'actionId': 'frontend-design.clarify', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「技术评审」执行动作 frontend-design.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-012\",\"titl"
   },
   {
    "cid": "C-13b5 重入 review 新轮",
@@ -935,7 +935,7 @@
   {
    "cid": "C-13b7 拍板 approved 门禁收口",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-113', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"澄清后通过\",\"at\":1789503829141}', 'nextNodeId': 'n-114', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-113', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"澄清后通过\",\"at\":1789504488550}', 'nextNodeId': 'n-114', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-13b8",
@@ -955,7 +955,7 @@
   {
    "cid": "C-13c1 unagree→clarify（respond 相位）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-121', 'role': 'arch', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.research-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789503833235}]', 'collectOutcome': 'clarify', 'gateState': '', 'nextNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-121', 'role': 'arch', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"arch\",\"capabilityId\":\"arch.research-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789504491421}]', 'collectOutcome': 'clarify', 'gateState': '', 'nextNodeId': ''}"
   },
   {
    "cid": "C-13c2",
@@ -965,17 +965,17 @@
   {
    "cid": "C-13c 澄清动作派发 200",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503833524-036', 'requirementId': 'req-013', 'nodeId': 'n-121', 'actionId': 'research-cap.clarify', 'branch': '', 'roleId': 'inv', 'taskType': 'respond', 'goal': '在节点「调研评审」执行动作 research-cap.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-013\",\"title\":\"QA 澄清矩阵 plan\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-121\",\"defNodeId\":\"pln-d4"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504491688-036', 'requirementId': 'req-013', 'nodeId': 'n-121', 'actionId': 'research-cap.clarify', 'branch': '', 'roleId': 'inv', 'taskType': 'respond', 'goal': '在节点「调研评审」执行动作 research-cap.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-013\",\"title\":\"QA 澄清矩阵 plan\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-121\",\"defNodeId\":\"pln-d4"
   },
   {
    "cid": "C-13c3 owner 澄清 issue resolved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503833176', 'nodeId': 'n-121', 'anchorKind': 'document', 'author': 'arch-a', 'roleId': 'arch', 'text': '口径未定义，需澄清（澄清矩阵探针）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503833176', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'inv', 'anchorArtifactId': 'art-1789503832849', 'anchorLine': "
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504491363', 'nodeId': 'n-121', 'anchorKind': 'document', 'author': 'arch-a', 'roleId': 'arch', 'text': '口径未定义，需澄清（澄清矩阵探针）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504491364', 'issueType': 'issue', 'reviewerRole': 'arch', 'assignee': 'inv', 'anchorArtifactId': 'art-1789504491014', 'anchorLine': "
   },
   {
    "cid": "C-13c4 respond complete 触发评审重入",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503833524-036', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503833524-036', 'requirementId': 'req-013', 'nodeId': 'n-121', 'actionId': 'research-cap.clarify', 'branch': '', 'roleId': 'inv', 'taskType': 'respond', 'goal': '在节点「调研评审」执行动作 research-cap.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-013\",\"title\":\"QA "
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504491688-036', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504491688-036', 'requirementId': 'req-013', 'nodeId': 'n-121', 'actionId': 'research-cap.clarify', 'branch': '', 'roleId': 'inv', 'taskType': 'respond', 'goal': '在节点「调研评审」执行动作 research-cap.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-013\",\"title\":\"QA "
   },
   {
    "cid": "C-13c5 重入 review 新轮",
@@ -995,7 +995,7 @@
   {
    "cid": "C-13d1 unagree→clarify（respond 相位）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-123', 'role': 'pm', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"pm\",\"capabilityId\":\"pm.architecture-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789503834964}]', 'collectOutcome': 'clarify', 'gateState': '', 'nextNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-123', 'role': 'pm', 'state': 'unagree', 'round': '0', 'reviewResults': '[{\"role\":\"pm\",\"capabilityId\":\"pm.architecture-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789504493075}]', 'collectOutcome': 'clarify', 'gateState': '', 'nextNodeId': ''}"
   },
   {
    "cid": "C-13d2",
@@ -1005,17 +1005,17 @@
   {
    "cid": "C-13d 澄清动作派发 200",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503835308-038', 'requirementId': 'req-013', 'nodeId': 'n-123', 'actionId': 'arch-cap.clarify', 'branch': '', 'roleId': 'arch', 'taskType': 'respond', 'goal': '在节点「架构规划评审」执行动作 arch-cap.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-013\",\"title\":\"QA 澄清矩阵 plan\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-123\",\"defNodeId\":\"pln-d6\",\"no"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504493422-038', 'requirementId': 'req-013', 'nodeId': 'n-123', 'actionId': 'arch-cap.clarify', 'branch': '', 'roleId': 'arch', 'taskType': 'respond', 'goal': '在节点「架构规划评审」执行动作 arch-cap.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-013\",\"title\":\"QA 澄清矩阵 plan\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-123\",\"defNodeId\":\"pln-d6\",\"no"
   },
   {
    "cid": "C-13d3 owner 澄清 issue resolved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503834907', 'nodeId': 'n-123', 'anchorKind': 'document', 'author': 'pm-a', 'roleId': 'pm', 'text': '口径未定义，需澄清（澄清矩阵探针）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503834908', 'issueType': 'issue', 'reviewerRole': 'pm', 'assignee': 'arch', 'anchorArtifactId': 'art-1789503834577', 'anchorLine': '0', "
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504493023', 'nodeId': 'n-123', 'anchorKind': 'document', 'author': 'pm-a', 'roleId': 'pm', 'text': '口径未定义，需澄清（澄清矩阵探针）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504493024', 'issueType': 'issue', 'reviewerRole': 'pm', 'assignee': 'arch', 'anchorArtifactId': 'art-1789504492692', 'anchorLine': '0', "
   },
   {
    "cid": "C-13d4 respond complete 触发评审重入",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503835308-038', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503835308-038', 'requirementId': 'req-013', 'nodeId': 'n-123', 'actionId': 'arch-cap.clarify', 'branch': '', 'roleId': 'arch', 'taskType': 'respond', 'goal': '在节点「架构规划评审」执行动作 arch-cap.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-013\",\"title\":\"QA 澄清矩阵 "
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504493422-038', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504493422-038', 'requirementId': 'req-013', 'nodeId': 'n-123', 'actionId': 'arch-cap.clarify', 'branch': '', 'roleId': 'arch', 'taskType': 'respond', 'goal': '在节点「架构规划评审」执行动作 arch-cap.clarify（澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-013\",\"title\":\"QA 澄清矩阵 "
   },
   {
    "cid": "C-13d5 重入 review 新轮",
@@ -1030,7 +1030,7 @@
   {
    "cid": "C-13d7 拍板 approved 门禁收口",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-123', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"澄清后通过\",\"at\":1789503836146}', 'nextNodeId': 'n-124', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-123', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"澄清后通过\",\"at\":1789504495465}', 'nextNodeId': 'n-124', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-13d8 尾段收口 pln-d8（D-1 对账）",
@@ -1045,17 +1045,17 @@
   {
    "cid": "C-13e backend-dev.clarify 派发（tech/tec-b9）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503840929-045', 'requirementId': 'req-014', 'nodeId': 'n-134', 'actionId': 'backend-dev.clarify', 'branch': '', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「QA 验收（含联调）」执行动作 backend-dev.clarify（缺陷确认澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-014\",\"title\":\"QA 澄清矩阵 tech×full\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-134\",\"defNod"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504501390-045', 'requirementId': 'req-014', 'nodeId': 'n-134', 'actionId': 'backend-dev.clarify', 'branch': '', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「QA 验收（含联调）」执行动作 backend-dev.clarify（缺陷确认澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-014\",\"title\":\"QA 澄清矩阵 tech×full\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-134\",\"defNod"
   },
   {
    "cid": "C-13e2 respond complete 判据（open issue 清零）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503840929-045', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503840929-045', 'requirementId': 'req-014', 'nodeId': 'n-134', 'actionId': 'backend-dev.clarify', 'branch': '', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「QA 验收（含联调）」执行动作 backend-dev.clarify（缺陷确认澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-014\",\"titl"
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504501390-045', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504501390-045', 'requirementId': 'req-014', 'nodeId': 'n-134', 'actionId': 'backend-dev.clarify', 'branch': '', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「QA 验收（含联调）」执行动作 backend-dev.clarify（缺陷确认澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-014\",\"titl"
   },
   {
    "cid": "C-13f frontend-dev.clarify 派发（tech/tec-b9）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503841184-046', 'requirementId': 'req-014', 'nodeId': 'n-134', 'actionId': 'frontend-dev.clarify', 'branch': '', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「QA 验收（含联调）」执行动作 frontend-dev.clarify（缺陷确认澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-014\",\"title\":\"QA 澄清矩阵 tech×full\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-134\",\"defN"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504501639-046', 'requirementId': 'req-014', 'nodeId': 'n-134', 'actionId': 'frontend-dev.clarify', 'branch': '', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「QA 验收（含联调）」执行动作 frontend-dev.clarify（缺陷确认澄清，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-014\",\"title\":\"QA 澄清矩阵 tech×full\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-134\",\"defN"
   },
   {
    "cid": "C-13e3 验收后推进 tec-b10（门禁收口）",
@@ -1070,7 +1070,7 @@
   {
    "cid": "C-14a rejected 回退 bus-02",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-140', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"产品设计范围蔓延，打回修订\",\"at\":1789503844880}', 'nextNodeId': '', 'rollbackNodeId': 'n-139'}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-140', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"产品设计范围蔓延，打回修订\",\"at\":1789504504694}', 'nextNodeId': '', 'rollbackNodeId': 'n-139'}"
   },
   {
    "cid": "C-14a2 bus-02 exec 重入（downstream-reject）",
@@ -1080,12 +1080,12 @@
   {
    "cid": "C-14a3 product-design.revise 派发（business/bus-02）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503845214-050', 'requirementId': 'req-015', 'nodeId': 'n-139', 'actionId': 'product-design.revise', 'branch': 'rd', 'roleId': 'pm', 'taskType': 'produce', 'goal': '在节点「产品设计」执行动作 product-design.revise（修订产品设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-015\",\"title\":\"QA 修订矩阵 business×rd\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-139\",\"defN"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504505685-050', 'requirementId': 'req-015', 'nodeId': 'n-139', 'actionId': 'product-design.revise', 'branch': 'rd', 'roleId': 'pm', 'taskType': 'produce', 'goal': '在节点「产品设计」执行动作 product-design.revise（修订产品设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-015\",\"title\":\"QA 修订矩阵 business×rd\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-139\",\"defN"
   },
   {
    "cid": "C-14a4 修订 complete",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503845214-050', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503845214-050', 'requirementId': 'req-015', 'nodeId': 'n-139', 'actionId': 'product-design.revise', 'branch': 'rd', 'roleId': 'pm', 'taskType': 'produce', 'goal': '在节点「产品设计」执行动作 product-design.revise（修订产品设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-015\",\"titl"
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504505685-050', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504505685-050', 'requirementId': 'req-015', 'nodeId': 'n-139', 'actionId': 'product-design.revise', 'branch': 'rd', 'roleId': 'pm', 'taskType': 'produce', 'goal': '在节点「产品设计」执行动作 product-design.revise（修订产品设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-015\",\"titl"
   },
   {
    "cid": "C-14a5 bus-03 重入 review",
@@ -1095,7 +1095,7 @@
   {
    "cid": "C-14a6 重评拍板 approved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-140', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修订后通过\",\"at\":1789503846130}', 'nextNodeId': 'n-141', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-140', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修订后通过\",\"at\":1789504506566}', 'nextNodeId': 'n-141', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-14a7 尾段收口 bus-12",
@@ -1105,7 +1105,7 @@
   {
    "cid": "C-14b rejected 回退 tsk-c2",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-149', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"技术方案不成立，打回修订\",\"at\":1789503849659}', 'nextNodeId': '', 'rollbackNodeId': 'n-148'}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-149', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"技术方案不成立，打回修订\",\"at\":1789504511390}', 'nextNodeId': '', 'rollbackNodeId': 'n-148'}"
   },
   {
    "cid": "C-14b2 tsk-c2 exec 重入（downstream-reject）",
@@ -1115,12 +1115,12 @@
   {
    "cid": "C-14b3 frontend-design.revise 派发（task/tsk-c2）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503849948-054', 'requirementId': 'req-016', 'nodeId': 'n-148', 'actionId': 'frontend-design.revise', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'produce', 'goal': '在节点「技术设计」执行动作 frontend-design.revise（修订前端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-016\",\"title\":\"QA 修订矩阵 task×fe\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-148\",\"defN"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504511717-054', 'requirementId': 'req-016', 'nodeId': 'n-148', 'actionId': 'frontend-design.revise', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'produce', 'goal': '在节点「技术设计」执行动作 frontend-design.revise（修订前端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-016\",\"title\":\"QA 修订矩阵 task×fe\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-148\",\"defN"
   },
   {
    "cid": "C-14b4 修订 complete",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503849948-054', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503849948-054', 'requirementId': 'req-016', 'nodeId': 'n-148', 'actionId': 'frontend-design.revise', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'produce', 'goal': '在节点「技术设计」执行动作 frontend-design.revise（修订前端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-016\",\""
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504511717-054', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504511717-054', 'requirementId': 'req-016', 'nodeId': 'n-148', 'actionId': 'frontend-design.revise', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'produce', 'goal': '在节点「技术设计」执行动作 frontend-design.revise（修订前端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-016\",\""
   },
   {
    "cid": "C-14b5 tsk-c3 重入 review",
@@ -1130,7 +1130,7 @@
   {
    "cid": "C-14b6 重评拍板 approved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-149', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修订后通过\",\"at\":1789503850624}', 'nextNodeId': 'n-150', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-149', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修订后通过\",\"at\":1789504512751}', 'nextNodeId': 'n-150', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-14b7 尾段收口 tsk-c7（D-1 对账）",
@@ -1140,12 +1140,12 @@
   {
    "cid": "C-14d research-cap.revise exec 相位派发（plan/pln-d3 探针）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503852754-057', 'requirementId': 'req-017', 'nodeId': 'n-156', 'actionId': 'research-cap.revise', 'branch': '', 'roleId': 'inv', 'taskType': 'produce', 'goal': '在节点「调研」执行动作 research-cap.revise（修订调研文档，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-017\",\"title\":\"QA 修订矩阵 plan\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-156\",\"defNodeId\":\"pln-d3"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504515008-057', 'requirementId': 'req-017', 'nodeId': 'n-156', 'actionId': 'research-cap.revise', 'branch': '', 'roleId': 'inv', 'taskType': 'produce', 'goal': '在节点「调研」执行动作 research-cap.revise（修订调研文档，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-017\",\"title\":\"QA 修订矩阵 plan\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-156\",\"defNodeId\":\"pln-d3"
   },
   {
    "cid": "C-14d2 修订 complete（produce 族判据）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503852754-057', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503852754-057', 'requirementId': 'req-017', 'nodeId': 'n-156', 'actionId': 'research-cap.revise', 'branch': '', 'roleId': 'inv', 'taskType': 'produce', 'goal': '在节点「调研」执行动作 research-cap.revise（修订调研文档，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-017\",\"title\":\"QA "
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504515008-057', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504515008-057', 'requirementId': 'req-017', 'nodeId': 'n-156', 'actionId': 'research-cap.revise', 'branch': '', 'roleId': 'inv', 'taskType': 'produce', 'goal': '在节点「调研」执行动作 research-cap.revise（修订调研文档，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-017\",\"title\":\"QA "
   },
   {
    "cid": "C-14d3 推进 pln-d4",
@@ -1170,7 +1170,7 @@
   {
    "cid": "C-14c rejected 回退 pln-d5",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-159', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"架构规划不成熟，打回修订\",\"at\":1789503855296}', 'nextNodeId': '', 'rollbackNodeId': 'n-158'}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-159', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"架构规划不成熟，打回修订\",\"at\":1789504517390}', 'nextNodeId': '', 'rollbackNodeId': 'n-158'}"
   },
   {
    "cid": "C-14c2 pln-d5 exec 重入（downstream-reject）",
@@ -1180,12 +1180,12 @@
   {
    "cid": "C-14c3 arch-cap.revise 派发（plan/pln-d5）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503855547-060', 'requirementId': 'req-017', 'nodeId': 'n-158', 'actionId': 'arch-cap.revise', 'branch': '', 'roleId': 'arch', 'taskType': 'produce', 'goal': '在节点「架构规划」执行动作 arch-cap.revise（修订架构规划，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-017\",\"title\":\"QA 修订矩阵 plan\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-158\",\"defNodeId\":\"pln-d5\",\"no"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504517650-060', 'requirementId': 'req-017', 'nodeId': 'n-158', 'actionId': 'arch-cap.revise', 'branch': '', 'roleId': 'arch', 'taskType': 'produce', 'goal': '在节点「架构规划」执行动作 arch-cap.revise（修订架构规划，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-017\",\"title\":\"QA 修订矩阵 plan\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-158\",\"defNodeId\":\"pln-d5\",\"no"
   },
   {
    "cid": "C-14c4 修订 complete",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503855547-060', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503855547-060', 'requirementId': 'req-017', 'nodeId': 'n-158', 'actionId': 'arch-cap.revise', 'branch': '', 'roleId': 'arch', 'taskType': 'produce', 'goal': '在节点「架构规划」执行动作 arch-cap.revise（修订架构规划，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-017\",\"title\":\"QA 修订矩阵 "
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504517650-060', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504517650-060', 'requirementId': 'req-017', 'nodeId': 'n-158', 'actionId': 'arch-cap.revise', 'branch': '', 'roleId': 'arch', 'taskType': 'produce', 'goal': '在节点「架构规划」执行动作 arch-cap.revise（修订架构规划，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-017\",\"title\":\"QA 修订矩阵 "
   },
   {
    "cid": "C-14c5 pln-d6 重入 review",
@@ -1195,7 +1195,7 @@
   {
    "cid": "C-14c6 重评拍板 approved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-159', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修订后通过\",\"at\":1789503856314}', 'nextNodeId': 'n-160', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-159', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修订后通过\",\"at\":1789504519263}', 'nextNodeId': 'n-160', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-14c7 尾段收口 pln-d8（D-1 对账）",
@@ -1210,22 +1210,22 @@
   {
    "cid": "C-15a2 CR 缺陷 issue 建行",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503858877', 'nodeId': 'n-166', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（CR 缺陷）', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503858877', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503858487', 'anchorLine': '0', 'anchor"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504523266', 'nodeId': 'n-166', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（CR 缺陷）', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504523267', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504522501', 'anchorLine': '0', 'anchor"
   },
   {
    "cid": "C-15a fix_on_review 派发（task/tsk-c4）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503858976-064', 'requirementId': 'req-018', 'nodeId': 'n-166', 'actionId': 'backend-dev.fix_on_review', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「开发」执行动作 backend-dev.fix_on_review（评审修复，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-018\",\"title\":\"QA CR 修复矩阵 task×rd\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-166\",\"d"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504523355-064', 'requirementId': 'req-018', 'nodeId': 'n-166', 'actionId': 'backend-dev.fix_on_review', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「开发」执行动作 backend-dev.fix_on_review（评审修复，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-018\",\"title\":\"QA CR 修复矩阵 task×rd\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-166\",\"d"
   },
   {
    "cid": "C-15a3 CR 缺陷 resolved（respond 判据清零）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503858877', 'nodeId': 'n-166', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（CR 缺陷）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503858877', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789503858487', 'anchorLine': '0', 'an"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504523266', 'nodeId': 'n-166', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（CR 缺陷）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504523267', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'rd', 'anchorArtifactId': 'art-1789504522501', 'anchorLine': '0', 'an"
   },
   {
    "cid": "C-15a4 respond complete 轮内重入（不打回）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503858976-064', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503858976-064', 'requirementId': 'req-018', 'nodeId': 'n-166', 'actionId': 'backend-dev.fix_on_review', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「开发」执行动作 backend-dev.fix_on_review（评审修复，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-018\",\""
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504523355-064', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504523355-064', 'requirementId': 'req-018', 'nodeId': 'n-166', 'actionId': 'backend-dev.fix_on_review', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'respond', 'goal': '在节点「开发」执行动作 backend-dev.fix_on_review（评审修复，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-018\",\""
   },
   {
    "cid": "C-15a5 tsk-c4 重入 review 新轮",
@@ -1250,7 +1250,7 @@
   {
    "cid": "C-15c1 rejected 回退 tsk-c4",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-167', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"验收发现缺陷，打回定位修复\",\"at\":1789503859811}', 'nextNodeId': '', 'rollbackNodeId': 'n-166'}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-167', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"验收发现缺陷，打回定位修复\",\"at\":1789504524690}', 'nextNodeId': '', 'rollbackNodeId': 'n-166'}"
   },
   {
    "cid": "C-15c2 tsk-c4 exec 重入（downstream-reject）",
@@ -1260,12 +1260,12 @@
   {
    "cid": "C-15c diagnosing-bugs 派发（task/tsk-c4）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503860065-065', 'requirementId': 'req-018', 'nodeId': 'n-166', 'actionId': 'backend-dev.diagnosing-bugs', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'dev', 'goal': '在节点「开发」执行动作 backend-dev.diagnosing-bugs（缺陷定位修复，任务族 dev）', 'context': '{\"requirement\":{\"requirementId\":\"req-018\",\"title\":\"QA CR 修复矩阵 task×rd\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-166\",\"def"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504524924-065', 'requirementId': 'req-018', 'nodeId': 'n-166', 'actionId': 'backend-dev.diagnosing-bugs', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'dev', 'goal': '在节点「开发」执行动作 backend-dev.diagnosing-bugs（缺陷定位修复，任务族 dev）', 'context': '{\"requirement\":{\"requirementId\":\"req-018\",\"title\":\"QA CR 修复矩阵 task×rd\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-166\",\"def"
   },
   {
    "cid": "C-15c3 缺陷定位 complete（dev 族，产物已登记）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503860065-065', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503860065-065', 'requirementId': 'req-018', 'nodeId': 'n-166', 'actionId': 'backend-dev.diagnosing-bugs', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'dev', 'goal': '在节点「开发」执行动作 backend-dev.diagnosing-bugs（缺陷定位修复，任务族 dev）', 'context': '{\"requirement\":{\"requirementId\":\"req-018\",\"ti"
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504524924-065', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504524924-065', 'requirementId': 'req-018', 'nodeId': 'n-166', 'actionId': 'backend-dev.diagnosing-bugs', 'branch': 'rd', 'roleId': 'rd', 'taskType': 'dev', 'goal': '在节点「开发」执行动作 backend-dev.diagnosing-bugs（缺陷定位修复，任务族 dev）', 'context': '{\"requirement\":{\"requirementId\":\"req-018\",\"ti"
   },
   {
    "cid": "C-15c4 tsk-c4 重入 CR review",
@@ -1275,7 +1275,7 @@
   {
    "cid": "C-15c5 复验拍板 approved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-167', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修复后复验通过\",\"at\":1789503860700}', 'nextNodeId': 'n-168', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-167', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修复后复验通过\",\"at\":1789504525604}', 'nextNodeId': 'n-168', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-15c6 收口 tsk-c7（D-1 对账）",
@@ -1290,22 +1290,22 @@
   {
    "cid": "C-15b2 CR 缺陷 issue 建行",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503862860', 'nodeId': 'n-173', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（CR 缺陷）', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503862861', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'fe', 'anchorArtifactId': 'art-1789503862473', 'anchorLine': '0', 'anchor"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504527858', 'nodeId': 'n-173', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（CR 缺陷）', 'state': 'open', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504527859', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'fe', 'anchorArtifactId': 'art-1789504527544', 'anchorLine': '0', 'anchor"
   },
   {
    "cid": "C-15b fix_on_review 派发（task/tsk-c4）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503862951-068', 'requirementId': 'req-019', 'nodeId': 'n-173', 'actionId': 'frontend-dev.fix_on_review', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「开发」执行动作 frontend-dev.fix_on_review（评审修复，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-019\",\"title\":\"QA CR 修复矩阵 task×fe\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-173\","
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504527981-068', 'requirementId': 'req-019', 'nodeId': 'n-173', 'actionId': 'frontend-dev.fix_on_review', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「开发」执行动作 frontend-dev.fix_on_review（评审修复，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-019\",\"title\":\"QA CR 修复矩阵 task×fe\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-173\","
   },
   {
    "cid": "C-15b3 CR 缺陷 resolved（respond 判据清零）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503862860', 'nodeId': 'n-173', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（CR 缺陷）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789503862861', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'fe', 'anchorArtifactId': 'art-1789503862473', 'anchorLine': '0', 'an"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504527858', 'nodeId': 'n-173', 'anchorKind': 'document', 'author': 'cr-a', 'roleId': 'cr', 'text': '导出接口缺超时分支（CR 缺陷）', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '0', 'createdAt': '1789504527859', 'issueType': 'issue', 'reviewerRole': 'cr', 'assignee': 'fe', 'anchorArtifactId': 'art-1789504527544', 'anchorLine': '0', 'an"
   },
   {
    "cid": "C-15b4 respond complete 轮内重入（不打回）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503862951-068', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503862951-068', 'requirementId': 'req-019', 'nodeId': 'n-173', 'actionId': 'frontend-dev.fix_on_review', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「开发」执行动作 frontend-dev.fix_on_review（评审修复，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-019\""
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504527981-068', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504527981-068', 'requirementId': 'req-019', 'nodeId': 'n-173', 'actionId': 'frontend-dev.fix_on_review', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'respond', 'goal': '在节点「开发」执行动作 frontend-dev.fix_on_review（评审修复，任务族 respond）', 'context': '{\"requirement\":{\"requirementId\":\"req-019\""
   },
   {
    "cid": "C-15b5 tsk-c4 重入 review 新轮",
@@ -1330,7 +1330,7 @@
   {
    "cid": "C-15d1 rejected 回退 tsk-c4",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-174', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"验收发现缺陷，打回定位修复\",\"at\":1789503863695}', 'nextNodeId': '', 'rollbackNodeId': 'n-173'}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-174', 'verdict': 'rejected', 'noop': False, 'lastDecision': '{\"verdict\":\"rejected\",\"reason\":\"验收发现缺陷，打回定位修复\",\"at\":1789504528664}', 'nextNodeId': '', 'rollbackNodeId': 'n-173'}"
   },
   {
    "cid": "C-15d2 tsk-c4 exec 重入（downstream-reject）",
@@ -1340,12 +1340,12 @@
   {
    "cid": "C-15d diagnosing-bugs 派发（task/tsk-c4）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503863961-069', 'requirementId': 'req-019', 'nodeId': 'n-173', 'actionId': 'frontend-dev.diagnosing-bugs', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'dev', 'goal': '在节点「开发」执行动作 frontend-dev.diagnosing-bugs（缺陷定位修复，任务族 dev）', 'context': '{\"requirement\":{\"requirementId\":\"req-019\",\"title\":\"QA CR 修复矩阵 task×fe\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-173\",\"d"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504528894-069', 'requirementId': 'req-019', 'nodeId': 'n-173', 'actionId': 'frontend-dev.diagnosing-bugs', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'dev', 'goal': '在节点「开发」执行动作 frontend-dev.diagnosing-bugs（缺陷定位修复，任务族 dev）', 'context': '{\"requirement\":{\"requirementId\":\"req-019\",\"title\":\"QA CR 修复矩阵 task×fe\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-173\",\"d"
   },
   {
    "cid": "C-15d3 缺陷定位 complete（dev 族，产物已登记）",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503863961-069', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503863961-069', 'requirementId': 'req-019', 'nodeId': 'n-173', 'actionId': 'frontend-dev.diagnosing-bugs', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'dev', 'goal': '在节点「开发」执行动作 frontend-dev.diagnosing-bugs（缺陷定位修复，任务族 dev）', 'context': '{\"requirement\":{\"requirementId\":\"req-019\",\""
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504528894-069', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504528894-069', 'requirementId': 'req-019', 'nodeId': 'n-173', 'actionId': 'frontend-dev.diagnosing-bugs', 'branch': 'fe', 'roleId': 'fe', 'taskType': 'dev', 'goal': '在节点「开发」执行动作 frontend-dev.diagnosing-bugs（缺陷定位修复，任务族 dev）', 'context': '{\"requirement\":{\"requirementId\":\"req-019\",\""
   },
   {
    "cid": "C-15d4 tsk-c4 重入 CR review",
@@ -1355,7 +1355,7 @@
   {
    "cid": "C-15d5 复验拍板 approved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-174', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修复后复验通过\",\"at\":1789503864572}', 'nextNodeId': 'n-175', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-174', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"修复后复验通过\",\"at\":1789504529907}', 'nextNodeId': 'n-175', 'rollbackNodeId': ''}"
   },
   {
    "cid": "C-15d6 收口 tsk-c7（D-1 对账）",
@@ -1365,7 +1365,7 @@
   {
    "cid": "B-5a 规划审批任务→plan 绑定",
    "ok": true,
-   "detail": "{'requirementId': 'req-020', 'title': 'QA 规划需求', 'description': '', 'category': '规划审批任务', 'flowDefsId': 'plan', 'versionId': '', 'priority': 'P2', 'status': '待启动', 'owner': '', 'createdBy': 'user-a', 'createdAt': '1789503865016', 'updatedAt': '1789503865016', 'dependencies': []}"
+   "detail": "{'requirementId': 'req-020', 'title': 'QA 规划需求', 'description': '', 'category': '规划审批任务', 'flowDefsId': 'plan', 'versionId': '', 'priority': 'P2', 'status': '待启动', 'owner': '', 'createdBy': 'user-a', 'createdAt': '1789504530097', 'updatedAt': '1789504530097', 'dependencies': []}"
   },
   {
    "cid": "B-5b 实例化 9 节点",
@@ -1385,12 +1385,12 @@
   {
    "cid": "B-5e create_reqs 派发",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789503867927-073', 'requirementId': 'req-020', 'nodeId': 'n-183', 'actionId': 'decide-cap.create_reqs', 'branch': '', 'roleId': 'leader', 'taskType': 'create_reqs', 'goal': '在节点「创建需求·启动版本」执行动作 decide-cap.create_reqs（创建需求·启动版本，任务族 create_reqs）', 'context': '{\"requirement\":{\"requirementId\":\"req-020\",\"title\":\"QA 规划需求\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-18"
+   "detail": "HTTP 200 {'ok': True, 'task': {'taskId': 't-1789504533566-073', 'requirementId': 'req-020', 'nodeId': 'n-183', 'actionId': 'decide-cap.create_reqs', 'branch': '', 'roleId': 'leader', 'taskType': 'create_reqs', 'goal': '在节点「创建需求·启动版本」执行动作 decide-cap.create_reqs（创建需求·启动版本，任务族 create_reqs）', 'context': '{\"requirement\":{\"requirementId\":\"req-020\",\"title\":\"QA 规划需求\",\"status\":\"进行中\"},\"node\":{\"nodeId\":\"n-18"
   },
   {
    "cid": "B-5f create_reqs complete",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503867927-073', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503867927-073', 'requirementId': 'req-020', 'nodeId': 'n-183', 'actionId': 'decide-cap.create_reqs', 'branch': '', 'roleId': 'leader', 'taskType': 'create_reqs', 'goal': '在节点「创建需求·启动版本」执行动作 decide-cap.create_reqs（创建需求·启动版本，任务族 create_reqs）', 'context': '{\"requirement\":{\"requiremen"
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504533566-073', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504533566-073', 'requirementId': 'req-020', 'nodeId': 'n-183', 'actionId': 'decide-cap.create_reqs', 'branch': '', 'roleId': 'leader', 'taskType': 'create_reqs', 'goal': '在节点「创建需求·启动版本」执行动作 decide-cap.create_reqs（创建需求·启动版本，任务族 create_reqs）', 'context': '{\"requirement\":{\"requiremen"
   },
   {
    "cid": "B-5g pln-d7→pln-d8 推进",
@@ -1410,7 +1410,7 @@
   {
    "cid": "A-18c range 锚（划词）",
    "ok": true,
-   "detail": "HTTP 200 {\"issueId\": \"cm-1789503868909\", \"nodeId\": \"n-186\", \"anchorKind\": \"range\", \"author\": \"qa-a\", \"roleId\": \"qa\", \"text\": \"\\u8303\\u56f4\\u610f\\u89c1\", \"state\": \"open\", \"escalate\": \"0\", \"loopCount\": \"0\", \"rou"
+   "detail": "HTTP 200 {\"issueId\": \"cm-1789504534795\", \"nodeId\": \"n-186\", \"anchorKind\": \"range\", \"author\": \"qa-a\", \"roleId\": \"qa\", \"text\": \"\\u8303\\u56f4\\u610f\\u89c1\", \"state\": \"open\", \"escalate\": \"0\", \"loopCount\": \"0\", \"rou"
   },
   {
    "cid": "A-18d block 锚废弃 400（注记-L3）",
@@ -1445,12 +1445,12 @@
   {
    "cid": "A-21 confirm→resolved",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789503869623', 'nodeId': 'n-186', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '复核通道意见', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789503869623', 'issueType': 'issue', 'reviewerRole': '', 'assignee': 'pm', 'anchorArtifactId': '', 'anchorLine': '0', 'anchorStartLine': '0', 'anchorE"
+   "detail": "HTTP 200 {'ok': True, 'issue': {'issueId': 'cm-1789504535477', 'nodeId': 'n-186', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '复核通道意见', 'state': 'resolved', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789504535478', 'issueType': 'issue', 'reviewerRole': '', 'assignee': 'pm', 'anchorArtifactId': '', 'anchorLine': '0', 'anchorStartLine': '0', 'anchorE"
   },
   {
    "cid": "C-6a escalate 建 session",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'commentId': 'cm-1789503869947', 'escalated': True, 'noop': False, 'sessionId': 'ad-1789503870089', 'issue': {'issueId': 'cm-1789503869947', 'nodeId': 'n-186', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '上升裁决意见 A', 'state': 'pending-confirm', 'escalate': '1', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789503869947', 'issueType': 'issue', 'rev"
+   "detail": "HTTP 200 {'ok': True, 'commentId': 'cm-1789504535712', 'escalated': True, 'noop': False, 'sessionId': 'ad-1789504535832', 'issue': {'issueId': 'cm-1789504535712', 'nodeId': 'n-186', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '上升裁决意见 A', 'state': 'pending-confirm', 'escalate': '1', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789504535713', 'issueType': 'issue', 'rev"
   },
   {
    "cid": "BUG-008a wb_escalate 通知行 anchor_kind=escalation（DB）",
@@ -1470,7 +1470,7 @@
   {
    "cid": "C-6d uphold 保持",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'commentId': 'cm-1789503869947', 'verdict': 'uphold', 'sessionId': 'ad-1789503870089', 'reentered': False, 'round': '0', 'issue': {'issueId': 'cm-1789503869947', 'nodeId': 'n-186', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '上升裁决意见 A', 'state': 'pending-confirm', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789503869947', 'issu"
+   "detail": "HTTP 200 {'ok': True, 'commentId': 'cm-1789504535712', 'verdict': 'uphold', 'sessionId': 'ad-1789504535832', 'reentered': False, 'round': '0', 'issue': {'issueId': 'cm-1789504535712', 'nodeId': 'n-186', 'anchorKind': 'document', 'author': 'qa-a', 'roleId': 'qa', 'text': '上升裁决意见 A', 'state': 'pending-confirm', 'escalate': '0', 'loopCount': '0', 'roundCount': '1', 'createdAt': '1789504535713', 'issu"
   },
   {
    "cid": "C-6e override→resolved 终态（09-12 裁决废除 overridden）",
@@ -1595,7 +1595,7 @@
   {
    "cid": "D-2b audit 非空",
    "ok": true,
-   "detail": "rows=1863"
+   "detail": "rows=1855"
   },
   {
    "cid": "D-2c requirements 列表/库一致",
@@ -1605,7 +1605,7 @@
   {
    "cid": "Q-1a tec-b0 entry 拍板推进",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-194', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"Q 链启动拍板\",\"at\":1789503873131}', 'nextNodeId': 'n-195', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-194', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"Q 链启动拍板\",\"at\":1789504538982}', 'nextNodeId': 'n-195', 'rollbackNodeId': ''}"
   },
   {
    "cid": "Q-1b tec-b1 激活 entry 相位（align 开场白节点）",
@@ -1613,7 +1613,7 @@
    "detail": "state=entry"
   },
   {
-   "cid": "Q-1c sweep 自动派发 to-brd（entry 相位准入，BUG-Q1 回归位）",
+   "cid": "Q-1c sweep 自动派发 to-brd（entry 相位准入，BUG-018 回归位）",
    "ok": true,
    "detail": "75s 内未出现任务行"
   },
@@ -1640,7 +1640,7 @@
   {
    "cid": "Q-1h wb_decision 拍板推进",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-195', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"对齐结论用户确认\",\"at\":1789503888877}', 'nextNodeId': 'n-196', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-195', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"对齐结论用户确认\",\"at\":1789504549581}', 'nextNodeId': 'n-196', 'rollbackNodeId': ''}"
   },
   {
    "cid": "Q-1i tec-b1 done / current 前移 tec-b2",
@@ -1650,7 +1650,7 @@
   {
    "cid": "Q-2a tec-b2 手工产出 complete",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789503889121-076', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789503889121-076', 'requirementId': 'req-022', 'nodeId': 'n-196', 'actionId': 'backend-design.produce', 'branch': '', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「RD 技术设计」执行动作 backend-design.produce（产出后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-022\","
+   "detail": "HTTP 200 {'ok': True, 'taskId': 't-1789504549782-076', 'status': 'completed', 'noop': False, 'task': {'taskId': 't-1789504549782-076', 'requirementId': 'req-022', 'nodeId': 'n-196', 'actionId': 'backend-design.produce', 'branch': '', 'roleId': 'rd', 'taskType': 'produce', 'goal': '在节点「RD 技术设计」执行动作 backend-design.produce（产出后端技术设计，任务族 produce）', 'context': '{\"requirement\":{\"requirementId\":\"req-022\","
   },
   {
    "cid": "Q-2b tec-b3 激活 review 相位",
@@ -1670,7 +1670,7 @@
   {
    "cid": "Q-2e arch 位 unagree（占位文本兜底意见口径）",
    "ok": true,
-   "detail": "reviewResults=[{\"role\":\"arch\",\"capabilityId\":\"arch.rd-design-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789503902207},{\"role\":\"fe\",\"capabilityId\":\"fe.rd-design-review\",\"state\":\"reviewing\",\"round\":0,\"at\":1789503889606},{\"role\":\"qa\",\"cap"
+   "detail": "reviewResults=[{\"role\":\"arch\",\"capabilityId\":\"arch.rd-design-review\",\"state\":\"unagree\",\"round\":0,\"at\":1789504564379},{\"role\":\"fe\",\"capabilityId\":\"fe.rd-design-review\",\"state\":\"reviewing\",\"round\":0,\"at\":1789504550177},{\"role\":\"qa\",\"cap"
   },
   {
    "cid": "Q-2f 兜底意见挂锚评论 ×1",
@@ -1680,12 +1680,12 @@
   {
    "cid": "Q-3a bus-00 拍板进入编排",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-205', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"进入编排后即删\",\"at\":1789503905470}', 'nextNodeId': 'n-206', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-205', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"进入编排后即删\",\"at\":1789504566287}', 'nextNodeId': 'n-206', 'rollbackNodeId': ''}"
   },
   {
    "cid": "Q-3b-1 进行中需求取消",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'requirement': {'requirementId': 'req-023', 'title': '架构增量·巡检删除竞态容错', 'description': '', 'category': '需求任务', 'flowDefsId': 'business', 'versionId': '', 'priority': 'P2', 'status': '已取消', 'owner': 'pm', 'createdBy': 'user-a', 'createdAt': '1789503905244', 'updatedAt': '1789503905599', 'dependencies': []}}"
+   "detail": "HTTP 200 {'ok': True, 'requirement': {'requirementId': 'req-023', 'title': '架构增量·巡检删除竞态容错', 'description': '', 'category': '需求任务', 'flowDefsId': 'business', 'versionId': '', 'priority': 'P2', 'status': '已取消', 'owner': 'pm', 'createdBy': 'user-a', 'createdAt': '1789504566027', 'updatedAt': '1789504566418', 'dependencies': []}}"
   },
   {
    "cid": "Q-3b 编排中（已取消）需求删除成功",
@@ -1693,15 +1693,15 @@
    "detail": "HTTP 200 {'ok': True, 'requirementId': 'req-023'}"
   },
   {
-   "cid": "Q-3c 删除竞态后服务健康（sweep notFound 容错）",
+   "cid": "Q-3c 删除竞态后服务健康（sweep notFound 容错，跨 scanner 轮轮询）",
    "ok": true,
    "detail": "HTTP 200 {'ok': True, 'state': 'ok', 'mysql': {'reachable': True, 'version': '8.0.46', 'db_state': 'ok', 'error': ''}}"
   },
   {
    "cid": "Q-3d 删除竞态后新需求编排正常",
    "ok": true,
-   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-205', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"删除竞态后健康验证\",\"at\":1789503926229}', 'nextNodeId': 'n-206', 'rollbackNodeId': ''}"
+   "detail": "HTTP 200 {'ok': True, 'nodeId': 'n-205', 'verdict': 'approved', 'noop': False, 'lastDecision': '{\"verdict\":\"approved\",\"reason\":\"删除竞态后健康验证\",\"at\":1789504566959}', 'nextNodeId': 'n-206', 'rollbackNodeId': ''}"
   }
  ],
- "elapsed_sec": 134.3
+ "elapsed_sec": 130.8
 }

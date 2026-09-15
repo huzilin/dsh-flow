@@ -1601,6 +1601,14 @@ def p_reconcile():
 
 # ============================== Q 架构行为增量（2026-09-15 批次） ==============================
 
+def task_count(req_id, action_id, status=None):
+    """tasks 表按需求×动作（可选状态）计数（Q 组轮询与断言共用）。"""
+    extra = f" AND status='{status}'" if status else ""
+    return sql_int(
+        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{req_id}' "
+        f"AND action_id='{action_id}'{extra}")
+
+
 def wait_scan(cond, timeout_sec=75, interval=5):
     """轮询等待 scanner sweep 生效（扫描间隔 15s；默认上界约 5 轮）。"""
     deadline = time.time() + timeout_sec
@@ -1614,7 +1622,7 @@ def wait_scan(cond, timeout_sec=75, interval=5):
 def p_q_arch():
     sec("Q-1~Q-3 架构行为增量（编排会话/审计派生批次；LLM=FakeClient 演示态黑盒全链）")
 
-    # ---- Q-1 LLM 产线黑盒全链：sweep 自动派发 to-brd（entry 相位准入，BUG-Q1 修复）
+    # ---- Q-1 LLM 产线黑盒全链：sweep 自动派发 to-brd（entry 相位准入，BUG-018 修复）
     #      → FakeClient 产文 → 产物入库 → complete 判据过 → align 拍板位停等 →
     #      wb_decision 拍板推进（tec-b1 done / current 前移 tec-b2） ----
     q = Req("Q", "架构增量·LLM 产线评审链（tech×full）", flow="tech", scope="full")
@@ -1624,13 +1632,10 @@ def p_q_arch():
     ck("Q-1b tec-b1 激活 entry 相位（align 开场白节点）", q.ndef("tec-b1").get("state") == "entry",
        f"state={q.ndef('tec-b1').get('state')}")
 
-    appeared = wait_scan(lambda: sql_int(
-        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{q.id}' AND action_id='to-brd'") > 0)
-    ck("Q-1c sweep 自动派发 to-brd（entry 相位准入，BUG-Q1 回归位）", appeared, "75s 内未出现任务行")
+    appeared = wait_scan(lambda: task_count(q.id, "to-brd") > 0)
+    ck("Q-1c sweep 自动派发 to-brd（entry 相位准入，BUG-018 回归位）", appeared, "75s 内未出现任务行")
 
-    done = wait_scan(lambda: sql_int(
-        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{q.id}' AND action_id='to-brd' "
-        f"AND status='completed'") > 0, timeout_sec=90)
+    done = wait_scan(lambda: task_count(q.id, "to-brd", "completed") > 0, timeout_sec=90)
     ck("Q-1d FakeClient 产文后 complete", done, "90s 内任务未 completed")
 
     q.reload()
@@ -1675,11 +1680,10 @@ def p_q_arch():
     ck("Q-3b-1 进行中需求取消", st == 200 and b.get("ok"), f"HTTP {st} {b}")
     st, b = api("DELETE", f"/api/requirements/{q3.id}?confirm=true")
     ck("Q-3b 编排中（已取消）需求删除成功", st == 200 and b.get("ok"), f"HTTP {st} {b}")
-    time.sleep(20)  # 跨一个 scanner 轮（15s）
+    healthy = wait_scan(lambda: (lambda r: r[0] == 200 and r[1].get("mysql", {}).get("reachable") is True)(api("GET", "/healthz")), timeout_sec=45)
     st, b = api("GET", "/healthz")
-    ck("Q-3c 删除竞态后服务健康（sweep notFound 容错）",
-       st == 200 and b.get("ok") is True and b.get("mysql", {}).get("reachable") is True,
-       f"HTTP {st} {b}")
+    ck("Q-3c 删除竞态后服务健康（sweep notFound 容错，跨 scanner 轮轮询）",
+       healthy and st == 200 and b.get("ok") is True, f"HTTP {st} {b}")
     q4 = Req("Q4", "架构增量·删除竞态后新需求可推进", flow="business", scope="full")
     st, b = q4.decide("bus-00", "approved", "删除竞态后健康验证")
     ck("Q-3d 删除竞态后新需求编排正常", st == 200 and b.get("ok"), f"HTTP {st} {b}")
@@ -1693,13 +1697,9 @@ def q2_body(q):
     ck("Q-2b tec-b3 激活 review 相位", q.ndef("tec-b3").get("state") == "review",
        f"state={q.ndef('tec-b3').get('state')}")
     issues_before = sql_int(f"SELECT COUNT(*) FROM issues WHERE requirement_id='{q.id}' AND issue_type='issue'")
-    appeared2 = wait_scan(lambda: sql_int(
-        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{q.id}' "
-        f"AND action_id='arch.rd-design-review.review'") > 0)
+    appeared2 = wait_scan(lambda: task_count(q.id, "arch.rd-design-review.review") > 0)
     ck("Q-2c sweep 派发 arch 评审任务（准入集第二动作）", appeared2, "75s 未派发")
-    done2 = wait_scan(lambda: sql_int(
-        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{q.id}' "
-        f"AND action_id='arch.rd-design-review.review' AND status='completed'") > 0, timeout_sec=90)
+    done2 = wait_scan(lambda: task_count(q.id, "arch.rd-design-review.review", "completed") > 0, timeout_sec=90)
     ck("Q-2d FakeClient 评审任务完成", done2, "90s 未完成")
     q.reload()
     rr = (q.ndef("tec-b3").get("reviewResults") or "[]").replace(" ", "")
