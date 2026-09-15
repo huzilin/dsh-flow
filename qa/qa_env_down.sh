@@ -15,3 +15,4 @@ if [ -n "${QA_DBNAME:-}" ]; then
   echo "[qa] dropped ${QA_DBNAME}"
 fi
 echo "[qa] teardown done"
+rm -rf /tmp/wbflow-qa-docs-* 2>/dev/null || true

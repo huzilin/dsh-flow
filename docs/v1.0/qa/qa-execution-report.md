@@ -85,3 +85,13 @@ bash qa_env_down.sh                                   # 拆环境（DROP scratch
 **观察项**：OPT-005（blockquote 字面显示，轻量渲染器支持清单外）——已登记台账。
 **过程有效性**：测试中途发现 rd :18080 跑旧二进制（req-004 泳道错位为旧代码+存量数据所致，非新缺陷）→ 按环境准备流程重启+回填后重测；IAB 渲染进程一度卡死（截图空白/点击超时），重开标签页恢复。
 **遗留**：OPT-004（leader 裁定动作，CR 拆单待排）、OPT-005（blockquote）。
+
+## 2026-09-16 架构增量 QA 轮（C1-C5 架构批次验收 + Q 组新增）
+
+**结论：有条件通过 → 修复后通过。** 基线复跑 319 全绿（架构重构行为保持矩阵）→ 新增 Q 组（架构行为增量 20 断言）首跑 6 FAIL → BUG-016（S2/P1，SweepLLMTasks 相位闸漏 entry，align 宿主 to-brd 永不自动派发；IT 造数置 exec 掩盖真实链）修复 + 用例侧 5 处预期错当轮修正 → 末轮 **PASS 339 / FAIL 0 / SKIP 1**（137s）。
+
+- **新基线**：339 PASS / 0 FAIL / 1 SKIP（qa-results.json；SKIP=BUG-007 附因）。
+- **缺陷**：BUG-016（rd，已修复复测 PASS，最小复现入口见台账 E 节）；用例侧预期错 5 处（align 相位/拍板步/artifacts 端点/取消步骤/healthz 字段）+ 软失败纪律违例（PHASE-CRASH 断链）当轮重写独立化。
+- **显式降险**：0-findings 评审分支黑盒不可达（FakeClient 文本不可配）——rd/llm 单测 + llmflow IT 结构化样例锁定；同值审计语义黑盒不可达（reproject 幂等拦截）——rd/repo change_test 锁定。
+- **双通道**：协议通道全量（本报告）；呈现通道=FE 重构面由 vitest 185 条承载（latestSeatMap/inboxview/lib-time 收敛，纯视图函数无 DOM 变更，浏览器走查并入下轮 UI 冒烟）。
+- **AC 覆盖**：AC-V-01~12 全数保持 PASS（末轮输出 COVER 段）；新增 Q 组不涉新 AC（架构批次无新需求）。

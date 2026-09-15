@@ -1599,6 +1599,121 @@ def p_reconcile():
     ck("D-2c requirements 列表/库一致", total == cnt, f"list={total} db={cnt}")
 
 
+# ============================== Q 架构行为增量（2026-09-15 批次） ==============================
+
+def wait_scan(cond, timeout_sec=75, interval=5):
+    """轮询等待 scanner sweep 生效（扫描间隔 15s；默认上界约 5 轮）。"""
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        if cond():
+            return True
+        time.sleep(interval)
+    return False
+
+
+def p_q_arch():
+    sec("Q-1~Q-3 架构行为增量（编排会话/审计派生批次；LLM=FakeClient 演示态黑盒全链）")
+
+    # ---- Q-1 LLM 产线黑盒全链：sweep 自动派发 to-brd（entry 相位准入，BUG-Q1 修复）
+    #      → FakeClient 产文 → 产物入库 → complete 判据过 → align 拍板位停等 →
+    #      wb_decision 拍板推进（tec-b1 done / current 前移 tec-b2） ----
+    q = Req("Q", "架构增量·LLM 产线评审链（tech×full）", flow="tech", scope="full")
+    st, b = q.decide("tec-b0", "approved", "Q 链启动拍板")
+    ck("Q-1a tec-b0 entry 拍板推进", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    q.reload()
+    ck("Q-1b tec-b1 激活 entry 相位（align 开场白节点）", q.ndef("tec-b1").get("state") == "entry",
+       f"state={q.ndef('tec-b1').get('state')}")
+
+    appeared = wait_scan(lambda: sql_int(
+        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{q.id}' AND action_id='to-brd'") > 0)
+    ck("Q-1c sweep 自动派发 to-brd（entry 相位准入，BUG-Q1 回归位）", appeared, "75s 内未出现任务行")
+
+    done = wait_scan(lambda: sql_int(
+        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{q.id}' AND action_id='to-brd' "
+        f"AND status='completed'") > 0, timeout_sec=90)
+    ck("Q-1d FakeClient 产文后 complete", done, "90s 内任务未 completed")
+
+    q.reload()
+    arts = [a for a in q.snap.get("artifacts", []) if a.get("nodeId") == q.node("tec-b1")]
+    brd = next((a for a in arts if a.get("productType") == "brd"), None)
+    ck("Q-1e brd 产物入库（kind=document）", brd is not None and brd.get("kind") == "document",
+       f"artifacts={[a.get('productType') for a in arts]}")
+    if brd:
+        st2, b2 = api("GET", f"/api/requirements/{q.id}/artifacts/{brd.get('artifactId')}/content")
+        ck("Q-1f 产物文件真实存在且可回读", st2 == 200 and (b2.get("content") or "") != "",
+           f"HTTP {st2} len={len((b2.get('content') or ''))}")
+    q.reload()
+    ck("Q-1g align 拍板位停等（complete 后不内聚推进）",
+       q.ndef("tec-b1").get("state") == "entry" and q.flow.get("currentNodeId") == q.node("tec-b1"),
+       f"tec-b1={q.ndef('tec-b1').get('state')} current={q.flow.get('currentNodeId')}")
+    st, b = q.decide("tec-b1", "approved", "对齐结论用户确认")
+    ck("Q-1h wb_decision 拍板推进", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    q.reload()
+    ck("Q-1i tec-b1 done / current 前移 tec-b2",
+       q.ndef("tec-b1").get("state") == "done" and q.flow.get("currentNodeId") == q.node("tec-b2"),
+       f"tec-b1={q.ndef('tec-b1').get('state')} current={q.flow.get('currentNodeId')}")
+
+    # ---- Q-2 LLM 评审黑盒：tec-b2 手工产出 → tec-b3 review 相位 → sweep 派发
+    #      arch.rd-design-review.review → FakeClient 0 findings → 无评论 + arch 位 agree
+    #      （软失败纪律：Q-1 链未通时评审链不可达，SKIP 附因不硬断） ----
+    q1_ok = all(x["ok"] is True for x in RESULTS if x["cid"].startswith("Q-1"))
+    if not q1_ok:
+        skip("Q-2", "Q-1 产线链未通（评审链依赖其产文推进），见 Q-1 缺陷条目")
+    else:
+        q2_body(q)
+
+    # ---- Q-3 巡检 notFound 容错（C1）：删除编排中需求 → scanner 一轮 → 服务健康、
+    #      新需求编排照常（ListFlowsInOrchestration 候选消失竞态的容错语义） ----
+    q3 = Req("Q3", "架构增量·巡检删除竞态容错", flow="business", scope="full")
+    st, b = q3.decide("bus-00", "approved", "进入编排后即删")
+    ck("Q-3a bus-00 拍板进入编排", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    # 产品守卫：进行中需求拒绝删除（先取消）——取消后 flows.current 仍非空，
+    # 删除后 sweep 候选消失 = notFound 容错场景的真实可达路径
+    st, b = api("PUT", f"/api/requirements/{q3.id}", {
+        "requirementId": q3.id, "title": "架构增量·巡检删除竞态容错", "status": "已取消",
+        "updatedAt": 0})
+    ck("Q-3b-1 进行中需求取消", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    st, b = api("DELETE", f"/api/requirements/{q3.id}?confirm=true")
+    ck("Q-3b 编排中（已取消）需求删除成功", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+    time.sleep(20)  # 跨一个 scanner 轮（15s）
+    st, b = api("GET", "/healthz")
+    ck("Q-3c 删除竞态后服务健康（sweep notFound 容错）",
+       st == 200 and b.get("ok") is True and b.get("mysql", {}).get("reachable") is True,
+       f"HTTP {st} {b}")
+    q4 = Req("Q4", "架构增量·删除竞态后新需求可推进", flow="business", scope="full")
+    st, b = q4.decide("bus-00", "approved", "删除竞态后健康验证")
+    ck("Q-3d 删除竞态后新需求编排正常", st == 200 and b.get("ok"), f"HTTP {st} {b}")
+
+
+def q2_body(q):
+    """Q-2 评审链主体（Q-1 绿才进入）。"""
+    r = q.execute("tec-b2", "backend-design.produce", "rd")
+    ck("Q-2a tec-b2 手工产出 complete", r[0] == 200 and r[1].get("ok"), f"HTTP {r[0]} {r[1]}")
+    q.reload()
+    ck("Q-2b tec-b3 激活 review 相位", q.ndef("tec-b3").get("state") == "review",
+       f"state={q.ndef('tec-b3').get('state')}")
+    issues_before = sql_int(f"SELECT COUNT(*) FROM issues WHERE requirement_id='{q.id}' AND issue_type='issue'")
+    appeared2 = wait_scan(lambda: sql_int(
+        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{q.id}' "
+        f"AND action_id='arch.rd-design-review.review'") > 0)
+    ck("Q-2c sweep 派发 arch 评审任务（准入集第二动作）", appeared2, "75s 未派发")
+    done2 = wait_scan(lambda: sql_int(
+        f"SELECT COUNT(*) FROM tasks WHERE requirement_id='{q.id}' "
+        f"AND action_id='arch.rd-design-review.review' AND status='completed'") > 0, timeout_sec=90)
+    ck("Q-2d FakeClient 评审任务完成", done2, "90s 未完成")
+    q.reload()
+    rr = (q.ndef("tec-b3").get("reviewResults") or "[]").replace(" ", "")
+    # 占位文本非 findings JSON → -L4 宽口径兜底单条意见（防评审中断拍板口径）
+    # → unagree + 挂锚评论 ×1；0-findings 分支黑盒不可达（FakeClient 文本不可配），
+    # 由 rd/llm 单测与 llmflow IT 结构化样例锁定
+    ck("Q-2e arch 位 unagree（占位文本兜底意见口径）",
+       '"role":"arch"' in rr and '"state":"unagree"' in rr,
+       f"reviewResults={rr[:220]}")
+    issues_after = sql_int(f"SELECT COUNT(*) FROM issues WHERE requirement_id='{q.id}' AND issue_type='issue'")
+    ck("Q-2f 兜底意见挂锚评论 ×1", issues_after == issues_before + 1,
+       f"{issues_before}→{issues_after}")
+
+
 def main():
     t0 = time.time()
     print(f"QA 驱动启动 → {BASE} db={MY['db']}")
@@ -1607,7 +1722,7 @@ def main():
         sys.exit(2)
     phases = [p_health_auth, p_versions, p_req_crud, p_artifact_content, p_business_full, p_reject_branch,
               p_rdonly, p_tech, p_task, p_clarify_matrix, p_revise_matrix, p_cr_fix_matrix, p_plan,
-              p_issue_branches, p_idempotent, p_reconcile]
+              p_issue_branches, p_idempotent, p_reconcile, p_q_arch]
     for p in phases:
         try:
             p()

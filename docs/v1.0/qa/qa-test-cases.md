@@ -25,6 +25,7 @@
 | B 流程走查 | 4 流程定义 40 定义节点全走（business×full 13 / business×rd 9 / tech×full 11 / task×rd 7 / plan 9） | B-1~B-5 | AC-V-02（seed 前置）；AC-V-03（B-1）；AC-V-04（B-2）；AC-V-05（B-4）；AC-V-06（B-1 对齐段）；AC-M-02 后端表态序列（B-1，UI 三态由 fe vitest 覆盖） | 全节点 + 逐节点产物矩阵 |
 | C 分支剧本 | 拒绝打回/回退重 review/reproject/澄清/retest/上升/仲裁/reopen 自动上升/join 双序/版本条件解绑/幂等族/通知族/澄清矩阵/修订矩阵/CR 修复矩阵 | C-1~C-15 | AC-V-07（C-1/2/5）；AC-V-08（C-6/7）；AC-V-09（C-11）；AC-V-10（C-11 慢路径 skip 标注，真库 IT 补位 rd/service/scanner_it_test.go）；AC-V-11（C-10）；AC-V-12（C-12）；AC-M-01 后端半（C-3 scope 落值/删行不占位，UI 渲染矩阵由 fe vitest 覆盖）；AC-M-03 后端半（C-6，UI 冲突卡由 fe vitest 覆盖）；AC-M-04（C-4/B-1） | spec §4.1 AC-V-01~12 逐条（见 AC 引用列）；C-13~C-15 补 seed 29 动作词表差集（§7） |
 | D 对账 | expected_outputs×artifacts 逐节点矩阵；audit_log 计数对账 | D-1~D-2 | AC-V-02（D-1 产物矩阵）；AC-V-12（D-2 审计） | 库态直查 |
+| Q 架构行为增量 | 2026-09-15 架构批次（C1 编排会话/C2 审计派生/C5 owner 推导）行为面：LLM FakeClient 黑盒全链（entry 相位准入/产文入库/拍板位停等/评审兜底口径）+ 巡检删除竞态容错 | Q-1~Q-3（20 断言） | BUG-016 回归位（Q-1c）；spec 注记 -L4 真实链路版 | 架构重构行为保持 + LLM 通路真实链可达性（IT 造数盲区补测） |
 | E 修复回归 | 2026-09-10 批注/修复轮 BUG-001/004/006/008/011/013（E-1a~h）+ dependencyDocs 防御路径（E-2） | E-1~E-2 | 注记 -J1~-J6 回归（注记为设计层条目，不入 §4 AC 编号） | 修复回归 |
 
 ## 2. A 接口专项（每接口正常/拦截/幂等）
@@ -134,3 +135,22 @@ user_gate 分流（agreed 停等 vs 机械 approved）、评审轮 round 语义�
 | | frontend-dev.diagnosing-bugs（task/开发） | 已落剧本 C-15d |
 
 处置纪律：逐条落剧本，或确认后转 EXEMPT_ACTIONS/SKILL_EXEMPT 显式豁免（带理由）；`--strict` 模式差集非空即 FAIL。现存豁免：SKILL_EXEMPT={to-alignment}（待建 skill，roadmap P4 清单内）。
+
+## 8. Q 架构行为增量（2026-09-15 架构批次专用组）
+
+> 背景：C1-C5 架构重构后行为保持由既有 A~E 组全量矩阵承载（复跑 319 全绿）；
+> 本组补「重构波及的真实链路黑盒增量」——LLM 通路（FakeClient 演示态）此前仅
+> IT 造数覆盖（startFlowAt 置 exec，掩盖 align 节点恒 entry 的可达性缺陷 BUG-016），
+> 本组走真实 HTTP 编排链。环境前置：qa_env_up.sh config 模板含 llm 段
+> （base_url 空=FakeClient；准入集 to-brd + arch.prd-review.review + arch.rd-design-review.review）。
+
+| 用例 | 场景 | 预期 |
+|---|---|---|
+| Q-1a/b | tech×full 需求 tec-b0 拍板 → tec-b1（align）激活 **entry** 相位 | 200；state=entry |
+| Q-1c | scanner sweep 自动派发 to-brd（**BUG-016 回归位**：entry 相位准入） | tasks 出现 action_id=to-brd 行 |
+| Q-1d/e/f | FakeClient 产文 → brd 产物入库（kind=document）→ docs root 文件可回读 | 任务 completed；产物行+内容非空 |
+| Q-1g/h/i | align 节点 user_gate=1 拍板位：complete 后**停等**（不内聚推进）→ wb_decision 拍板 → tec-b1 done / current 前移 tec-b2 | 与 B-1e 口径一致 |
+| Q-2a~f | tec-b2 手工产出 → tec-b3 review 相位 → sweep 派发 arch.rd-design-review.review → 占位文本非 findings JSON 触发 **-L4 宽口径兜底单条意见** → arch 位 unagree + 挂锚评论 ×1（0-findings 分支黑盒不可达：FakeClient 文本不可配，由 rd/llm 单测+IT 锁定——显式降险） | 软失败：Q-1 未绿则 Q-2 SKIP 附因 |
+| Q-3a~d | 巡检 notFound 容错（C1）：需求取消→删除（编排中禁直删，先取消）→ 跨 scanner 轮 → 服务健康 + 新需求编排照常 | healthz ok；新需求拍板推进成功 |
+
+设计缺口回写（本轮实证）：IT 造数置相位掩盖真实激活链（B5）→ 真实链黑盒用例（本组）固化进回归；align 节点拍板位语义（entry 停等 + wb_decision 驱动）此前无用例显式断言 → Q-1g/h 补位。

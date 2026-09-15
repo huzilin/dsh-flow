@@ -34,7 +34,11 @@ MYSQL_HOST_BASE=$(read_cfg mysql.host "192.168.3.100")
 : "${QA_MYSQL_PASSWORD:=$(read_cfg qa.password "")}"
 [ -n "$QA_MYSQL_PASSWORD" ] || { echo "FATAL: QA 凭据缺失——先执行 bash qa/qa_provision.sh 生成测试库与用户"; exit 1; }
 
-QA_DOCS_ROOT="${REPO}/docs"
+# docs root 指向 tmp 隔离目录（scratch 同口径）：LLM 产文/运行期产物落 tmp，
+# 不污染仓库工作区；fixtures 从仓库资产拷入（href 相对路径同构解析）
+QA_DOCS_ROOT="/tmp/wbflow-qa-docs-${TS}"
+mkdir -p "${QA_DOCS_ROOT}/v1.0/qa"
+cp -R "${REPO}/docs/v1.0/qa/fixtures" "${QA_DOCS_ROOT}/v1.0/qa/" 2>/dev/null || true
 CFG="/tmp/wbflow-qa-config-${TS}.yaml"
 cat > "$CFG" <<EOF
 http:
@@ -61,6 +65,13 @@ scanner:
   followup_after_sec: 300
   intervene_after_sec: 600
   retry_backoff_sec: 5
+llm:
+  enabled: true
+  base_url: ""
+  actions:
+    - to-brd
+    - arch.prd-review.review
+    - arch.rd-design-review.review
 EOF
 
 cd "$REPO/rd"

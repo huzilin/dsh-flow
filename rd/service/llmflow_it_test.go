@@ -123,7 +123,7 @@ func TestIntegration_LLMFlow_Produce_RealMySQL(t *testing.T) {
 	reqID := createFullReq(t, router, "LLM produce IT")
 	bus01 := instanceNodeID(t, handles, reqID, "bus-01")
 	bus02 := instanceNodeID(t, handles, reqID, "bus-02")
-	startFlowAt(t, handles, reqID, bus01, "exec")
+	startFlowAt(t, handles, reqID, bus01, "entry")
 
 	report, err := flowSvc.SweepLLMTasks(ctx)
 	assert.NilError(t, err)
@@ -142,10 +142,16 @@ func TestIntegration_LLMFlow_Produce_RealMySQL(t *testing.T) {
 	// 产文写入 docs root
 	_, statErr := os.Stat(filepath.Join(docsRoot, "llm", reqID, bus01, "brd.md"))
 	assert.NilError(t, statErr, "LLM 产文应写入 docs root")
-	// 编排内聚推进：current 前移 bus-02，bus-01 离场 done
+	// align 节点 user_gate=1 拍板位：complete 判据过后停等拍板（entry 相位推进由
+	// wb_decision 驱动，BUG-Q1 真实相位链修正），拍板后 current 前移 bus-02
 	current := ""
 	assert.NilError(t, handles.Gorm.Raw("SELECT current_node_id FROM flows WHERE requirement_id = ?", reqID).Scan(&current).Error)
-	assert.Equal(t, current, bus02, "complete 判据通过后应内聚推进 bus-02")
+	assert.Equal(t, current, bus01, "align 拍板位应停等 wb_decision（不内聚推进）")
+	decideResp := reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/"+bus01+"/decision",
+		map[string]any{"verdict": "approved", "reason": "对齐结论用户确认"})
+	assert.Equal(t, decideResp.code, 200, "拍板应通过: %v", decideResp.body)
+	assert.NilError(t, handles.Gorm.Raw("SELECT current_node_id FROM flows WHERE requirement_id = ?", reqID).Scan(&current).Error)
+	assert.Equal(t, current, bus02, "拍板后应推进 bus-02")
 	state := ""
 	assert.NilError(t, handles.Gorm.Raw("SELECT state FROM flow_nodes WHERE requirement_id = ? AND node_id = ?", reqID, bus01).Scan(&state).Error)
 	assert.Equal(t, state, repo.PhaseDone, "bus-01 应离场 done")
@@ -227,7 +233,7 @@ func TestIntegration_LLMFlow_FailRollback_RealMySQL(t *testing.T) {
 
 	reqID := createFullReq(t, router, "LLM fail IT")
 	bus01 := instanceNodeID(t, handles, reqID, "bus-01")
-	startFlowAt(t, handles, reqID, bus01, "exec")
+	startFlowAt(t, handles, reqID, bus01, "entry")
 
 	report, err := flowSvc.SweepLLMTasks(ctx)
 	assert.NilError(t, err)
@@ -289,7 +295,7 @@ func TestIntegration_LLMFlow_ChatClientTransport_RealMySQL(t *testing.T) {
 
 	reqID := createFullReq(t, router, "LLM chat transport IT")
 	bus01 := instanceNodeID(t, handles, reqID, "bus-01")
-	startFlowAt(t, handles, reqID, bus01, "exec")
+	startFlowAt(t, handles, reqID, bus01, "entry")
 
 	report, err := flowSvc.SweepLLMTasks(ctxBackground())
 	assert.NilError(t, err)

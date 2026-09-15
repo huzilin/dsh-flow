@@ -162,7 +162,12 @@ func (s *LLMFlowService) SweepLLMTasks(ctx context.Context) (*LLMSweepReport, er
 		for _, node := range nodes {
 			var candidates []llmAction
 			switch node.State {
-			case repo.PhaseExec:
+			case repo.PhaseEntry, repo.PhaseExec:
+				// entry：align 类节点（开场白挂 entry）的激活相位且终生驻留——
+				// 挂载其上的 exec 动作（to-brd 样板宿主）经 execCandidates 内部
+				// 过滤（on=exec+subagent+produce 族+准入）派发；program 执行者与
+				// 非 exec 条目自然排除。BUG-Q1（2026-09-15 QA 轮）：原闸仅
+				// exec/review，align 宿主动作永不自动派发（IT 造数置 exec 掩盖）。
 				candidates, err = s.execCandidates(ctx, flow, node)
 			case repo.PhaseReview:
 				candidates, err = s.reviewCandidates(ctx, node)
