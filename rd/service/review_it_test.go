@@ -338,6 +338,14 @@ func TestIntegration_ReviewClarifyLoop_RealMySQL(t *testing.T) {
 		assert.Equal(t, detail.number(t, "round"), int64(1), "摘要明细全为新轮")
 	}
 
+	// rd 复核澄清内容后协商一致关闭（settle：pending-confirm→resolved，操作者=assignee
+	// 与 issue1 同口径）——注记-L1 agree 前置=名下评论全闭环，澄清议题不关闭不得改投
+	// agree（曾缺此步：f5c9a55 引入 L1 同批改写本测试时未补，:342 恒 409，存量失败）
+	resp = reqJSON(t, router, http.MethodPost, "/api/comments/"+issue2+"/settle", map[string]any{
+		"commentId": issue2, "operator": "pm", "note": "澄清已回应，双方一致",
+	})
+	assert.Equal(t, resp.code, http.StatusOK, "%v", resp.body)
+
 	// 重入轮全 agree → agreed → 拍板 approved 推进（闭环）
 	assert.Equal(t, review(reqID, "n-04", "rd", "rd.prd-review", "agree").code, http.StatusOK)
 	resp = reqJSON(t, router, http.MethodPost, "/api/requirements/"+reqID+"/nodes/n-04/decision",
