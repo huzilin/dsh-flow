@@ -70,6 +70,8 @@ bash qa_env_down.sh                                   # 拆环境（DROP scratch
 
 ## 6. 呈现通道冒烟记录（2026-09-10 深夜，test-design-gate 双通道红线落地）
 
+> **口径注（2026-09-20）**：test-design-gate 已随 QA 技能族合并注销——双通道红线现由 to-qa-testcases（定义）+ run-qa-testcases（执行）承载，语义不变。本节原文为历史记录，未改动。
+
 > 环境：rd :18080 **重启至当前工作区代码**（含 -J1~J6/-K 全部修复；旧进程为修复前 go-build 缓存二进制）
 > + FE dev :5174（vite，WBFLOW_API_PORT=18080）。存量数据回填：req-002/003/004 按 -J1①口径 status→进行中（audit by_who=user）。
 

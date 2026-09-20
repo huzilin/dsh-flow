@@ -433,6 +433,7 @@ audit_log：artifacts 表 9 行均 INSERT，by_who=pm/rd（agent 会话扮演角
 - **FE 文档交互链零覆盖**（无呈现通道）；
 - **约束不在 oracle**：「文档类产物不得外链」User 反复口头提及，但 spec / arch_design / semantica 均无正本，QA 设计依据自然没有（用户批注未转 oracle）；
 - 新盲区类型：**验证环境 ≠ 用户验收环境**（scratch 合规不代表联调库合规）——已追加 `test-design-gate/references/case-library.md` B5 类型与 CASE-002。
+  > **口径注（2026-09-20）**：test-design-gate 已随 QA 技能族合并注销——设计侧并入 to-qa-testcases、执行与协议层并入 run-qa-testcases；案例库现位于 `to-qa-testcases/references/case-library.md`。上行原文为 2026-09-10 历史记录，未改动。
 
 **性质分类**：
 
@@ -489,6 +490,7 @@ rd（守卫缺失）+ data（联调数据）+ docs（约束无正本）+ qa（�
 | 预期绿信号 | 该查询 0 行冒充期望 document 的 link；FE 点开 req-004 三产物进阅读器 |
 
 **测试设计缺口回写**：B1（用户批注未转 oracle）+ B2（无呈现通道）+ **B5 新类型（验证环境 ≠ 用户验收环境）** → test-design-gate 增防线「准出前对用户验收环境数据做一次期望矩阵巡检」；to-qa-testcases 骨架 D 组增 D-3「用户验收环境数据合规巡检」。
+> **口径注（2026-09-20）**：test-design-gate 已随 QA 技能族合并注销——「用户验收环境数据巡检」执行侧防线现归 run-qa-testcases（其 Process 第 2 步与自检）；D-3 用例设计仍在 to-qa-testcases 骨架 §2 D 组。原文为历史记录，未改动。
 
 ## 发现源统计（复盘视图，2026-09-10 User 要求分记；同日批注轮 BUG-011~014/OPT-001~003 并入后更新）
 
@@ -551,6 +553,7 @@ rd（守卫缺失）+ data（联调数据）+ docs（约束无正本）+ qa（�
 **症状**：Q-1c `sweep 自动派发 to-brd` 75s 超时未派发（tasks 表零行）；同期 B-1 主链 `assign("bus-01","to-brd")` 手工派发可达。
 
 **根因**：`rd/service/llmflow.go SweepLLMTasks` 派发闸 `switch node.State { case exec / case review }`——align 类节点（bus-01/tec-b1，to-brd 宿主）激活相位=entry（ActivationPhase 按开场白动作 on=entry）且终生驻留至 done，永不适配闸条件；而手工 wb_assign_task 只校验动作在激活清单+节点已激活（不校验相位），故人工链可达。既有 `TestIntegration_LLMFlow_Produce` 以 `startFlowAt(bus01, "exec")` 造数直接置相位——跳过真实激活链，假绿自 071a 起（test-design-gate B5 类盲区实证：验证环境造数≠真实链路）。
+> **口径注（2026-09-20）**：test-design-gate 已注销；B5 盲区类型现居 `to-qa-testcases/references/case-library.md`（语义不变）。原文为历史记录，未改动。
 
 **影响**：LLM 自动执行的样板动作（to-brd）零自动派发；capability 节点（激活相位 exec/review）不受影响。
 
